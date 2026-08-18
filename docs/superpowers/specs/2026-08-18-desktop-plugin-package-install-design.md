@@ -32,15 +32,15 @@ One user action maps to one logical command:
 dsh plugin --profile web add <published-package-spec>
 ```
 
-The bundled `dsh` initializes the profile when necessary, invokes its bundled package manager in that profile, and waits for package and dependency installation to finish. It then resolves the installed package by its real package name, validates its declared `dsh.bundle.patch` and loadable package entry, and appends the bundle layer exactly once.
+The bundled upstream `dsh` initializes the profile when necessary, invokes `pnpm` in that profile, and waits for package and dependency installation to finish. It then resolves the installed package by its real package name and reconciles packages declaring `dsh.bundle.patch` into the bundle layer list.
+
+The Desktop runtime does not replace, proxy, patch, or reimplement this CLI. Tauri starts the upstream CLI with a process-local PATH whose first entries are the bundled Node directory and the bundled runtime's `node_modules/.bin` directory. Consequently the unmodified CLI's `pnpm` lookup resolves to the private packaged pnpm shim, and that shim's `node` lookup resolves to the private packaged Node executable. The host PATH may remain after these private entries for unrelated operating-system utilities, but no host Node, npm, pnpm, or dsh may satisfy either lookup. No global or persistent PATH modification is made.
 
 The package manager may create its normal lockfile and module layout inside the application-owned Harness data directory. It must not install runtimes or packages globally.
 
-## Failure and Transaction Semantics
+## Failure Semantics
 
-Package acquisition, dependency resolution, artifact validation, and profile activation form one transaction from the user's perspective. A failure returns a nonzero result with the package and failing stage identified. It must not leave the failed bundle active in `dsh.profile.bundles`.
-
-If the package manager modifies dependency files before a later validation failure, `dsh` restores the profile manifest, lockfile, and installed module state to their pre-command state. A pre-existing healthy installation must remain usable after a failed update.
+The packaging layer preserves the upstream CLI's package-management semantics. A package-manager failure returns a nonzero result and the upstream CLI does not reconcile a failed package into `dsh.profile.bundles`. The Desktop layer does not introduce a second installer or transactional profile implementation.
 
 No startup-time repair is allowed. Profile boot only loads the installed state and reports corruption; it does not fetch dependencies or mutate the installation.
 
@@ -58,15 +58,21 @@ The current failure is covered explicitly: installation must provide `@deepseek-
 Automated acceptance uses an empty temporary Harness home and the packaged Desktop runtime, not workspace Node resolution:
 
 1. Assert the runtime contains Node, the DSH CLI, and the pinned package manager.
-2. Run one bundled `dsh plugin --profile web add <mail.tgz>` command.
-3. Assert the profile contains one mail dependency and one mail bundle layer, with no `link:` source path.
-4. Resolve every mail runtime import from the installed profile and Desktop fallback.
-5. Boot the composed profile immediately and prove the mail row activates. A deterministic probe substitutes network-facing behavior; no real mailbox credentials are needed.
-6. Run a failing-package case and prove the original profile and lock/module state are restored.
-7. Audit the built `.app` and DMG so release packaging cannot omit any private toolchain component.
+2. Start the bundled upstream `dsh` with a hostile or empty inherited PATH and the same process-local private PATH construction used by Tauri.
+3. Run one `dsh plugin --profile web add <mail.tgz>` command.
+4. Assert the profile contains one mail dependency and one mail bundle layer, with no `link:` source path.
+5. Resolve every mail runtime import from the installed profile and Desktop fallback.
+6. Boot the composed profile immediately and prove the mail row activates. A deterministic probe substitutes network-facing behavior; no real mailbox credentials are needed.
+7. Audit the built `.app` and DMG so release packaging cannot omit Node, upstream dsh, pnpm, or its private executable shim.
 
 The manual acceptance flow is the same one-command install followed by a normal Desktop launch. Running a host package manager, adding a missing dependency, editing `package.json`, or invoking a repair command invalidates the result.
 
 ## Deferred Scope
 
 A graphical package picker and registry browser are not required for this fix. Their future backend must delegate to the same bundled `dsh plugin` path. Source-directory live linking remains a development-only concern and is not changed by this production-package design.
+
+## Immutable Upstream Constraint
+
+The public source checkout referenced by `upstream` remains byte-for-byte clean at its pinned revision. In particular, this work does not modify `apps/cli`, add an environment-variable contract to dsh, or create a Desktop-specific dsh wrapper. Packaging-owned changes are limited to Desktop runtime assembly, Tauri child-process environment construction, release audits and tests, and the private publishable mail plugin package.
+
+This section supersedes any earlier implementation-plan steps that proposed changing upstream CLI source or implementing profile transactions in that source. A replacement implementation plan must be written before code changes begin.
