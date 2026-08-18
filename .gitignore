@@ -1,0 +1,12 @@
+.DS_Store
+.pnpm-store/
+.project-knowledge/
+node_modules/
+target/
+dist/
+*.dmg
+
+# The GitHub checkout is a separate, upstream-owned repository.
+deepseek-harness/
+deepseek-harness-source/
+
