@@ -1,12 +1,14 @@
 import type { Context } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
 import { type CredentialRef } from '@deepseek-ai/dsh-credentials';
-import { type MailListRequest, type MailListResult, type MailReadRequest, type MailReadResult, type MailSendRequest, type MailSendResult } from '@deepseek-ai/dsh-mail';
 import type { SettingsScope } from '@deepseek-ai/dsh-settings';
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
+import type { MailArchiveRequest, MailArchiveResult, MailDeleteRequest, MailDeleteResult, MailListRequest, MailListResult, MailReadRequest, MailReadResult, MailSendRequest, MailSendResult } from './mail-types.ts';
 import { type MailSettings } from './mail-settings.ts';
 import type { MailSettingsSaveRequest, MailSettingsSaveResult } from './remote-types.ts';
 export { NodeMailTransport } from './transport.ts';
+export { MailImapTransport } from './imap-transport.ts';
+export type * from './mail-types.ts';
 /** SMTP/IMAP endpoint: host + port + whether to connect securely (implicit TLS). */
 export interface EndpointConfig {
     readonly host: string;
@@ -50,6 +52,8 @@ export declare class MailSettingsRemote extends TypertRemoteService {
 export interface MailTransport {
     list(config: ResolvedConfig, password: string, request: MailListRequest, signal?: AbortSignal): Promise<MailListResult>;
     read(config: ResolvedConfig, password: string, request: MailReadRequest, signal?: AbortSignal): Promise<MailReadResult>;
+    archive(config: ResolvedConfig, password: string, request: MailArchiveRequest, signal?: AbortSignal): Promise<MailArchiveResult>;
+    delete(config: ResolvedConfig, password: string, request: MailDeleteRequest, signal?: AbortSignal): Promise<MailDeleteResult>;
     send(config: ResolvedConfig, password: string, request: MailSendRequest, signal?: AbortSignal): Promise<MailSendResult>;
 }
 export declare const Config: z<Config>;

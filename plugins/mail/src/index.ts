@@ -1,17 +1,20 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { credentialRef, type Credentials, type CredentialRef } from '@deepseek-ai/dsh-credentials'
-import { MailError, type MailListRequest, type MailListResult, type MailReadRequest, type MailReadResult, type MailSendRequest, type MailSendResult } from '@deepseek-ai/dsh-mail'
+import { MailError } from '@deepseek-ai/dsh-mail'
 import { defineTool, type PreToolDecision } from '@deepseek-ai/dsh-tools'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { NodeMailTransport } from './transport.ts'
+import type { MailArchiveRequest, MailArchiveResult, MailDeleteRequest, MailDeleteResult, MailListRequest, MailListResult, MailReadRequest, MailReadResult, MailSendRequest, MailSendResult } from './mail-types.ts'
 import { assertMailSettingsEndpoints, MAIL_SETTINGS_NAMESPACE, MailSettingsSchema, type MailSettings } from './mail-settings.ts'
 import type { MailSettingsSaveRequest, MailSettingsSaveResult } from './remote-types.ts'
 import { loadMailSettings, saveMailSettings } from './remote-settings.ts'
 
 export { NodeMailTransport } from './transport.ts'
+export { MailImapTransport } from './imap-transport.ts'
+export type * from './mail-types.ts'
 
 /** SMTP/IMAP endpoint: host + port + whether to connect securely (implicit TLS). */
 export interface EndpointConfig {
@@ -73,6 +76,8 @@ export class MailSettingsRemote extends TypertRemoteService {
 export interface MailTransport {
   list(config: ResolvedConfig, password: string, request: MailListRequest, signal?: AbortSignal): Promise<MailListResult>
   read(config: ResolvedConfig, password: string, request: MailReadRequest, signal?: AbortSignal): Promise<MailReadResult>
+  archive(config: ResolvedConfig, password: string, request: MailArchiveRequest, signal?: AbortSignal): Promise<MailArchiveResult>
+  delete(config: ResolvedConfig, password: string, request: MailDeleteRequest, signal?: AbortSignal): Promise<MailDeleteResult>
   send(config: ResolvedConfig, password: string, request: MailSendRequest, signal?: AbortSignal): Promise<MailSendResult>
 }
 

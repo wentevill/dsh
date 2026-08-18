@@ -18,6 +18,10 @@
       "types": "./lib/mail-settings.d.ts",
       "default": "./lib/mail-settings.js"
     },
+    "./mail-types": {
+      "types": "./lib/mail-types.d.ts",
+      "default": "./lib/mail-types.js"
+    },
     "./remote-types": {
       "types": "./lib/remote-types.d.ts",
       "default": "./lib/remote-types.js"
@@ -43,6 +47,10 @@
     "lib/remote-settings.d.ts",
     "lib/transport.js",
     "lib/transport.d.ts",
+    "lib/imap-transport.js",
+    "lib/imap-transport.d.ts",
+    "lib/mail-types.js",
+    "lib/mail-types.d.ts",
     "lib/client.js",
     "lib/typert.host.js",
     "lib/typert.host.d.ts",

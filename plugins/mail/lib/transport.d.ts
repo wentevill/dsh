@@ -1,11 +1,13 @@
-import type { MailListRequest, MailListResult, MailReadRequest, MailReadResult, MailSendRequest, MailSendResult } from '@deepseek-ai/dsh-mail';
+import { MailImapTransport } from './imap-transport.ts';
+import type { MailArchiveRequest, MailArchiveResult, MailDeleteRequest, MailDeleteResult, MailListRequest, MailListResult, MailReadRequest, MailReadResult, MailSendRequest, MailSendResult } from './mail-types.ts';
 import type { MailTransport, ResolvedConfig } from './index.ts';
-/**
- * Concrete IMAP/SMTP transport. Read operations are TLS-only and
- * read-only; send connects to SMTP with path/URL file access disabled.
- */
+/** Backwards-compatible combined IMAP/SMTP facade; IMAP operations delegate to MailImapTransport. */
 export declare class NodeMailTransport implements MailTransport {
+    private readonly imap;
+    constructor(imap?: MailImapTransport);
     list(config: ResolvedConfig, password: string, request: MailListRequest, signal?: AbortSignal): Promise<MailListResult>;
     read(config: ResolvedConfig, password: string, request: MailReadRequest, signal?: AbortSignal): Promise<MailReadResult>;
+    archive(config: ResolvedConfig, password: string, request: MailArchiveRequest, signal?: AbortSignal): Promise<MailArchiveResult>;
+    delete(config: ResolvedConfig, password: string, request: MailDeleteRequest, signal?: AbortSignal): Promise<MailDeleteResult>;
     send(config: ResolvedConfig, password: string, request: MailSendRequest, signal?: AbortSignal): Promise<MailSendResult>;
 }
