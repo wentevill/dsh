@@ -11,7 +11,8 @@ const runtime = join(desktop, 'src-tauri/resources/runtime')
 const node = join(runtime, 'node/bin/node')
 const cli = join(runtime, 'app/node_modules/@deepseek-ai/dsh/lib/bin.js')
 const packageBin = join(runtime, 'app/node_modules/.bin')
-const archive = join(packaging, 'plugins/mail/dsh-mail-plugin-0.1.0.tgz')
+const mailManifest = JSON.parse(readFileSync(join(packaging, 'plugins/mail/package.json'), 'utf8')) as { version: string }
+const archive = join(packaging, `plugins/mail/dsh-mail-plugin-${mailManifest.version}.tgz`)
 
 function run(home: string, args: string[]) {
   return spawnSync(node, [cli, ...args], {

@@ -7,7 +7,8 @@ RUNTIME := $(APP_PATH)/Contents/Resources/runtime
 NODE := $(RUNTIME)/node/bin/node
 DSH_CLI := $(RUNTIME)/app/node_modules/@deepseek-ai/dsh/lib/bin.js
 PACKAGE_BIN := $(RUNTIME)/app/node_modules/.bin
-PLUGIN_ARCHIVE := $(CURDIR)/plugins/mail/dsh-mail-plugin-0.1.0.tgz
+MAIL_PLUGIN_VERSION := $(shell node -p "require('./plugins/mail/package.json').version")
+PLUGIN_ARCHIVE := $(CURDIR)/plugins/mail/dsh-mail-plugin-$(MAIL_PLUGIN_VERSION).tgz
 
 ifneq ($(filter pack-plugin install-plugin,$(MAKECMDGOALS)),)
 ifneq ($(PLUGIN),mail)

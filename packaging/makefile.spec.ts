@@ -1,4 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process'
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -16,6 +18,7 @@ describe('Desktop Make commands', () => {
   })
 
   it('installs mail with only the installed app runtime and Desktop profile home', () => {
+    const mailManifest = JSON.parse(readFileSync(resolve(root, 'plugins/mail/package.json'), 'utf8')) as { version: string }
     const output = dryRun('install-plugin', [
       'APP_PATH=/tmp/DeepSeek Harness.app',
       'DESKTOP_DSH_HOME=/tmp/Desktop Harness Home',
@@ -26,7 +29,21 @@ describe('Desktop Make commands', () => {
     expect(output).toContain('"/tmp/DeepSeek Harness.app/Contents/Resources/runtime/node/bin/node"')
     expect(output).toContain('"/tmp/DeepSeek Harness.app/Contents/Resources/runtime/app/node_modules/@deepseek-ai/dsh/lib/bin.js"')
     expect(output).toContain('plugin --profile "custom" add')
+    expect(output).toContain(`dsh-mail-plugin-${mailManifest.version}.tgz`)
     expect(output.match(/plugin --profile/g)).toHaveLength(1)
+  })
+
+  it('resolves the mail archive from the package manifest version', () => {
+    const fixture = mkdtempSync(resolve(tmpdir(), 'dsh-mail-make-'))
+    try {
+      mkdirSync(resolve(fixture, 'plugins/mail'), { recursive: true })
+      copyFileSync(resolve(root, 'Makefile'), resolve(fixture, 'Makefile'))
+      writeFileSync(resolve(fixture, 'plugins/mail/package.json'), JSON.stringify({ version: '9.8.7' }))
+      const output = execFileSync('make', ['-n', 'install-plugin'], { cwd: fixture, encoding: 'utf8' })
+      expect(output).toContain('plugins/mail/dsh-mail-plugin-9.8.7.tgz')
+    } finally {
+      rmSync(fixture, { recursive: true, force: true })
+    }
   })
 
   it('rejects unsupported plugin packages', () => {

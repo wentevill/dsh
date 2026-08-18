@@ -9,7 +9,8 @@ const root = resolve(import.meta.dirname, '..')
 function pack(): string {
   const destination = mkdtempSync(resolve(tmpdir(), 'dsh-mail-pack-'))
   execFileSync('corepack', ['pnpm', '--dir', root, 'pack', '--pack-destination', destination])
-  return resolve(destination, 'dsh-mail-plugin-0.1.0.tgz')
+  const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { version: string }
+  return resolve(destination, `dsh-mail-plugin-${manifest.version}.tgz`)
 }
 
 describe('published mail plugin', () => {
