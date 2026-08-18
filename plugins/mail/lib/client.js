@@ -586,6 +586,14 @@ window.__ModuleLoader__.load({
 				let landed = true;
 				try {
 					const snap = scope.getSnapshot();
+					const confirmed = (field, value) => {
+						const user = scope.getSnapshot().user;
+						return user !== void 0 && Object.prototype.hasOwnProperty.call(user, field) && JSON.stringify(user[field]) === JSON.stringify(value);
+					};
+					const write = async (field, value) => {
+						await scope.set(field, value);
+						if (!confirmed(field, value)) landed = false;
+					};
 					const str = (field, fallback) => {
 						const d = drafts.get(field);
 						return d !== void 0 ? d.trim() : fallback;
@@ -610,14 +618,14 @@ window.__ModuleLoader__.load({
 						const v = field === "imapHost" ? nested(snap, "imap", "host") : nested(snap, "smtp", "host");
 						return typeof v === "string" ? v : "";
 					};
-					await scope.set("username", str("username", typeof scalar(snap, "username") === "string" ? scalar(snap, "username") : ""));
-					await scope.set("mailbox", str("mailbox", "INBOX") || "INBOX");
-					await scope.set("imap", {
+					if (drafts.has("username")) await write("username", str("username", ""));
+					if (drafts.has("mailbox")) await write("mailbox", str("mailbox", "INBOX") || "INBOX");
+					if (["imapHost", "imapPort", "imapSecure"].some((field) => drafts.has(field))) await write("imap", {
 						host: hostOf("imapHost"),
 						port: portNum("imapPort"),
 						secure: secureOf("imapSecure")
 					});
-					await scope.set("smtp", {
+					if (["smtpHost", "smtpPort", "smtpSecure"].some((field) => drafts.has(field))) await write("smtp", {
 						host: hostOf("smtpHost"),
 						port: portNum("smtpPort"),
 						secure: secureOf("smtpSecure")

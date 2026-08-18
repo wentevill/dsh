@@ -157,7 +157,16 @@ export function apply(ctx, config) {
     // the settings seam is composed. Changes apply live because the account reads
     // the scope per operation.
     ctx.inject(['settings'], (settingsCtx) => {
-        settingsScope = settingsCtx.settings.register(MAIL_SETTINGS_NAMESPACE, MailSettingsSchema, { applies: 'live' });
+        settingsScope = settingsCtx.settings.register(MAIL_SETTINGS_NAMESPACE, MailSettingsSchema, {
+            applies: 'live',
+            base: {
+                username: bootstrap.username,
+                passwordEnv: config.passwordEnv ?? 'MAIL_APP_PASSWORD',
+                mailbox: bootstrap.mailbox,
+                imap: { ...bootstrap.imap },
+                smtp: { ...bootstrap.smtp },
+            },
+        });
     });
     const listMaxResults = positiveInteger(config.listMaxResults, 20, 100, 'listMaxResults');
     const readMaxChars = positiveInteger(config.readMaxChars, 50_000, 200_000, 'readMaxChars');
