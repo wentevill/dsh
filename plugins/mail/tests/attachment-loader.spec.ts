@@ -5,9 +5,9 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   DEFAULT_ATTACHMENT_LIMITS,
-  createAttachmentLoader,
   loadAttachments,
 } from '../src/attachment-loader.ts'
+import { createAttachmentLoaderForTesting } from '../src/attachment-loader.internal.ts'
 
 let fixtureRoot: string
 let workspace: string
@@ -23,6 +23,30 @@ afterEach(async () => {
 })
 
 describe('loadAttachments', () => {
+  it('snapshots request getters before validating attachment metadata', async () => {
+    await writeFile(join(workspace, 'report.txt'), 'snapshot')
+    let pathReads = 0
+    let filenameReads = 0
+    let contentTypeReads = 0
+    const request = {
+      get path() {
+        pathReads += 1
+        return pathReads === 1 ? 'report.txt' : '../outside.txt'
+      },
+      get filename() {
+        filenameReads += 1
+        return filenameReads === 1 ? 'safe.txt' : 'bad\r\nname.txt'
+      },
+      get contentType() {
+        contentTypeReads += 1
+        return contentTypeReads === 1 ? 'text/plain' : 'text/plain\r\nBcc: attacker@example.test'
+      },
+    }
+
+    await expect(loadAttachments([request], workspace, DEFAULT_ATTACHMENT_LIMITS))
+      .resolves.toMatchObject([{ filename: 'safe.txt', contentType: 'text/plain', content: Buffer.from('snapshot') }])
+    expect({ pathReads, filenameReads, contentTypeReads }).toEqual({ pathReads: 1, filenameReads: 1, contentTypeReads: 1 })
+  })
   it('loads a relative regular file from the workspace', async () => {
     await writeFile(join(workspace, 'report.txt'), 'hello attachment')
 
@@ -217,9 +241,9 @@ describe('loadAttachments', () => {
     const outside = join(fixtureRoot, 'outside.txt')
     await writeFile(target, 'safe content')
     await writeFile(outside, 'outside content')
-    const loader = createAttachmentLoader({
+    const loader = createAttachmentLoaderForTesting({
       afterOpen: async path => {
-        await rm(path)
+        await rename(path, join(workspace, 'held-safe.txt'))
         await symlink(outside, path)
       },
     })
@@ -233,7 +257,7 @@ describe('loadAttachments', () => {
     const replacement = join(workspace, 'replacement.txt')
     await writeFile(target, 'original')
     await writeFile(replacement, 'replacement')
-    const loader = createAttachmentLoader({
+    const loader = createAttachmentLoaderForTesting({
       beforeOpen: async path => rename(replacement, path),
     })
 
@@ -244,7 +268,7 @@ describe('loadAttachments', () => {
   it('rejects a non-regular replacement between pathname validation and open', async () => {
     const target = join(workspace, 'report.txt')
     await writeFile(target, 'original')
-    const loader = createAttachmentLoader({
+    const loader = createAttachmentLoaderForTesting({
       beforeOpen: async path => {
         await rm(path)
         await mkdir(path)
@@ -258,7 +282,7 @@ describe('loadAttachments', () => {
   it('rejects content that grows after metadata validation', async () => {
     const target = join(workspace, 'report.txt')
     await writeFile(target, 'small')
-    const loader = createAttachmentLoader({
+    const loader = createAttachmentLoaderForTesting({
       afterMetadata: async path => appendFile(path, ' but now larger'),
     })
 
@@ -270,7 +294,7 @@ describe('loadAttachments', () => {
     await writeFile(join(workspace, 'report.txt'), 'abort')
     const controller = new AbortController()
     let closed = 0
-    const loader = createAttachmentLoader({
+    const loader = createAttachmentLoaderForTesting({
       afterMetadata: () => controller.abort(),
       afterClose: () => { closed += 1 },
     })
@@ -278,5 +302,47 @@ describe('loadAttachments', () => {
     await expect(loader([{ path: 'report.txt' }], workspace, DEFAULT_ATTACHMENT_LIMITS, controller.signal))
       .rejects.toMatchObject({ name: 'AbortError' })
     expect(closed).toBe(1)
+  })
+
+  it('rejects an outside symlink replacement before pathname stat without reading its secret', async () => {
+    const target = join(workspace, 'report.txt')
+    const outside = join(fixtureRoot, 'outside.txt')
+    await writeFile(target, 'safe')
+    await writeFile(outside, 'outside secret')
+    const loader = createAttachmentLoaderForTesting({
+      beforePathStat: async path => {
+        await rm(path)
+        await symlink(outside, path)
+      },
+    })
+
+    await expect(loader([{ path: 'report.txt' }], workspace, DEFAULT_ATTACHMENT_LIMITS))
+      .rejects.toMatchObject({ code: 'MAIL_ATTACHMENT_OUTSIDE_WORKSPACE' })
+  })
+
+  it('enforces the individual limit against a file that grows after metadata checks', async () => {
+    const target = join(workspace, 'report.txt')
+    await writeFile(target, 'small')
+    const loader = createAttachmentLoaderForTesting({
+      afterMetadata: async path => appendFile(path, ' larger'),
+    })
+    const limits = { maxFiles: 1, maxFileBytes: 10, maxTotalBytes: 20 }
+
+    await expect(loader([{ path: 'report.txt' }], workspace, limits))
+      .rejects.toMatchObject({ code: 'MAIL_ATTACHMENT_TOO_LARGE' })
+  })
+
+  it('enforces the total limit against files that grow after metadata checks', async () => {
+    await writeFile(join(workspace, 'first.txt'), 'first')
+    await writeFile(join(workspace, 'second.txt'), 'other')
+    const loader = createAttachmentLoaderForTesting({
+      afterMetadata: async path => {
+        if (path.endsWith('second.txt')) await appendFile(path, '!')
+      },
+    })
+    const limits = { maxFiles: 2, maxFileBytes: 10, maxTotalBytes: 10 }
+
+    await expect(loader([{ path: 'first.txt' }, { path: 'second.txt' }], workspace, limits))
+      .rejects.toMatchObject({ code: 'MAIL_ATTACHMENT_TOO_LARGE' })
   })
 })

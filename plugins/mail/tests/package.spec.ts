@@ -23,10 +23,10 @@ describe('published mail plugin', () => {
     const result = execFileSync(process.execPath, [
       '--input-type=module',
       '--eval',
-      'import("dsh-mail/attachment-loader").then(module => process.stdout.write(typeof module.loadAttachments))',
+      'import("dsh-mail/attachment-loader").then(module => process.stdout.write(Object.keys(module).sort().join(",")))',
     ], { cwd: consumer, encoding: 'utf8' })
 
-    expect(result).toBe('function')
+    expect(result).toBe('DEFAULT_ATTACHMENT_LIMITS,loadAttachments')
   })
 
   it('declares plugin libraries as dependencies and DSH capabilities as peers', () => {
