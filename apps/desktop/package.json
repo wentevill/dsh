@@ -1,0 +1,25 @@
+{
+  "name": "@deepseek-ai/dsh-desktop",
+  "version": "0.1.0-rc.5",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "audit:app": "tsx scripts/audit-app.ts",
+    "audit:runtime": "tsx scripts/audit-runtime.ts src-tauri/resources/runtime",
+    "build": "npm run audit:runtime && corepack pnpm dlx @tauri-apps/cli@2.11.4 build --target aarch64-apple-darwin --features desktop-app --bundles app && npm run audit:app -- 'src-tauri/target/aarch64-apple-darwin/release/bundle/macos/DeepSeek Harness.app' && tsx scripts/package-dmg.ts",
+    "dev": "corepack pnpm dlx @tauri-apps/cli@2.11.4 dev --target aarch64-apple-darwin --features desktop-app",
+    "stage:runtime": "tsx scripts/stage-runtime.ts",
+    "test": "vitest run --config vitest.config.ts",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib --tests"
+  },
+  "dependencies": {
+    "@deepseek-ai/cosmokit": "workspace:^",
+    "@deepseek-ai/dsh": "workspace:^",
+    "@deepseek-ai/dsh-atomic-write": "workspace:^",
+    "@deepseek-ai/dsh-session-telemetry": "workspace:^",
+    "@deepseek-ai/dsh-session-title-llm": "workspace:^",
+    "@deepseek-ai/dsh-spill": "workspace:^",
+    "@deepseek-ai/schemastery": "workspace:^",
+    "dsh-jsonrpc-agent-pkg": "workspace:*"
+  }
+}

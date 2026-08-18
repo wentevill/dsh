@@ -1,0 +1,25 @@
+[package]
+name = "dsh-desktop"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "dsh_desktop"
+path = "src/lib.rs"
+
+[[bin]]
+name = "dsh-desktop"
+path = "src/main.rs"
+test = false
+bench = false
+required-features = ["desktop-app"]
+
+[features]
+desktop-app = ["dep:tauri"]
+
+[dependencies]
+tauri = { version = "2.11.5", optional = true , features = [] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

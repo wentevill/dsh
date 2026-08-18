@@ -1,0 +1,6 @@
+{
+  "nodeVersion": "24.7.0",
+  "archive": "node-v24.7.0-darwin-arm64.tar.gz",
+  "url": "https://nodejs.org/dist/v24.7.0/node-v24.7.0-darwin-arm64.tar.gz",
+  "sha256": "ff8298faaf82c85444aad7f1e12a4882496286ea9008702029b359d7fac7f8b3"
+}

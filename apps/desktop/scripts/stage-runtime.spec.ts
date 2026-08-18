@@ -1,0 +1,60 @@
+import { createHash } from 'node:crypto'
+import { linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { describe, expect, it } from 'vitest'
+import { breakRuntimeHardlinks, materializeRuntimeLinks, verifySha256, withPreservedFile } from './stage-runtime.ts'
+
+describe('runtime staging', () => {
+  it('accepts only the pinned archive checksum', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'dsh-stage-')), 'node.tgz')
+    writeFileSync(path, 'official bytes')
+    const checksum = createHash('sha256').update('official bytes').digest('hex')
+    expect(() => verifySha256(path, checksum)).not.toThrow()
+    expect(() => verifySha256(path, '0'.repeat(64))).toThrow(/checksum mismatch/)
+  })
+
+  it('materializes package links without copying nested dependency trees', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-links-'))
+    const target = join(root, 'target')
+    const nodeModules = join(root, 'node_modules')
+    mkdirSync(join(target, 'node_modules'), { recursive: true })
+    mkdirSync(nodeModules)
+    writeFileSync(join(target, 'lib.js'), 'built package')
+    writeFileSync(join(target, 'node_modules/duplicate.js'), 'duplicate')
+    symlinkSync(target, join(nodeModules, 'package'))
+
+    materializeRuntimeLinks(nodeModules)
+
+    expect(lstatSync(join(nodeModules, 'package')).isSymbolicLink()).toBe(false)
+    expect(lstatSync(join(nodeModules, 'package/lib.js')).isFile()).toBe(true)
+    expect(() => lstatSync(join(nodeModules, 'package/node_modules'))).toThrow()
+  })
+
+  it('restores the lockfile even when deployment fails', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'dsh-lock-')), 'pnpm-lock.yaml')
+    writeFileSync(path, 'original lockfile')
+
+    expect(() => withPreservedFile(path, () => {
+      writeFileSync(path, 'generated lockfile')
+      throw new Error('deploy failed')
+    })).toThrow('deploy failed')
+
+    expect(readFileSync(path, 'utf8')).toBe('original lockfile')
+  })
+
+  it('isolates staged files from hardlinked workspace and store files', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-hardlinks-'))
+    const source = join(root, 'source.js')
+    const runtime = join(root, 'runtime')
+    mkdirSync(runtime)
+    writeFileSync(source, 'original')
+    linkSync(source, join(runtime, 'client.js'))
+
+    breakRuntimeHardlinks(runtime)
+    writeFileSync(source, 'changed outside runtime')
+
+    expect(readFileSync(join(runtime, 'client.js'), 'utf8')).toBe('original')
+    expect(statSync(join(runtime, 'client.js')).ino).not.toBe(statSync(source).ino)
+  })
+})
