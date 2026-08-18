@@ -40,6 +40,7 @@ describe('published mail plugin', () => {
     expect(manifest.name).toBe('dsh-mail')
     expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual([
       '@deepseek-ai/schemastery',
+      'html-to-text',
       'imapflow',
       'mailparser',
       'mime-types',
@@ -82,6 +83,10 @@ describe('published mail plugin', () => {
       'package/lib/client.js',
       'package/lib/attachment-loader.js',
       'package/lib/attachment-loader.d.ts',
+      'package/lib/html.js',
+      'package/lib/html.d.ts',
+      'package/lib/smtp-transport.js',
+      'package/lib/smtp-transport.d.ts',
       'package/lib/typert.host.js',
       'package/lib/typert.host.d.ts',
       'package/lib/typert.remote-client.js',

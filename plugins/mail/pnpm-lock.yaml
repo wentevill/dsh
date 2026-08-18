@@ -11,6 +11,9 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: ^3.18.1
         version: 3.18.1
+      html-to-text:
+        specifier: ^10.0.0
+        version: 10.0.0
       imapflow:
         specifier: ^1.7.1
         version: 1.7.1

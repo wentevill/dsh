@@ -1,4 +1,4 @@
-import type { MailAddress as UpstreamMailAddress, MailAttachmentMetadata as UpstreamMailAttachmentMetadata, MailListRequest as UpstreamMailListRequest, MailListResult as UpstreamMailListResult, MailMessageSummary as UpstreamMailMessageSummary, MailReadRequest as UpstreamMailReadRequest, MailReadResult as UpstreamMailReadResult, MailSendRequest as UpstreamMailSendRequest, MailSendResult as UpstreamMailSendResult } from '@deepseek-ai/dsh-mail';
+import type { MailAddress as UpstreamMailAddress, MailAttachmentMetadata as UpstreamMailAttachmentMetadata, MailListRequest as UpstreamMailListRequest, MailListResult as UpstreamMailListResult, MailMessageSummary as UpstreamMailMessageSummary, MailReadRequest as UpstreamMailReadRequest, MailReadResult as UpstreamMailReadResult, MailSendResult as UpstreamMailSendResult } from '@deepseek-ai/dsh-mail';
 /** Mail's stable aliases for the pre-existing upstream read/send contracts. */
 export type MailAddress = UpstreamMailAddress;
 export type MailAttachmentMetadata = UpstreamMailAttachmentMetadata;
@@ -7,7 +7,6 @@ export type MailListResult = UpstreamMailListResult;
 export type MailMessageSummary = UpstreamMailMessageSummary;
 export type MailReadRequest = UpstreamMailReadRequest;
 export type MailReadResult = UpstreamMailReadResult;
-export type MailSendRequest = UpstreamMailSendRequest;
 export type MailSendResult = UpstreamMailSendResult;
 /** Stable identity presented by this package for a mailbox message. */
 export interface MailMessageIdentity {
@@ -52,4 +51,14 @@ export interface LoadedMailAttachment {
     contentType: string;
     content: Buffer;
     size: number;
+}
+/** Mail-owned MIME request. Attachment bytes must have already crossed the workspace loader boundary. */
+export interface MailSendRequest {
+    readonly to: readonly MailAddress[];
+    readonly cc?: readonly MailAddress[];
+    readonly bcc?: readonly MailAddress[];
+    readonly subject: string;
+    readonly text?: string;
+    readonly html?: string;
+    readonly attachments?: readonly LoadedMailAttachment[];
 }

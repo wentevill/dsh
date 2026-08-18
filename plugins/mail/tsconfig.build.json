@@ -14,5 +14,5 @@
     "rewriteRelativeImportExtensions": true,
     "allowImportingTsExtensions": false
   },
-  "include": ["src/index.ts", "src/transport.ts", "src/imap-transport.ts", "src/attachment-loader.ts", "src/mail-types.ts", "src/mail-settings.ts", "src/remote-types.ts", "src/remote-settings.ts"]
+  "include": ["src/index.ts", "src/transport.ts", "src/smtp-transport.ts", "src/html.ts", "src/html-to-text.d.ts", "src/imap-transport.ts", "src/attachment-loader.ts", "src/mail-types.ts", "src/mail-settings.ts", "src/remote-types.ts", "src/remote-settings.ts"]
 }

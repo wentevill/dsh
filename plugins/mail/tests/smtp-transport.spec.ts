@@ -1,0 +1,129 @@
+import { describe, expect, it, vi } from 'vitest'
+import { normalizeBodies } from '../src/html.ts'
+import { MailSmtpTransport, type SmtpClient } from '../src/smtp-transport.ts'
+
+const config = {
+  username: 'sender@example.com',
+  passwordRef: { provider: 'env', key: 'MAIL_APP_PASSWORD' },
+  mailbox: 'INBOX',
+  archiveMailbox: 'Archive',
+  allowDelete: false,
+  imap: { host: 'imap.example.com', port: 993, secure: true },
+  smtp: { host: 'smtp.example.com', port: 465, secure: true },
+}
+
+function client(): SmtpClient {
+  return {
+    close: vi.fn(),
+    sendMail: vi.fn().mockResolvedValue({
+      messageId: '<provider-message-id>',
+      envelope: { from: 'sender@example.com', to: ['visible@example.com', 'hidden@example.com'] },
+      accepted: ['visible@example.com', 'hidden@example.com'],
+    }),
+  }
+}
+
+describe('normalizeBodies', () => {
+  it('rejects a request with no body', () => {
+    expect(() => normalizeBodies({})).toThrow('MAIL_BODY_REQUIRED')
+  })
+
+  it('preserves a plain text body', () => {
+    expect(normalizeBodies({ text: 'Plain text' })).toEqual({ text: 'Plain text' })
+  })
+
+  it('derives the plain text alternative from HTML', () => {
+    expect(normalizeBodies({ html: '<h1>Hello</h1><p>World</p>' })).toEqual({
+      html: '<h1>Hello</h1><p>World</p>', text: 'Hello\n\nWorld',
+    })
+  })
+
+  it('preserves explicitly supplied plain text and HTML', () => {
+    expect(normalizeBodies({ text: 'Accessible text', html: '<p>Rich text</p>' })).toEqual({
+      text: 'Accessible text', html: '<p>Rich text</p>',
+    })
+  })
+
+  it.each([
+    ['text', 'x'.repeat(500_001)],
+    ['html', 'x'.repeat(1_000_001)],
+  ] as const)('rejects a %s body above its exact limit', (field, value) => {
+    expect(() => normalizeBodies({ [field]: value })).toThrow('MAIL_BODY_TOO_LARGE')
+  })
+})
+
+describe('MailSmtpTransport', () => {
+  it('sends normalized MIME with Bcc and Buffer-only attachments', async () => {
+    const smtp = client()
+    const createClient = vi.fn(() => smtp)
+    const transport = new MailSmtpTransport(createClient)
+    const first = Buffer.from('first attachment')
+    const second = Buffer.from('second attachment')
+
+    await expect(transport.send(config, 'app-password', {
+      to: [{ address: 'visible@example.com', name: 'Visible Recipient' }],
+      cc: [{ address: 'copy@example.com' }],
+      bcc: [{ address: 'hidden@example.com' }],
+      subject: 'Quarterly update',
+      html: '<h1>Hello</h1><p>World</p>',
+      attachments: [
+        { filename: 'first.txt', contentType: 'text/plain', content: first, size: first.length },
+        { filename: 'second.bin', contentType: 'application/octet-stream', content: second, size: second.length },
+      ],
+    })).resolves.toEqual({ messageId: '<provider-message-id>' })
+
+    expect(createClient).toHaveBeenCalledWith(expect.objectContaining({
+      host: 'smtp.example.com', port: 465, secure: true,
+      disableFileAccess: true, disableUrlAccess: true,
+    }))
+    expect(smtp.sendMail).toHaveBeenCalledWith({
+      from: 'sender@example.com',
+      to: [{ address: 'visible@example.com', name: 'Visible Recipient' }],
+      cc: [{ address: 'copy@example.com' }],
+      bcc: [{ address: 'hidden@example.com' }],
+      subject: 'Quarterly update',
+      text: 'Hello\n\nWorld',
+      html: '<h1>Hello</h1><p>World</p>',
+      attachments: [
+        { filename: 'first.txt', contentType: 'text/plain', content: first },
+        { filename: 'second.bin', contentType: 'application/octet-stream', content: second },
+      ],
+      disableFileAccess: true,
+      disableUrlAccess: true,
+    })
+    expect(smtp.close).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['recipient address', { to: [{ address: 'victim@example.com\r\nBcc: attacker@example.com' }], text: 'body' }],
+    ['recipient name', { to: [{ address: 'victim@example.com', name: 'Victim\nBcc: attacker@example.com' }], text: 'body' }],
+    ['subject', { to: [{ address: 'victim@example.com' }], subject: 'Hello\r\nBcc: attacker@example.com', text: 'body' }],
+    ['attachment filename', { to: [{ address: 'victim@example.com' }], text: 'body', attachments: [{ filename: 'safe.txt\r\nBcc: attacker@example.com', contentType: 'text/plain', content: Buffer.from('x'), size: 1 }] }],
+    ['attachment content type', { to: [{ address: 'victim@example.com' }], text: 'body', attachments: [{ filename: 'safe.txt', contentType: 'text/plain\r\nBcc: attacker@example.com', content: Buffer.from('x'), size: 1 }] }],
+  ])('rejects CR/LF header injection in %s before opening SMTP', async (_label, request) => {
+    const createClient = vi.fn(() => client())
+    const transport = new MailSmtpTransport(createClient)
+
+    await expect(transport.send(config, 'app-password', {
+      subject: 'safe',
+      ...request,
+    })).rejects.toThrow('MAIL_HEADER_INVALID')
+    expect(createClient).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { filename: 'safe.txt', contentType: 'text/plain', content: 'aGVsbG8=', size: 5 },
+    { filename: 'safe.txt', contentType: 'text/plain', content: Buffer.from('hello'), path: '/tmp/secret', size: 5 },
+    { filename: 'safe.txt', contentType: 'text/plain', content: Buffer.from('hello'), href: 'https://example.com/file', size: 5 },
+    { filename: 'safe.txt', contentType: 'text/plain', content: Buffer.from('hello'), url: 'https://example.com/file', size: 5 },
+    { filename: 'safe.txt', contentType: 'text/plain', content: Buffer.from('hello'), encoding: 'base64', size: 5 },
+  ])('rejects attachment input that is not a loaded Buffer', async attachment => {
+    const createClient = vi.fn(() => client())
+    const transport = new MailSmtpTransport(createClient)
+
+    await expect(transport.send(config, 'app-password', {
+      to: [{ address: 'visible@example.com' }], subject: 'safe', text: 'body', attachments: [attachment] as never,
+    })).rejects.toThrow('MAIL_ATTACHMENT_INVALID')
+    expect(createClient).not.toHaveBeenCalled()
+  })
+})

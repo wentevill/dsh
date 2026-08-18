@@ -51,6 +51,10 @@
     "lib/remote-settings.d.ts",
     "lib/transport.js",
     "lib/transport.d.ts",
+    "lib/smtp-transport.js",
+    "lib/smtp-transport.d.ts",
+    "lib/html.js",
+    "lib/html.d.ts",
     "lib/imap-transport.js",
     "lib/imap-transport.d.ts",
     "lib/attachment-loader.js",
@@ -92,6 +96,7 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.1",
+    "html-to-text": "^10.0.0",
     "imapflow": "^1.7.1",
     "mailparser": "^3.9.15",
     "mime-types": "^3.0.2",
