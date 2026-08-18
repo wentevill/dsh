@@ -12,7 +12,19 @@ describe('Tauri bundle layout', () => {
   })
 
   it('gates release packaging on runtime and built-app audits', () => {
-    const manifest = readFileSync(join(desktopRoot, 'package.json'), 'utf8')
-    expect(manifest).toMatch(/"build":\s*"npm run audit:runtime && .*npm run audit:app.*package-dmg/)
+    const manifest = JSON.parse(readFileSync(join(desktopRoot, 'package.json'), 'utf8')) as {
+      scripts: Record<string, string>
+    }
+    const build = manifest.scripts.build
+    const runtimeAudit = build.indexOf('npm run audit:runtime')
+    const pluginInstall = build.indexOf('npm run test:plugin-install')
+    const tauriBuild = build.indexOf('@tauri-apps/cli')
+    const appAudit = build.indexOf('npm run audit:app')
+    const dmg = build.indexOf('package-dmg')
+    expect(runtimeAudit).toBeGreaterThanOrEqual(0)
+    expect(pluginInstall).toBeGreaterThan(runtimeAudit)
+    expect(tauriBuild).toBeGreaterThan(pluginInstall)
+    expect(appAudit).toBeGreaterThan(tauriBuild)
+    expect(dmg).toBeGreaterThan(appAudit)
   })
 })

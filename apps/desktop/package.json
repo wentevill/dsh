@@ -6,7 +6,7 @@
   "scripts": {
     "audit:app": "tsx scripts/audit-app.ts",
     "audit:runtime": "tsx scripts/audit-runtime.ts src-tauri/resources/runtime",
-    "build": "npm run audit:runtime && corepack pnpm dlx @tauri-apps/cli@2.11.4 build --target aarch64-apple-darwin --features desktop-app --bundles app && npm run audit:app -- 'src-tauri/target/aarch64-apple-darwin/release/bundle/macos/DeepSeek Harness.app' && tsx scripts/package-dmg.ts",
+    "build": "npm run audit:runtime && npm run test:plugin-install && corepack pnpm dlx @tauri-apps/cli@2.11.4 build --target aarch64-apple-darwin --features desktop-app --bundles app && npm run audit:app -- 'src-tauri/target/aarch64-apple-darwin/release/bundle/macos/DeepSeek Harness.app' && tsx scripts/package-dmg.ts",
     "dev": "corepack pnpm dlx @tauri-apps/cli@2.11.4 dev --target aarch64-apple-darwin --features desktop-app",
     "stage:runtime": "tsx scripts/stage-runtime.ts",
     "test": "vitest run --config vitest.config.ts",
