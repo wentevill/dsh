@@ -37,6 +37,8 @@ export interface ResolvedConfig {
 export declare class MailSettingsRemote extends TypertRemoteService {
     private readonly scope;
     constructor(ctx: Context, scope: () => SettingsScope<MailSettings> | undefined);
+    /** Read the resolved section without relying on DSH's fixed Web settings allowlist. */
+    load(): MailSettingsSaveResult;
     /** Persist one complete non-secret mail section through the official Settings owner scope. */
     save(request: MailSettingsSaveRequest): Promise<MailSettingsSaveResult>;
 }

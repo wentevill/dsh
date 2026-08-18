@@ -4003,6 +4003,21 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		}
 		//#endregion
 		//#region lib/typert.remote-client.js
+		const dsh_mail_plugin_mailSettings_load_result$schema = object({ "settings": object({
+			"username": string(),
+			"passwordEnv": string(),
+			"mailbox": string(),
+			"imap": object({
+				"host": string(),
+				"port": number(),
+				"secure": boolean()
+			}),
+			"smtp": object({
+				"host": string(),
+				"port": number(),
+				"secure": boolean()
+			})
+		}).readonly() });
 		const dsh_mail_plugin_mailSettings_save_parameter_0$schema = object({ "settings": object({
 			"username": string(),
 			"passwordEnv": string(),
@@ -4036,6 +4051,23 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		const TYPERT_REMOTE = {
 			package: "dsh-mail-plugin",
 			descriptors: [{
+				id: "dsh-mail-plugin#mailSettings/load",
+				service: "mailSettings",
+				namespace: "mailSettings",
+				method: "load",
+				invocation: { kind: "direct" },
+				parameters: [],
+				result: {
+					mode: "strict",
+					typeSymbol: "dsh-mail-plugin/remote-types#MailSettingsSaveResult",
+					schema: dsh_mail_plugin_mailSettings_load_result$schema
+				},
+				sourceLocation: {
+					"file": "packages/mail/src/index.ts",
+					"line": 53,
+					"column": 3
+				}
+			}, {
 				id: "dsh-mail-plugin#mailSettings/save",
 				service: "mailSettings",
 				namespace: "mailSettings",
@@ -4058,7 +4090,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				},
 				sourceLocation: {
 					"file": "packages/mail/src/index.ts",
-					"line": 53,
+					"line": 61,
 					"column": 9
 				}
 			}]
@@ -4817,6 +4849,40 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			return response.value;
 		}
 		//#endregion
+		//#region src/client/settings-mirror.ts
+		/** Client mirror for Mail settings, whose namespace is not exposed by DSH's settings API. */
+		function createMailSettingsMirror(initial) {
+			const listeners = /* @__PURE__ */ new Set();
+			let snapshot = {
+				status: "ready",
+				value: initial,
+				base: initial,
+				user: initial,
+				revision: void 0,
+				writable: true,
+				mode: "host"
+			};
+			return {
+				scope: {
+					getSnapshot: () => snapshot,
+					subscribe(listener) {
+						listeners.add(listener);
+						return () => {
+							listeners.delete(listener);
+						};
+					}
+				},
+				accept(settings) {
+					snapshot = {
+						...snapshot,
+						value: settings,
+						user: settings
+					};
+					for (const listener of listeners) listener();
+				}
+			};
+		}
+		//#endregion
 		//#region src/client/index.ts
 		/** Copy namespace owned by this client plugin. */
 		const NS = "settings.plugins.mail";
@@ -4826,6 +4892,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			"locale",
 			"connection",
 			"remote",
+			"remote.mailSettings",
 			"settingsScope"
 		];
 		async function apply(ctx) {
@@ -4835,8 +4902,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				zh,
 				en
 			}), "mail-plugin-client: dictionaries");
-			const controller = createMailCardController(ctx.settingsScope.bind({ namespace: MAIL_NS }), api, async (settings) => {
-				return unwrapMailSettingsSave(await ctx.remote.mailSettings.save({ settings }));
+			const mirror = createMailSettingsMirror(unwrapMailSettingsSave(await ctx.remote.mailSettings.load()).settings);
+			const controller = createMailCardController(mirror.scope, api, async (settings) => {
+				const saved = unwrapMailSettingsSave(await ctx.remote.mailSettings.save({ settings }));
+				mirror.accept(saved.settings);
+				return saved;
 			}, true);
 			ctx.effect(() => ctx.remote.$on("credentials/updated", () => {
 				controller.refreshCredential();

@@ -7,9 +7,11 @@ import type { MailSettingsSaveRequest, MailSettingsSaveResult } from 'dsh-mail-p
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$6d61696c53657474696e6773 {
+    load: () => Promise<RemoteResult<MailSettingsSaveResult>>
     save: (request: MailSettingsSaveRequest) => Promise<RemoteResult<MailSettingsSaveResult>>
   }
   interface TypertRemoteMap {
+    'mailSettings/load': () => Promise<RemoteResult<MailSettingsSaveResult>>
     'mailSettings/save': (request: MailSettingsSaveRequest) => Promise<RemoteResult<MailSettingsSaveResult>>
   }
   interface TypertRemoteNamespaceMap {

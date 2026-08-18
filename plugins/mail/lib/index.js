@@ -39,17 +39,20 @@ import { defineTool } from '@deepseek-ai/dsh-tools';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import { NodeMailTransport } from "./transport.js";
 import { MAIL_SETTINGS_NAMESPACE, MailSettingsSchema } from "./mail-settings.js";
-import { saveMailSettings } from "./remote-settings.js";
+import { loadMailSettings, saveMailSettings } from "./remote-settings.js";
 export { NodeMailTransport } from "./transport.js";
 /** Mail-owned Host/Client boundary; it never accepts an arbitrary namespace or path. */
 let MailSettingsRemote = (() => {
     let _classSuper = TypertRemoteService;
     let _instanceExtraInitializers = [];
+    let _load_decorators;
     let _save_decorators;
     return class MailSettingsRemote extends _classSuper {
         static {
             const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            _load_decorators = [Remote('load')];
             _save_decorators = [Remote('save')];
+            __esDecorate(this, null, _load_decorators, { kind: "method", name: "load", static: false, private: false, access: { has: obj => "load" in obj, get: obj => obj.load }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _save_decorators, { kind: "method", name: "save", static: false, private: false, access: { has: obj => "save" in obj, get: obj => obj.save }, metadata: _metadata }, null, _instanceExtraInitializers);
             if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
         }
@@ -57,6 +60,13 @@ let MailSettingsRemote = (() => {
         constructor(ctx, scope) {
             super(ctx, 'mailSettings');
             this.scope = scope;
+        }
+        /** Read the resolved section without relying on DSH's fixed Web settings allowlist. */
+        load() {
+            const scope = this.scope();
+            if (scope === undefined)
+                throw new Error('mail settings are unavailable');
+            return loadMailSettings(scope);
         }
         /** Persist one complete non-secret mail section through the official Settings owner scope. */
         async save(request) {

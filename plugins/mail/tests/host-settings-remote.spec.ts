@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { saveMailSettings } from '../src/remote-settings.ts'
+import { loadMailSettings, saveMailSettings } from '../src/remote-settings.ts'
 import type { MailSettings } from '../src/mail-settings.ts'
 
 const configured: MailSettings = {
@@ -11,6 +11,12 @@ const configured: MailSettings = {
 }
 
 describe('mail Host settings save', () => {
+  it('returns the resolved settings for a configuration client that cannot use settings.describe', () => {
+    const scope = { get: () => configured }
+
+    expect(loadMailSettings(scope as never)).toEqual({ settings: configured })
+  })
+
   it('returns the durable value owned by the Host settings scope', async () => {
     let durable: MailSettings = {
       ...configured,

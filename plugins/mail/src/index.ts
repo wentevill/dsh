@@ -9,7 +9,7 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { NodeMailTransport } from './transport.ts'
 import { MAIL_SETTINGS_NAMESPACE, MailSettingsSchema, type MailSettings } from './mail-settings.ts'
 import type { MailSettingsSaveRequest, MailSettingsSaveResult } from './remote-types.ts'
-import { saveMailSettings } from './remote-settings.ts'
+import { loadMailSettings, saveMailSettings } from './remote-settings.ts'
 
 export { NodeMailTransport } from './transport.ts'
 
@@ -46,6 +46,14 @@ export interface ResolvedConfig {
 export class MailSettingsRemote extends TypertRemoteService {
   constructor(ctx: Context, private readonly scope: () => SettingsScope<MailSettings> | undefined) {
     super(ctx, 'mailSettings')
+  }
+
+  /** Read the resolved section without relying on DSH's fixed Web settings allowlist. */
+  @Remote('load')
+  load(): MailSettingsSaveResult {
+    const scope = this.scope()
+    if (scope === undefined) throw new Error('mail settings are unavailable')
+    return loadMailSettings(scope)
   }
 
   /** Persist one complete non-secret mail section through the official Settings owner scope. */

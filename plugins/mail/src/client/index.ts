@@ -21,6 +21,7 @@ import { MailCard } from './MailCard.tsx'
 import { MAIL_SETTINGS_NAMESPACE, createMailCardController } from './mail-card-controller.ts'
 import { en, zh } from './locales.ts'
 import { unwrapMailSettingsSave } from './remote-save.ts'
+import { createMailSettingsMirror } from './settings-mirror.ts'
 
 export { MailCard, createMailCardController, MAIL_SETTINGS_NAMESPACE }
 export type { MailCardFace, MailCardState } from './mail-card-controller.ts'
@@ -29,19 +30,23 @@ export type { MailCardFace, MailCardState } from './mail-card-controller.ts'
 const NS = 'settings.plugins.mail'
 
 export const name = 'mail-plugin-client'
-export const inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope']
+export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.mailSettings', 'settingsScope']
 
 export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const { api } = ctx.get('connection') as ConnectionHandle
   const disposeRemote = await ctx.remote.$mount(mailRemote)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'mail-plugin-client: dictionaries')
 
+  const loaded = unwrapMailSettingsSave(await ctx.remote.mailSettings.load())
+  const mirror = createMailSettingsMirror(loaded.settings)
   const controller = createMailCardController(
-    ctx.settingsScope.bind({ namespace: MAIL_SETTINGS_NAMESPACE }),
+    mirror.scope,
     api,
     async settings => {
       const response = await ctx.remote.mailSettings.save({ settings })
-      return unwrapMailSettingsSave(response)
+      const saved = unwrapMailSettingsSave(response)
+      mirror.accept(saved.settings)
+      return saved
     },
     true,
   )

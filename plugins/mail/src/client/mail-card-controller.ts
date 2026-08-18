@@ -99,7 +99,7 @@ const isFlat = (field: string): boolean =>
  * @returns the snapshot store, injected face, and a credential invalidation hook.
  */
 export function createMailCardController(
-  scope: SettingsScope<MailSettings>,
+  scope: Pick<SettingsScope<MailSettings>, 'getSnapshot' | 'subscribe'>,
   api: Pick<IApiClient, 'credentials'>,
   saveSettings: (settings: MailSettings) => Promise<MailSettingsSaveResult>,
   available: boolean,
