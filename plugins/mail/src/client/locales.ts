@@ -1,0 +1,83 @@
+/** Copy dictionaries for the mail card (en/zh). */
+
+export const en = {
+  // plugin-card chrome
+  collapse: 'Hide settings',
+  expand: 'Show settings',
+  unsaved: 'Unsaved',
+  readOnly: 'This deployment stores settings read-only.',
+  saveFailed: 'The deployment did not accept these values; they were left for you to correct.',
+  discard: 'Discard',
+  save: 'Save',
+  saving: 'Saving…',
+  overridden: 'Overridden',
+  reset: 'Reset to default',
+  invalidText: 'Enter a value, or leave blank to use the default.',
+  invalidNumber: 'Enter a number, or leave blank to use the default.',
+  // card identity
+  mailTitle: 'Mail (SMTP / IMAP)',
+  mailDescription: 'Configure the account used to receive and send email; the password lives in key management.',
+  // account
+  mailUsername: 'Email account',
+  mailUsernameHint: 'The mailbox whose mail is read and on whose behalf mail is sent.',
+  mailMailbox: 'Mailbox',
+  mailMailboxHint: 'IMAP folder to read, normally INBOX.',
+  // receive endpoint
+  mailImapHost: 'IMAP server',
+  mailImapHostHint: 'The IMAP receive server.',
+  mailImapPort: 'IMAP port',
+  mailImapPortHint: 'Usually 993 for a secure connection.',
+  mailImapSecure: 'Use a secure connection',
+  mailImapSecureHint: 'Connect with TLS/SSL for IMAP.',
+  // send endpoint
+  mailSmtpHost: 'SMTP server',
+  mailSmtpHostHint: 'The SMTP send server.',
+  mailSmtpPort: 'SMTP port',
+  mailSmtpPortHint: 'Usually 465 for a secure connection.',
+  mailSmtpSecure: 'Use a secure connection',
+  mailSmtpSecureHint: 'Connect with TLS/SSL for SMTP.',
+  // password
+  mailPassword: 'Application password',
+  mailPasswordHint: 'Stored in key management under MAIL_APP_PASSWORD, never in configuration. Leave blank to keep the current one.',
+  mailPasswordSet: 'Configured in key management',
+  mailPasswordUnset: 'No password stored yet',
+}
+
+export const zh = {
+  collapse: '收起设置',
+  expand: '展开设置',
+  unsaved: '未保存',
+  readOnly: '本部署的设置为只读。',
+  saveFailed: '本部署没有接受这些值，已保留供你修改。',
+  discard: '放弃修改',
+  save: '保存',
+  saving: '保存中…',
+  overridden: '已覆盖',
+  reset: '恢复默认',
+  invalidText: '请填写内容；留空表示使用默认值。',
+  invalidNumber: '请填数字；留空表示使用默认值。',
+  mailTitle: '邮件（SMTP / IMAP）',
+  mailDescription: '配置用于收发邮件的账号；密码保存在密钥管理中。',
+  mailUsername: '邮箱账号',
+  mailUsernameHint: '用于读取收件箱，并以此身份发送邮件。',
+  mailMailbox: '邮箱',
+  mailMailboxHint: '要读取的 IMAP 文件夹，通常为 INBOX。',
+  mailImapHost: 'IMAP 服务器',
+  mailImapHostHint: '接收邮件的 IMAP 服务器。',
+  mailImapPort: 'IMAP 端口',
+  mailImapPortHint: '安全连接通常为 993。',
+  mailImapSecure: '使用安全连接',
+  mailImapSecureHint: 'IMAP 使用 TLS/SSL 加密连接。',
+  mailSmtpHost: 'SMTP 服务器',
+  mailSmtpHostHint: '发送邮件的 SMTP 服务器。',
+  mailSmtpPort: 'SMTP 端口',
+  mailSmtpPortHint: '安全连接通常为 465。',
+  mailSmtpSecure: '使用安全连接',
+  mailSmtpSecureHint: 'SMTP 使用 TLS/SSL 加密连接。',
+  mailPassword: '应用密码',
+  mailPasswordHint: '保存在密钥管理（MAIL_APP_PASSWORD），不写入配置。留空表示保持当前密码。',
+  mailPasswordSet: '已在密钥管理中配置',
+  mailPasswordUnset: '尚未存储密码',
+}
+
+export type MailCardKey = keyof typeof en
