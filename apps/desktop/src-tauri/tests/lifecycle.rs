@@ -96,6 +96,14 @@ fn reports_a_child_that_exits_before_the_web_server_is_ready() {
 }
 
 #[test]
+fn reports_the_signal_when_a_child_is_terminated() {
+    let script = fixture_script("signaled-exit.sh", "kill -TERM $$");
+    let error = ServerProcess::start(spec(script, Duration::from_secs(1))).unwrap_err();
+
+    assert!(error.to_string().contains("signal Some(15)"));
+}
+
+#[test]
 fn times_out_and_terminates_a_child_that_never_becomes_ready() {
     let script = fixture_script(
         "timeout.sh",

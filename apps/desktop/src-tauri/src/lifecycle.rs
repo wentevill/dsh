@@ -3,6 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::io::{BufRead, BufReader, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::os::unix::process::CommandExt;
+use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::mpsc::{self, RecvTimeoutError};
@@ -57,7 +58,11 @@ pub struct StartSpec {
 #[derive(Debug)]
 pub enum StartError {
     Spawn(std::io::Error),
-    EarlyExit { code: Option<i32>, stderr: String },
+    EarlyExit {
+        code: Option<i32>,
+        signal: Option<i32>,
+        stderr: String,
+    },
     ReadyTimeout { stderr: String },
     Output(std::io::Error),
 }
@@ -69,10 +74,14 @@ impl Display for StartError {
                 formatter,
                 "failed to start bundled Harness runtime: {error}"
             ),
-            Self::EarlyExit { code, stderr } => {
+            Self::EarlyExit {
+                code,
+                signal,
+                stderr,
+            } => {
                 write!(
                     formatter,
-                    "Harness exited before readiness (code {code:?}): {stderr}"
+                    "Harness exited before readiness (code {code:?}, signal {signal:?}): {stderr}"
                 )
             }
             Self::ReadyTimeout { stderr } => {
@@ -266,6 +275,7 @@ impl Drop for ServerProcess {
 fn early_exit(status: ExitStatus, stderr: JoinHandle<String>) -> StartError {
     StartError::EarlyExit {
         code: status.code(),
+        signal: status.signal(),
         stderr: join_stderr(stderr),
     }
 }

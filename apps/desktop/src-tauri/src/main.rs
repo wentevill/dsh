@@ -1,5 +1,6 @@
 use dsh_desktop::lifecycle::{ServerProcess, StartSpec, tcp_readiness_probe};
 use dsh_desktop::resources::RuntimePaths;
+use dsh_desktop::window::{DEFAULT_WINDOW_SPEC, WindowSpec, fit_window_to_work_area};
 use std::error::Error;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -38,8 +39,25 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn Error>> {
         readiness_probe: tcp_readiness_probe,
     })?;
     let origin = tauri::Url::parse(server.origin())?;
+    let initial_window = if let Some(monitor) = app.primary_monitor()? {
+        let work_area = monitor
+            .work_area()
+            .size
+            .to_logical::<f64>(monitor.scale_factor());
+        fit_window_to_work_area(
+            DEFAULT_WINDOW_SPEC,
+            WindowSpec {
+                width: work_area.width,
+                height: work_area.height,
+            },
+        )
+    } else {
+        DEFAULT_WINDOW_SPEC
+    };
     let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(origin))
         .title("DeepSeek Harness")
+        .inner_size(initial_window.width, initial_window.height)
+        .center()
         .visible(false)
         .build()?;
     app.manage(DesktopServer(Mutex::new(Some(server))));

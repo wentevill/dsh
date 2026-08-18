@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -10,6 +11,7 @@ function fixture(nodeScript = '#!/bin/sh\necho arm64\n'): string {
     mkdirSync(join(root, path), { recursive: true })
   }
   writeFileSync(join(root, 'node/bin/node'), nodeScript, { mode: 0o755 })
+  execFileSync('codesign', ['--force', '--sign', '-', join(root, 'node/bin/node')])
   writeFileSync(join(root, 'app/node_modules/@deepseek-ai/dsh/lib/bin.js'), 'console.log("ok")')
   writeFileSync(join(root, 'app/node_modules/@deepseek-ai/dsh/package.json'), JSON.stringify({ dependencies: {} }))
   writeFileSync(join(root, 'app/node_modules/@deepseek-ai/dsh-web-frontend/dist/index.html'), '<html></html>')
@@ -20,6 +22,13 @@ function fixture(nodeScript = '#!/bin/sh\necho arm64\n'): string {
 
 describe('runtime audit', () => {
   it('accepts a minimal arm64 production package graph', () => expect(() => auditRuntime(fixture())).not.toThrow())
+
+  it('rejects a bundled Node executable with an invalid signature', () => {
+    const root = fixture()
+    writeFileSync(join(root, 'node/bin/node'), '#!/bin/sh\necho arm64\n# modified after signing\n', { mode: 0o755 })
+
+    expect(() => auditRuntime(root)).toThrow(/signature is invalid/)
+  })
 
   it.each([
     ['wrong architecture', 'console.log("x64")'],

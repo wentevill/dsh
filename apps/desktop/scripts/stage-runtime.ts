@@ -13,6 +13,15 @@ export interface RuntimeConfig {
   pnpmIntegrity: string
 }
 
+export type RuntimeCommandRunner = (command: string, args: string[]) => void
+
+export function signRuntimeExecutable(
+  path: string,
+  run: RuntimeCommandRunner = (command, args) => execFileSync(command, args, { stdio: 'inherit' }),
+): void {
+  run('codesign', ['--force', '--sign', '-', path])
+}
+
 export function verifySha256(path: string, expected: string): void {
   const actual = createHash('sha256').update(readFileSync(path)).digest('hex')
   if (actual !== expected) throw new Error(`Node archive checksum mismatch: expected ${expected}, got ${actual}`)
@@ -60,6 +69,7 @@ export function stageRuntime(
     const environment = buildEnvironment(node, process.env)
     copyFileSync(node, join(staged, 'node', 'bin', 'node'))
     chmodSync(join(staged, 'node', 'bin', 'node'), 0o755)
+    signRuntimeExecutable(join(staged, 'node', 'bin', 'node'))
     createAssemblySource(upstreamRoot, assembly)
     execFileSync('corepack', ['pnpm', 'install', '--frozen-lockfile'], { cwd: assembly, env: environment, stdio: 'inherit' })
     execFileSync('corepack', ['pnpm', 'build'], { cwd: assembly, env: environment, stdio: 'inherit' })

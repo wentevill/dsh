@@ -14,6 +14,11 @@ export function auditRuntime(root: string): void {
   for (const required of [node, cli, pnpm, pnpmShim]) {
     if (!lstatSync(required, { throwIfNoEntry: false })?.isFile()) throw new Error(`Missing runtime artifact: ${relative(root, required)}`)
   }
+  try {
+    execFileSync('codesign', ['--verify', '--strict', node], { stdio: 'pipe' })
+  } catch {
+    throw new Error('Bundled Node code signature is invalid')
+  }
   if ((lstatSync(pnpmShim).mode & 0o111) === 0) throw new Error('Bundled pnpm launcher must be executable')
   for (const sourceDirectory of ['src', 'scripts', 'tests', 'src-tauri']) {
     const path = join(root, 'app', sourceDirectory)

@@ -1,10 +1,63 @@
-import { mkdirSync, mkdtempSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { packageDmg, prepareDmgSource } from './package-dmg.ts'
+import { buildFinderLayoutScript, createCustomizedDmg, packageDmg, prepareDmgSource } from './package-dmg.ts'
 
 describe('DMG packaging', () => {
+  it('creates a compressed image after applying the standard Finder layout', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-dmg-layout-'))
+    const source = join(root, 'source')
+    const output = join(root, 'DeepSeek Harness.dmg')
+    mkdirSync(source)
+    const commands: Array<{ command: string, args: string[] }> = []
+
+    createCustomizedDmg(source, output, (command, args) => commands.push({ command, args }))
+
+    expect(commands[0]).toMatchObject({
+      command: 'hdiutil',
+      args: expect.arrayContaining(['create', '-fs', 'HFS+', '-format', 'UDRW', '-srcfolder', source]),
+    })
+    expect(commands[1]).toMatchObject({
+      command: 'hdiutil',
+      args: expect.arrayContaining(['attach', '-readwrite', '-mountpoint']),
+    })
+    expect(commands[2]?.command).toBe('osascript')
+    expect(commands[3]).toEqual({ command: 'sync', args: [] })
+    expect(commands[4]).toMatchObject({ command: 'hdiutil', args: expect.arrayContaining(['detach']) })
+    expect(commands[5]).toMatchObject({
+      command: 'hdiutil',
+      args: expect.arrayContaining(['convert', '-format', 'UDZO', '-o', output]),
+    })
+
+    const script = commands[2]?.args.at(-1) ?? ''
+    expect(script).toContain('set bounds to {200, 200, 860, 600}')
+    expect(script).toContain('set icon size to 128')
+    expect(script).toContain('set position of item "DeepSeek Harness.app" to {170, 190}')
+    expect(script).toContain('set position of item "Applications" to {490, 190}')
+    expect(script).toContain('set background picture of theViewOptions to file ".background:background.png"')
+  })
+
+  it('resolves the private mount to a Finder disk window', () => {
+    const script = buildFinderLayoutScript('/private/tmp/DeepSeek Harness mount')
+
+    expect(script).toContain('set mountedDiskName to "DeepSeek Harness mount"')
+    expect(script).toContain('tell disk mountedDiskName')
+    expect(script).not.toContain('tell disk "DeepSeek Harness"')
+  })
+
+  it('removes temporary layout files when Finder customization fails', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-dmg-layout-failure-'))
+    const source = join(root, 'source')
+    mkdirSync(source)
+
+    expect(() => createCustomizedDmg(source, join(root, 'output.dmg'), (command) => {
+      if (command === 'osascript') throw new Error('Finder failed')
+    })).toThrow('Finder failed')
+
+    expect(readdirSync(root)).toEqual(['source'])
+  })
+
   it('stages the application beside an Applications shortcut', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-dmg-'))
     const app = join(root, 'DeepSeek Harness.app')

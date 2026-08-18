@@ -3,9 +3,20 @@ import { linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, statSync, sy
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { augmentDesktopRuntimeClosure, breakRuntimeHardlinks, buildEnvironment, createStageDirectory, materializeRuntimeLinks, verifyPackageIntegrity, verifySha256 } from './stage-runtime.ts'
+import { augmentDesktopRuntimeClosure, breakRuntimeHardlinks, buildEnvironment, createStageDirectory, materializeRuntimeLinks, signRuntimeExecutable, verifyPackageIntegrity, verifySha256 } from './stage-runtime.ts'
 
 describe('runtime staging', () => {
+  it('ad-hoc signs the bundled executable after copying it', () => {
+    const calls: Array<{ command: string, args: string[] }> = []
+
+    signRuntimeExecutable('/runtime/node/bin/node', (command, args) => calls.push({ command, args }))
+
+    expect(calls).toEqual([{
+      command: 'codesign',
+      args: ['--force', '--sign', '-', '/runtime/node/bin/node'],
+    }])
+  })
+
   it('adds Desktop workspace capabilities to the packaged dsh dependency closure', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-runtime-closure-'))
     const cli = join(root, 'apps/cli/package.json')
