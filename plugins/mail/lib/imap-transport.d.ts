@@ -2,7 +2,7 @@ import { ImapFlow, type ImapFlowOptions } from 'imapflow';
 import type { MailArchiveRequest, MailArchiveResult, MailDeleteRequest, MailDeleteResult, MailListRequest, MailListResult, MailReadRequest, MailReadResult } from './mail-types.ts';
 import type { ResolvedConfig } from './index.ts';
 /** Narrow ImapFlow surface used by Mail and injectable in transport tests. */
-export type ImapFlowClient = Pick<ImapFlow, 'capabilities' | 'close' | 'connect' | 'fetchAll' | 'fetchOne' | 'getMailboxLock' | 'list' | 'logout' | 'mailbox' | 'messageDelete' | 'messageMove'>;
+export type ImapFlowClient = Pick<ImapFlow, 'capabilities' | 'close' | 'connect' | 'enabled' | 'fetchAll' | 'fetchOne' | 'getMailboxLock' | 'list' | 'logout' | 'mailbox' | 'messageDelete' | 'messageMove'>;
 export type ImapFlowFactory = (options: ImapFlowOptions) => ImapFlowClient;
 /** TLS-only IMAP list, read, archive, and permanent UID deletion transport. */
 export declare class MailImapTransport {

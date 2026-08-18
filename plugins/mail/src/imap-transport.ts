@@ -4,7 +4,6 @@ import {
   type FetchMessageObject,
   type ImapFlowOptions,
   type ListResponse,
-  type MailboxLockObject,
   type MessageAddressObject,
   type MessageStructureObject,
 } from 'imapflow'
@@ -30,10 +29,12 @@ const MAX_SOURCE_BYTES = 2_000_000
 const UID_DELETE_UNSUPPORTED = 'IMAP_UID_DELETE_UNSUPPORTED'
 const ARCHIVE_MAILBOX_UNAVAILABLE = 'IMAP_ARCHIVE_MAILBOX_UNAVAILABLE'
 const ARCHIVE_UNSUPPORTED = 'IMAP_ARCHIVE_UNSUPPORTED'
+const MAX_IMAP_UID = 0xffffffff
+const REV2_FOLDED_CAPABILITIES = new Set(['MOVE', 'UIDPLUS'])
 
 /** Narrow ImapFlow surface used by Mail and injectable in transport tests. */
 export type ImapFlowClient = Pick<ImapFlow,
-  'capabilities' | 'close' | 'connect' | 'fetchAll' | 'fetchOne' | 'getMailboxLock'
+  'capabilities' | 'close' | 'connect' | 'enabled' | 'fetchAll' | 'fetchOne' | 'getMailboxLock'
   | 'list' | 'logout' | 'mailbox' | 'messageDelete' | 'messageMove'
 >
 
@@ -70,7 +71,7 @@ function assertNotAborted(signal?: AbortSignal): void {
 }
 
 function assertUid(id: string): void {
-  if (!/^[1-9][0-9]*$/u.test(id)) throw new Error('IMAP_UID_INVALID')
+  if (!/^[1-9][0-9]*$/u.test(id) || Number(id) > MAX_IMAP_UID) throw new Error('IMAP_UID_INVALID')
 }
 
 function archiveDestinationId(result: CopyResponseObject | false, id: string): string | undefined {
@@ -83,12 +84,23 @@ function hasArchiveMailbox(mailboxes: ListResponse[], archiveMailbox: string): b
   return mailboxes.some(mailbox => mailbox.path === archiveMailbox)
 }
 
+function isRev2Active(client: ImapFlowClient): boolean {
+  return client.enabled.has('IMAP4REV2')
+    || (client.capabilities.has('IMAP4rev2') && !client.capabilities.has('IMAP4rev1'))
+}
+
+/** Mirrors ImapFlow's folded-capability behavior for IMAP4rev2 sessions. */
+function hasCapability(client: ImapFlowClient, capability: 'MOVE' | 'UIDPLUS'): boolean {
+  return client.capabilities.has(capability)
+    || (REV2_FOLDED_CAPABILITIES.has(capability) && isRev2Active(client))
+}
+
 function supportsUidTargetedDelete(client: ImapFlowClient): boolean {
-  return client.capabilities.has('UIDPLUS')
+  return hasCapability(client, 'UIDPLUS')
 }
 
 function supportsSafeArchive(client: ImapFlowClient): boolean {
-  return client.capabilities.has('MOVE') || supportsUidTargetedDelete(client)
+  return hasCapability(client, 'MOVE')
 }
 
 function sequenceWindow(exists: number, request: MailListRequest): { start: number; end: number; hasMore: boolean } | null {
