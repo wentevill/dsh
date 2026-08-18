@@ -93,4 +93,28 @@ describe('mail settings save', () => {
 
     expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: true, failed: true })
   })
+
+  it('retries once after the Host recovers from a settings revision conflict', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    let attempts = 0
+    const scope = {
+      getSnapshot: () => snapshot,
+      subscribe: () => () => undefined,
+      async set(field: string, value: unknown) {
+        attempts += 1
+        if (attempts === 1) return
+        snapshot.user = { ...(snapshot.user ?? {}), [field]: value }
+        snapshot.value = { ...(snapshot.value ?? {}), [field]: value }
+      },
+    }
+    const controller = createMailCardController(scope, { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } }, true)
+    const face = controller.face()
+    face.edit('smtpHost', 'smtp.recovered.example.com')
+    face.save()
+    await settle(face.hooks.mailCard)
+
+    expect(attempts).toBe(2)
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: false, failed: false })
+  })
 })

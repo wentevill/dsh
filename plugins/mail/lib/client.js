@@ -591,8 +591,11 @@ window.__ModuleLoader__.load({
 						return user !== void 0 && Object.prototype.hasOwnProperty.call(user, field) && JSON.stringify(user[field]) === JSON.stringify(value);
 					};
 					const write = async (field, value) => {
-						await scope.set(field, value);
-						if (!confirmed(field, value)) landed = false;
+						for (let attempt = 0; attempt < 2; attempt += 1) {
+							await scope.set(field, value);
+							if (confirmed(field, value)) return;
+						}
+						landed = false;
 					};
 					const str = (field, fallback) => {
 						const d = drafts.get(field);
