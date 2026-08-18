@@ -9,7 +9,9 @@ const TEXT_EXTENSIONS = new Set(['.js', '.json', '.yml', '.yaml', '.txt', '.md',
 export function auditRuntime(root: string): void {
   const node = join(root, 'node/bin/node')
   const cli = join(root, 'app/node_modules/@deepseek-ai/dsh/lib/bin.js')
-  for (const required of [node, cli]) {
+  const pnpm = join(root, 'app/node_modules/pnpm/bin/pnpm.cjs')
+  const pnpmShim = join(root, 'app/node_modules/.bin/pnpm')
+  for (const required of [node, cli, pnpm, pnpmShim]) {
     if (!lstatSync(required, { throwIfNoEntry: false })?.isFile()) throw new Error(`Missing runtime artifact: ${relative(root, required)}`)
   }
   for (const sourceDirectory of ['src', 'scripts', 'tests', 'src-tauri']) {
@@ -25,6 +27,8 @@ export function auditRuntime(root: string): void {
   }
   const arch = execFileSync(node, ['-p', 'process.arch'], { encoding: 'utf8' }).trim()
   if (arch !== 'arm64') throw new Error(`Bundled Node architecture must be arm64, got ${arch}`)
+  const pnpmVersion = execFileSync(node, [pnpm, '--version'], { encoding: 'utf8' }).trim()
+  if (pnpmVersion !== '11.7.0') throw new Error(`Bundled pnpm version must be 11.7.0, got ${pnpmVersion}`)
   const nodeModules = join(root, 'app/node_modules')
   validateRuntimeDependencies(nodeModules, nodeModules)
   walk(root, root)

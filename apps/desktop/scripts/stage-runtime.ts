@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { chmodSync, copyFileSync, cpSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
-import { basename, dirname, extname, join, relative, resolve } from 'node:path'
+import { basename, delimiter, dirname, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export interface RuntimeConfig {
@@ -36,7 +36,7 @@ export function stageRuntime(
   config: RuntimeConfig,
 ): void {
   verifySha256(archivePath, config.sha256)
-  const temporary = mkdtempSync(join(dirname(destination), '.runtime-stage-'))
+  const temporary = createStageDirectory(destination, dirname(packagingRoot))
   try {
     const extract = join(temporary, 'extract')
     const staged = join(temporary, 'runtime')
@@ -46,23 +46,33 @@ export function stageRuntime(
     mkdirSync(extract)
     execFileSync('tar', ['-xzf', archivePath, '-C', extract])
     const node = join(extract, basename(config.archive, '.tar.gz'), 'bin', 'node')
+    const environment = buildEnvironment(node, process.env)
     copyFileSync(node, join(staged, 'node', 'bin', 'node'))
     chmodSync(join(staged, 'node', 'bin', 'node'), 0o755)
     createAssemblySource(upstreamRoot, assembly)
-    execFileSync('corepack', ['pnpm', 'install', '--frozen-lockfile'], { cwd: assembly, stdio: 'inherit' })
-    execFileSync('corepack', ['pnpm', 'build'], { cwd: assembly, stdio: 'inherit' })
+    execFileSync('corepack', ['pnpm', 'install', '--frozen-lockfile'], { cwd: assembly, env: environment, stdio: 'inherit' })
+    execFileSync('corepack', ['pnpm', 'build'], { cwd: assembly, env: environment, stdio: 'inherit' })
     // The private packages are overlaid after the pristine upstream build.
     // A second install updates only this disposable assembly's lock and links.
     copyPackagingPackage(join(packagingRoot, 'apps/desktop'), join(assembly, 'apps/desktop'))
     copyPackagingPackage(join(packagingRoot, 'packages/mail'), join(assembly, 'packages/mail'))
-    execFileSync('corepack', ['pnpm', 'install', '--no-frozen-lockfile'], { cwd: assembly, stdio: 'inherit' })
-    execFileSync('corepack', ['pnpm', '--filter', '@deepseek-ai/dsh-mail', 'build'], { cwd: assembly, stdio: 'inherit' })
+    execFileSync('corepack', ['pnpm', 'install', '--no-frozen-lockfile'], { cwd: assembly, env: environment, stdio: 'inherit' })
+    execFileSync('corepack', ['pnpm', 'exec', 'tsc', '-b', 'packages/mail/mail/tsconfig.json'], {
+      cwd: assembly,
+      env: environment,
+      stdio: 'inherit',
+    })
+    execFileSync('corepack', ['pnpm', 'exec', 'tsdown', '--env.DSH_BUILD_FACE', 'host'], {
+      cwd: assembly,
+      env: environment,
+      stdio: 'inherit',
+    })
     execFileSync('corepack', [
       'pnpm', '--filter', '@deepseek-ai/dsh-desktop',
       'deploy', '--prod', '--legacy', '--config.node-linker=hoisted',
       '--config.auto-install-peers=false', '--config.link-workspace-packages=true', deploy,
-    ], { cwd: assembly, stdio: 'inherit' })
-    materializeExternalPackages(join(deploy, 'node_modules'), assembly, temporary)
+    ], { cwd: assembly, env: environment, stdio: 'inherit' })
+    materializeExternalPackages(join(deploy, 'node_modules'), assembly, temporary, environment)
     materializeRuntimeLinks(join(deploy, 'node_modules'))
     breakRuntimeHardlinks(join(deploy, 'node_modules'))
     sanitizeWorkspacePaths(join(deploy, 'node_modules'), resolve(assembly))
@@ -75,6 +85,17 @@ export function stageRuntime(
   } finally {
     rmSync(temporary, { recursive: true, force: true })
   }
+}
+
+export function createStageDirectory(destination: string, stagingParent: string): string {
+  mkdirSync(dirname(destination), { recursive: true })
+  mkdirSync(stagingParent, { recursive: true })
+  return mkdtempSync(join(stagingParent, '.runtime-stage-'))
+}
+
+export function buildEnvironment(node: string, inherited: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const nodeBin = dirname(node)
+  return { ...inherited, PATH: inherited.PATH ? `${nodeBin}${delimiter}${inherited.PATH}` : nodeBin }
 }
 
 function copyPackagingPackage(source: string, destination: string): void {
@@ -147,7 +168,12 @@ function sanitizeWorkspacePaths(directory: string, workspaceRoot: string): void 
   }
 }
 
-function materializeExternalPackages(nodeModules: string, workspaceRoot: string, temporary: string): void {
+function materializeExternalPackages(
+  nodeModules: string,
+  workspaceRoot: string,
+  temporary: string,
+  environment: NodeJS.ProcessEnv,
+): void {
   const links: Array<{ path: string; target: string }> = []
   collectLinks(nodeModules, links)
   const materialized = new Map<string, string>()
@@ -179,7 +205,11 @@ function materializeExternalPackages(nodeModules: string, workspaceRoot: string,
       const extractDirectory = join(temporary, `extract-${id}`)
       mkdirSync(packDirectory)
       mkdirSync(extractDirectory)
-      execFileSync('corepack', ['pnpm', 'pack', '--pack-destination', packDirectory], { cwd: link.target, stdio: 'pipe' })
+      execFileSync('corepack', ['pnpm', 'pack', '--pack-destination', packDirectory], {
+        cwd: link.target,
+        env: environment,
+        stdio: 'pipe',
+      })
       const archive = readdirSync(packDirectory).find(name => name.endsWith('.tgz'))
       if (!archive) throw new Error(`pnpm pack produced no archive for ${link.target}`)
       execFileSync('tar', ['-xzf', join(packDirectory, archive), '-C', extractDirectory])

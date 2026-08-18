@@ -1,11 +1,27 @@
 import { createHash } from 'node:crypto'
 import { linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { breakRuntimeHardlinks, materializeRuntimeLinks, verifySha256 } from './stage-runtime.ts'
+import { breakRuntimeHardlinks, buildEnvironment, createStageDirectory, materializeRuntimeLinks, verifySha256 } from './stage-runtime.ts'
 
 describe('runtime staging', () => {
+  it('creates staging outside the Desktop source tree on a fresh checkout', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-stage-parent-'))
+    const destination = join(root, 'missing', 'resources', 'runtime')
+    const stagingParent = join(root, 'packaging-root')
+    const stage = createStageDirectory(destination, stagingParent)
+    expect(lstatSync(stage).isDirectory()).toBe(true)
+    expect(stage.startsWith(stagingParent)).toBe(true)
+    expect(lstatSync(join(root, 'missing', 'resources')).isDirectory()).toBe(true)
+  })
+
+  it('runs assembly tools with the pinned Node before the host PATH', () => {
+    const environment = buildEnvironment('/runtime/node/bin/node', { PATH: '/host/bin', TOKEN: 'kept' })
+    expect(environment.PATH).toBe(`/runtime/node/bin${delimiter}/host/bin`)
+    expect(environment.TOKEN).toBe('kept')
+  })
+
   it('accepts only the pinned archive checksum', () => {
     const path = join(mkdtempSync(join(tmpdir(), 'dsh-stage-')), 'node.tgz')
     writeFileSync(path, 'official bytes')
