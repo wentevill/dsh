@@ -34,3 +34,20 @@ export interface MailDeleteResult {
     id: string;
     deleted: true;
 }
+/** A caller-supplied attachment path, resolved only within its session workspace. */
+export interface MailAttachmentRequest {
+    path: string;
+}
+/** Byte and item limits enforced before attachment contents are read. */
+export interface MailAttachmentLimits {
+    maxFiles: number;
+    maxFileBytes: number;
+    maxTotalBytes: number;
+}
+/** A validated in-memory attachment safe to hand to the SMTP transport. */
+export interface LoadedMailAttachment {
+    filename: string;
+    contentType: string;
+    content: Buffer;
+    size: number;
+}

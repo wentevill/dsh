@@ -17,6 +17,9 @@ importers:
       mailparser:
         specifier: ^3.9.15
         version: 3.9.15
+      mime-types:
+        specifier: ^3.0.2
+        version: 3.0.2
       nodemailer:
         specifier: ^9.0.5
         version: 9.0.5
@@ -51,6 +54,9 @@ importers:
       '@types/mailparser':
         specifier: ^3.4.6
         version: 3.4.6
+      '@types/mime-types':
+        specifier: ^3.0.1
+        version: 3.0.1
       '@types/nodemailer':
         specifier: ^7.0.4
         version: 7.0.12
@@ -293,6 +299,9 @@ packages:
 
   '@types/mailparser@3.4.6':
     resolution: {integrity: sha512-wVV3cnIKzxTffaPH8iRnddX1zahbYB1ZEoAxyhoBo3TBCBuK6nZ8M8JYO/RhsCuuBVOw/DEN/t/ENbruwlxn6Q==}
+
+  '@types/mime-types@3.0.1':
+    resolution: {integrity: sha512-xRMsfuQbnRq1Ef+C+RKaENOxXX87Ygl38W1vDfPHRku02TgQr+Qd8iivLtAMcR0KF5/29xlnFihkTlbqFrGOVQ==}
 
   '@types/node@26.2.0':
     resolution: {integrity: sha512-5IviulTZeRNp2vAJ514cc/HUlY5nZ9fCbq9DMyC52BrhFZACo3nI0R7qBxhQmo/d27NFe96ur/b7Wwxklda+kg==}
@@ -558,6 +567,14 @@ packages:
 
   mailparser@3.9.15:
     resolution: {integrity: sha512-/5hgybKDMKFS05jAh8OPeEE7N53lj8nF6ywlo89VPjF2TtwqIQbjaxumQWnJIkmaagnJ6u1eansMOViHFxIXwQ==}
+
+  mime-db@1.54.0:
+    resolution: {integrity: sha512-aU5EJuIN2WDemCcAp2vFBfp/m4EAhWJnUNSSw0ixs7/kXbd6Pg64EmwJkNdFhB8aWt1sH2CTXrLxo/iAGV3oPQ==}
+    engines: {node: '>= 0.6'}
+
+  mime-types@3.0.2:
+    resolution: {integrity: sha512-Lbgzdk0h4juoQ9fCKXW4by0UJqj+nOOrI9MJ1sSj4nI8aI2eo1qmvQEie4VD1glsS250n15LsWsYtCugiStS5A==}
+    engines: {node: '>=18'}
 
   nodemailer@9.0.5:
     resolution: {integrity: sha512-wvjiKvjczmsN7U/8006JOdXubgBk2XFAbioDMbT+sM7cPs0QrhJTa6KBRX7P5REGGkDcLUz/EarWidb8G8C1jQ==}
@@ -903,6 +920,8 @@ snapshots:
       '@types/node': 26.2.0
       iconv-lite: 0.6.3
 
+  '@types/mime-types@3.0.1': {}
+
   '@types/node@26.2.0':
     dependencies:
       undici-types: 8.3.0
@@ -1108,6 +1127,12 @@ snapshots:
       nodemailer: 9.0.5
       punycode.js: 2.3.1
       tlds: 1.261.0
+
+  mime-db@1.54.0: {}
+
+  mime-types@3.0.2:
+    dependencies:
+      mime-db: 1.54.0
 
   nodemailer@9.0.5: {}
 

@@ -27,6 +27,7 @@ describe('published mail plugin', () => {
       '@deepseek-ai/schemastery',
       'imapflow',
       'mailparser',
+      'mime-types',
       'nodemailer',
       'zod',
     ])
@@ -64,6 +65,8 @@ describe('published mail plugin', () => {
       'package/package.json',
       'package/lib/index.js',
       'package/lib/client.js',
+      'package/lib/attachment-loader.js',
+      'package/lib/attachment-loader.d.ts',
       'package/lib/typert.host.js',
       'package/lib/typert.host.d.ts',
       'package/lib/typert.remote-client.js',
