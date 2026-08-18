@@ -3,7 +3,7 @@ import { linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, statSync, sy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { breakRuntimeHardlinks, materializeRuntimeLinks, verifySha256, withPreservedFile } from './stage-runtime.ts'
+import { breakRuntimeHardlinks, materializeRuntimeLinks, verifySha256 } from './stage-runtime.ts'
 
 describe('runtime staging', () => {
   it('accepts only the pinned archive checksum', () => {
@@ -29,18 +29,6 @@ describe('runtime staging', () => {
     expect(lstatSync(join(nodeModules, 'package')).isSymbolicLink()).toBe(false)
     expect(lstatSync(join(nodeModules, 'package/lib.js')).isFile()).toBe(true)
     expect(() => lstatSync(join(nodeModules, 'package/node_modules'))).toThrow()
-  })
-
-  it('restores the lockfile even when deployment fails', () => {
-    const path = join(mkdtempSync(join(tmpdir(), 'dsh-lock-')), 'pnpm-lock.yaml')
-    writeFileSync(path, 'original lockfile')
-
-    expect(() => withPreservedFile(path, () => {
-      writeFileSync(path, 'generated lockfile')
-      throw new Error('deploy failed')
-    })).toThrow('deploy failed')
-
-    expect(readFileSync(path, 'utf8')).toBe('original lockfile')
   })
 
   it('isolates staged files from hardlinked workspace and store files', () => {

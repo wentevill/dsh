@@ -1,7 +1,6 @@
-packages:
-  - apps/*
-  - packages/*/*
-  - plugins/*
+# Extracted package manifests are assembly templates. They enter a temporary
+# copy of upstream during staging and are never installed in place here.
+packages: []
 
 allowBuilds:
   esbuild: true

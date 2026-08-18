@@ -16,39 +16,56 @@ export function verifySha256(path: string, expected: string): void {
   if (actual !== expected) throw new Error(`Node archive checksum mismatch: expected ${expected}, got ${actual}`)
 }
 
-export function withPreservedFile(path: string, action: () => void): void {
-  const original = readFileSync(path)
+/** Export only tracked files from the pinned upstream commit into a writable assembly tree. */
+export function createAssemblySource(upstreamRoot: string, destination: string): void {
+  const archive = join(dirname(destination), `.dsh-upstream-${process.pid}.tar`)
+  mkdirSync(destination, { recursive: true })
   try {
-    action()
+    execFileSync('git', ['-C', upstreamRoot, 'archive', '--format=tar', `--output=${archive}`, 'HEAD'])
+    execFileSync('tar', ['-xf', archive, '-C', destination])
   } finally {
-    writeFileSync(path, original)
+    rmSync(archive, { force: true })
   }
 }
 
-export function stageRuntime(archivePath: string, workspaceRoot: string, destination: string, config: RuntimeConfig): void {
+export function stageRuntime(
+  archivePath: string,
+  upstreamRoot: string,
+  packagingRoot: string,
+  destination: string,
+  config: RuntimeConfig,
+): void {
   verifySha256(archivePath, config.sha256)
   const temporary = mkdtempSync(join(dirname(destination), '.runtime-stage-'))
   try {
     const extract = join(temporary, 'extract')
     const staged = join(temporary, 'runtime')
     const deploy = join(temporary, 'deploy')
+    const assembly = join(temporary, 'source')
     mkdirSync(join(staged, 'node', 'bin'), { recursive: true })
     mkdirSync(extract)
     execFileSync('tar', ['-xzf', archivePath, '-C', extract])
     const node = join(extract, basename(config.archive, '.tar.gz'), 'bin', 'node')
     copyFileSync(node, join(staged, 'node', 'bin', 'node'))
     chmodSync(join(staged, 'node', 'bin', 'node'), 0o755)
-    withPreservedFile(join(workspaceRoot, 'pnpm-lock.yaml'), () => {
-      execFileSync('corepack', [
-        'pnpm', '--filter', '@deepseek-ai/dsh-desktop',
-        'deploy', '--prod', '--legacy', '--config.node-linker=hoisted',
-        '--config.auto-install-peers=false', '--config.link-workspace-packages=true', deploy,
-      ], { cwd: workspaceRoot, stdio: 'inherit' })
-    })
-    materializeExternalPackages(join(deploy, 'node_modules'), workspaceRoot, temporary)
+    createAssemblySource(upstreamRoot, assembly)
+    execFileSync('corepack', ['pnpm', 'install', '--frozen-lockfile'], { cwd: assembly, stdio: 'inherit' })
+    execFileSync('corepack', ['pnpm', 'build'], { cwd: assembly, stdio: 'inherit' })
+    // The private packages are overlaid after the pristine upstream build.
+    // A second install updates only this disposable assembly's lock and links.
+    copyPackagingPackage(join(packagingRoot, 'apps/desktop'), join(assembly, 'apps/desktop'))
+    copyPackagingPackage(join(packagingRoot, 'packages/mail'), join(assembly, 'packages/mail'))
+    execFileSync('corepack', ['pnpm', 'install', '--no-frozen-lockfile'], { cwd: assembly, stdio: 'inherit' })
+    execFileSync('corepack', ['pnpm', '--filter', '@deepseek-ai/dsh-mail', 'build'], { cwd: assembly, stdio: 'inherit' })
+    execFileSync('corepack', [
+      'pnpm', '--filter', '@deepseek-ai/dsh-desktop',
+      'deploy', '--prod', '--legacy', '--config.node-linker=hoisted',
+      '--config.auto-install-peers=false', '--config.link-workspace-packages=true', deploy,
+    ], { cwd: assembly, stdio: 'inherit' })
+    materializeExternalPackages(join(deploy, 'node_modules'), assembly, temporary)
     materializeRuntimeLinks(join(deploy, 'node_modules'))
     breakRuntimeHardlinks(join(deploy, 'node_modules'))
-    sanitizeWorkspacePaths(join(deploy, 'node_modules'), resolve(workspaceRoot))
+    sanitizeWorkspacePaths(join(deploy, 'node_modules'), resolve(assembly))
     rmSync(join(deploy, 'node_modules/.modules.yaml'), { force: true })
     rmSync(join(deploy, 'node_modules/.pnpm/lock.yaml'), { force: true })
     mkdirSync(join(staged, 'app'))
@@ -58,6 +75,13 @@ export function stageRuntime(archivePath: string, workspaceRoot: string, destina
   } finally {
     rmSync(temporary, { recursive: true, force: true })
   }
+}
+
+function copyPackagingPackage(source: string, destination: string): void {
+  cpSync(source, destination, {
+    recursive: true,
+    filter: path => !path.split('/').some(segment => ['node_modules', 'target', 'resources'].includes(segment)),
+  })
 }
 
 export function materializeRuntimeLinks(nodeModules: string): void {
@@ -179,12 +203,13 @@ function collectLinks(directory: string, links: Array<{ path: string; target: st
 
 function main(): void {
   const desktopRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-  const workspaceRoot = resolve(desktopRoot, '../..')
+  const packagingRoot = resolve(desktopRoot, '../..')
+  const upstreamRoot = join(packagingRoot, 'upstream')
   const config = JSON.parse(readFileSync(join(desktopRoot, 'runtime.json'), 'utf8')) as RuntimeConfig
   const archiveFlag = process.argv.indexOf('--archive')
   const archive = process.argv[archiveFlag + 1]
   if (archiveFlag < 0 || !archive) throw new Error('usage: stage-runtime.ts --archive <node archive>')
-  stageRuntime(resolve(archive), workspaceRoot, join(desktopRoot, 'src-tauri/resources/runtime'), config)
+  stageRuntime(resolve(archive), upstreamRoot, packagingRoot, join(desktopRoot, 'src-tauri/resources/runtime'), config)
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main()
