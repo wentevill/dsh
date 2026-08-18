@@ -21,12 +21,15 @@ npm run stage:runtime -- --archive /path/to/node-v24.7.0-darwin-arm64.tar.gz
 npm run audit:runtime
 ```
 
-Staging verifies the pinned SHA-256, keeps only the Node executable and production package graph, sanitizes build-machine paths, and never searches for host Node, npm, pnpm, Python, or Homebrew at application runtime.
+Staging verifies the pinned SHA-256, keeps only the Node executable and production package graph, and sanitizes build-machine paths. The private runtime contains upstream `dsh` and pnpm 11.7.0. Tauri prepends its private Node and package bin directories only to the DSH child process; it does not install tools or modify PATH on the host.
+
+Production plugins must be complete registry, URL, or `.tgz` packages. Source-directory links are unsupported. The release acceptance command is `npm run test:plugin-install`: it uses the staged Node, upstream dsh, and private pnpm to install the repository-owned mail archive once into a fresh profile and compose it immediately without a repair step.
 
 ## Build
 
 ```sh
 npm test
+npm run test:plugin-install
 npm run build
 ```
 

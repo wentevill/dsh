@@ -112,6 +112,10 @@ export function materializeRuntimeLinks(nodeModules: string): void {
     const target = realpathSync(link)
     const metadata = lstatSync(target)
     rmSync(link, { recursive: true, force: true })
+    if (resolve(link) === resolve(nodeModules, '.bin/pnpm')) {
+      writeFileSync(link, "#!/usr/bin/env node\nimport '../pnpm/bin/pnpm.cjs'\n", { mode: 0o755 })
+      continue
+    }
     if (metadata.isFile()) {
       copyFileSync(target, link)
       chmodSync(link, metadata.mode)

@@ -21,12 +21,15 @@ npm run stage:runtime -- --archive /path/to/node-v24.7.0-darwin-arm64.tar.gz
 npm run audit:runtime
 ```
 
-staging 会校验固定 SHA-256，只保留 Node 可执行文件和 production package graph，并清除构建机路径。应用运行时不会查找宿主机的 Node、npm、pnpm、Python 或 Homebrew。
+staging 会校验固定 SHA-256，只保留 Node 可执行文件和 production package graph，并清除构建机路径。私有 runtime 包含 upstream `dsh` 和 pnpm 11.7.0。Tauri 只为 DSH 子进程前置包内 Node 与 package bin 路径，不会在宿主机安装工具或修改宿主 PATH。
+
+生产插件必须是完整的 registry、URL 或 `.tgz` 包，不支持源码目录链接。发布验收命令 `npm run test:plugin-install` 使用 staged Node、upstream dsh 和私有 pnpm，在全新 profile 中一次安装仓库内 mail 包并立即组合，不执行任何修复步骤。
 
 ## 构建
 
 ```sh
 npm test
+npm run test:plugin-install
 npm run build
 ```
 

@@ -47,6 +47,22 @@ describe('runtime staging', () => {
     expect(() => lstatSync(join(nodeModules, 'package/node_modules'))).toThrow()
   })
 
+  it('materializes the pnpm bin as a location-correct private launcher', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-pnpm-bin-'))
+    const nodeModules = join(root, 'node_modules')
+    mkdirSync(join(nodeModules, '.bin'), { recursive: true })
+    mkdirSync(join(nodeModules, 'pnpm/bin'), { recursive: true })
+    writeFileSync(join(nodeModules, 'pnpm/bin/pnpm.cjs'), "import('./pnpm.mjs')\n")
+    symlinkSync('../pnpm/bin/pnpm.cjs', join(nodeModules, '.bin/pnpm'))
+
+    materializeRuntimeLinks(nodeModules)
+
+    expect(lstatSync(join(nodeModules, '.bin/pnpm')).isSymbolicLink()).toBe(false)
+    expect(readFileSync(join(nodeModules, '.bin/pnpm'), 'utf8')).toBe(
+      "#!/usr/bin/env node\nimport '../pnpm/bin/pnpm.cjs'\n",
+    )
+  })
+
   it('isolates staged files from hardlinked workspace and store files', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-hardlinks-'))
     const source = join(root, 'source.js')
