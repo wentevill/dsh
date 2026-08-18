@@ -31,6 +31,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn Error>> {
     let server = ServerProcess::start(StartSpec {
         node: resources.node,
         cli: resources.cli,
+        package_bin: resources.package_bin,
         dsh_home,
         ready_timeout: Duration::from_secs(30),
         shutdown_grace: Duration::from_secs(5),

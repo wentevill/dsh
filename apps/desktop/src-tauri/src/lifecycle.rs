@@ -1,8 +1,9 @@
+use std::ffi::{OsStr, OsString};
 use std::fmt::{Debug, Display, Formatter};
 use std::io::{BufRead, BufReader, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::os::unix::process::CommandExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread::{self, JoinHandle};
@@ -46,6 +47,7 @@ unsafe extern "C" {
 pub struct StartSpec {
     pub node: PathBuf,
     pub cli: PathBuf,
+    pub package_bin: PathBuf,
     pub dsh_home: PathBuf,
     pub ready_timeout: Duration,
     pub shutdown_grace: Duration,
@@ -106,11 +108,20 @@ impl Debug for ServerProcess {
 
 impl ServerProcess {
     pub fn start(spec: StartSpec) -> Result<Self, StartError> {
+        let private_path = private_runtime_path(
+            &spec.node,
+            &spec.package_bin,
+            std::env::var_os("PATH").as_deref(),
+        )
+        .map_err(|error| {
+            StartError::Spawn(std::io::Error::new(std::io::ErrorKind::InvalidInput, error))
+        })?;
         let mut command = Command::new(&spec.node);
         command
             .arg(&spec.cli)
             .args(["--profile", "web", "--port", "0"])
             .env("DSH_HOME", &spec.dsh_home)
+            .env("PATH", private_path)
             .env_remove("NODE_OPTIONS")
             .env_remove("NODE_PATH")
             .env_remove("NODE_EXTRA_CA_CERTS")
@@ -225,6 +236,21 @@ impl ServerProcess {
             let _ = stderr.join();
         }
     }
+}
+
+pub fn private_runtime_path(
+    node: &Path,
+    package_bin: &Path,
+    inherited: Option<&OsStr>,
+) -> Result<OsString, std::env::JoinPathsError> {
+    let mut entries = vec![
+        node.parent().unwrap_or(node).to_path_buf(),
+        package_bin.to_path_buf(),
+    ];
+    if let Some(inherited) = inherited {
+        entries.extend(std::env::split_paths(inherited));
+    }
+    std::env::join_paths(entries)
 }
 
 pub fn tcp_readiness_probe(address: &SocketAddr) -> bool {

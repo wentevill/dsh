@@ -1,7 +1,10 @@
-use dsh_desktop::lifecycle::{ServerProcess, StartError, StartSpec, parse_web_url};
+use dsh_desktop::lifecycle::{
+    ServerProcess, StartError, StartSpec, parse_web_url, private_runtime_path,
+};
+use std::ffi::OsStr;
 use std::fs::{create_dir_all, write};
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 #[test]
@@ -34,11 +37,54 @@ fn spec(script: PathBuf, timeout: Duration) -> StartSpec {
     StartSpec {
         node: PathBuf::from("/bin/sh"),
         cli: script,
+        package_bin: PathBuf::from("/private/runtime/app/node_modules/.bin"),
         dsh_home: std::env::temp_dir().join("dsh-desktop-home"),
         ready_timeout: timeout,
         shutdown_grace: Duration::from_millis(300),
         readiness_probe: |_| true,
     }
+}
+
+#[test]
+fn private_runtime_path_precedes_every_inherited_entry() {
+    let path = private_runtime_path(
+        Path::new("/private/runtime/node/bin/node"),
+        Path::new("/private/runtime/app/node_modules/.bin"),
+        Some(OsStr::new("/host/bin:/usr/bin")),
+    )
+    .unwrap();
+    let entries = std::env::split_paths(&path).collect::<Vec<_>>();
+    assert_eq!(entries[0], PathBuf::from("/private/runtime/node/bin"));
+    assert_eq!(
+        entries[1],
+        PathBuf::from("/private/runtime/app/node_modules/.bin")
+    );
+    assert_eq!(entries[2], PathBuf::from("/host/bin"));
+    assert_eq!(entries[3], PathBuf::from("/usr/bin"));
+}
+
+#[test]
+fn child_resolves_bare_pnpm_from_the_private_package_bin() {
+    let root =
+        std::env::temp_dir().join(format!("dsh-desktop-private-pnpm-{}", std::process::id()));
+    let package_bin = root.join("node_modules/.bin");
+    create_dir_all(&package_bin).unwrap();
+    let pnpm = package_bin.join("pnpm");
+    write(
+        &pnpm,
+        "#!/bin/sh\ntrap 'exit 0' TERM\necho 'dsh web: http://127.0.0.1:43125'\nwhile :; do :; done\n",
+    )
+    .unwrap();
+    let mut permissions = std::fs::metadata(&pnpm).unwrap().permissions();
+    permissions.set_mode(0o700);
+    std::fs::set_permissions(&pnpm, permissions).unwrap();
+    let cli = fixture_script("private-pnpm-cli.sh", "exec pnpm");
+    let mut start = spec(cli, Duration::from_secs(1));
+    start.package_bin = package_bin;
+
+    let mut server = ServerProcess::start(start).unwrap();
+    assert_eq!(server.origin(), "http://127.0.0.1:43125");
+    server.shutdown().unwrap();
 }
 
 #[test]

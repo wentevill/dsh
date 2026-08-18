@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 pub struct RuntimePaths {
     pub node: PathBuf,
     pub cli: PathBuf,
+    pub package_bin: PathBuf,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -28,8 +29,23 @@ impl RuntimePaths {
         require_file(root, &node)?;
         let cli = root.join("runtime/app/node_modules/@deepseek-ai/dsh/lib/bin.js");
         require_file(root, &cli)?;
-        Ok(Self { node, cli })
+        let package_bin = root.join("runtime/app/node_modules/.bin");
+        require_directory(root, &package_bin)?;
+        Ok(Self {
+            node,
+            cli,
+            package_bin,
+        })
     }
+}
+
+fn require_directory(root: &Path, path: &Path) -> Result<(), MissingResource> {
+    if path.is_dir() {
+        return Ok(());
+    }
+    Err(MissingResource(
+        path.strip_prefix(root).unwrap_or(path).to_path_buf(),
+    ))
 }
 
 fn require_file(root: &Path, path: &Path) -> Result<(), MissingResource> {
