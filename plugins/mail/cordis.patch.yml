@@ -1,15 +1,17 @@
 - insert:
-    - id: mail-plugin
-      name: dsh-mail-plugin
+    - id: mail
+      name: dsh-mail
       config:
         username: you@example.com
         passwordEnv: MAIL_APP_PASSWORD
         mailbox: INBOX
+        archiveMailbox: Archive
+        allowDelete: false
         imap:
-          host: imap.example.com
+          host: ""
           port: 993
           secure: true
         smtp:
-          host: smtp.example.com
+          host: ""
           port: 465
           secure: true

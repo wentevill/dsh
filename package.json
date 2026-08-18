@@ -6,7 +6,7 @@
   "packageManager": "pnpm@11.7.0",
   "scripts": {
     "mail:pack": "corepack pnpm --dir plugins/mail pack --pack-destination .",
-    "mail:test": "vitest run plugins/mail/tests/package.spec.ts",
+    "mail:test": "vitest run plugins/mail/tests",
     "verify:upstream": "node --experimental-strip-types packaging/assert-upstream.ts",
     "test": "vitest run packaging",
     "test:layout": "vitest run packaging/upstream-layout.spec.ts",

@@ -29,13 +29,13 @@ export type { MailCardFace, MailCardState } from './mail-card-controller.ts'
 /** Copy namespace owned by this client plugin. */
 const NS = 'settings.plugins.mail'
 
-export const name = 'mail-plugin-client'
+export const name = 'mail-client'
 export const inject = ['remote']
 
 /** UI fiber started only after the parent has mounted the Mail Remote namespace. */
 export const mailClientFeature = Object.assign(async (ctx: ClientContext): Promise<void> => {
   const { api } = ctx.get('connection') as ConnectionHandle
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'mail-plugin-client: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'mail-client: dictionaries')
 
   const loaded = unwrapMailSettingsSave(await ctx.remote.mailSettings.load())
   const mirror = createMailSettingsMirror(loaded.settings)
@@ -54,7 +54,7 @@ export const mailClientFeature = Object.assign(async (ctx: ClientContext): Promi
   // Re-read the password badge when the Host commits a change from anywhere.
   ctx.effect(
     () => ctx.remote.$on('credentials/updated', () => { controller.refreshCredential() }),
-    'mail-plugin-client: credential invalidations',
+    'mail-client: credential invalidations',
   )
 
   ctx.slots.inject('settings.plugin.item', function* () {

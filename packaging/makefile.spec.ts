@@ -29,7 +29,7 @@ describe('Desktop Make commands', () => {
     expect(output).toContain('"/tmp/DeepSeek Harness.app/Contents/Resources/runtime/node/bin/node"')
     expect(output).toContain('"/tmp/DeepSeek Harness.app/Contents/Resources/runtime/app/node_modules/@deepseek-ai/dsh/lib/bin.js"')
     expect(output).toContain('plugin --profile "custom" add')
-    expect(output).toContain(`dsh-mail-plugin-${mailManifest.version}.tgz`)
+    expect(output).toContain(`dsh-mail-${mailManifest.version}.tgz`)
     expect(output.match(/plugin --profile/g)).toHaveLength(1)
   })
 
@@ -40,7 +40,7 @@ describe('Desktop Make commands', () => {
       copyFileSync(resolve(root, 'Makefile'), resolve(fixture, 'Makefile'))
       writeFileSync(resolve(fixture, 'plugins/mail/package.json'), JSON.stringify({ version: '9.8.7' }))
       const output = execFileSync('make', ['-n', 'install-plugin'], { cwd: fixture, encoding: 'utf8' })
-      expect(output).toContain('plugins/mail/dsh-mail-plugin-9.8.7.tgz')
+      expect(output).toContain('plugins/mail/dsh-mail-9.8.7.tgz')
     } finally {
       rmSync(fixture, { recursive: true, force: true })
     }

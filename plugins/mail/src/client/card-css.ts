@@ -101,8 +101,8 @@ export function ensureCardCSS(): void {
   if (injected || typeof document === 'undefined') return
   injected = true
   const tag = document.createElement('style')
-  tag.dataset.plugin = 'dsh-mail-plugin'
-  tag.dataset.pluginCss = 'dsh-mail-plugin/card'
+  tag.dataset.plugin = 'dsh-mail'
+  tag.dataset.pluginCss = 'dsh-mail/card'
   tag.textContent = STYLE
   document.head.appendChild(tag)
 }

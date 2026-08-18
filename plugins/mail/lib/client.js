@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-	id: "dsh-mail-plugin",
+	id: "dsh-mail",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
@@ -4003,10 +4003,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		}
 		//#endregion
 		//#region lib/typert.remote-client.js
-		const dsh_mail_plugin_mailSettings_load_result$schema = object({ "settings": object({
+		const dsh_mail_mailSettings_load_result$schema = object({ "settings": object({
 			"username": string(),
 			"passwordEnv": string(),
 			"mailbox": string(),
+			"archiveMailbox": string(),
+			"allowDelete": boolean(),
 			"imap": object({
 				"host": string(),
 				"port": number(),
@@ -4018,10 +4020,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				"secure": boolean()
 			})
 		}).readonly() });
-		const dsh_mail_plugin_mailSettings_save_parameter_0$schema = object({ "settings": object({
+		const dsh_mail_mailSettings_save_parameter_0$schema = object({ "settings": object({
 			"username": string(),
 			"passwordEnv": string(),
 			"mailbox": string(),
+			"archiveMailbox": string(),
+			"allowDelete": boolean(),
 			"imap": object({
 				"host": string(),
 				"port": number(),
@@ -4033,10 +4037,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				"secure": boolean()
 			})
 		}).readonly() });
-		const dsh_mail_plugin_mailSettings_save_result$schema = object({ "settings": object({
+		const dsh_mail_mailSettings_save_result$schema = object({ "settings": object({
 			"username": string(),
 			"passwordEnv": string(),
 			"mailbox": string(),
+			"archiveMailbox": string(),
+			"allowDelete": boolean(),
 			"imap": object({
 				"host": string(),
 				"port": number(),
@@ -4049,9 +4055,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			})
 		}).readonly() });
 		const TYPERT_REMOTE = {
-			package: "dsh-mail-plugin",
+			package: "dsh-mail",
 			descriptors: [{
-				id: "dsh-mail-plugin#mailSettings/load",
+				id: "dsh-mail#mailSettings/load",
 				service: "mailSettings",
 				namespace: "mailSettings",
 				method: "load",
@@ -4059,16 +4065,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				parameters: [],
 				result: {
 					mode: "strict",
-					typeSymbol: "dsh-mail-plugin/remote-types#MailSettingsSaveResult",
-					schema: dsh_mail_plugin_mailSettings_load_result$schema
+					typeSymbol: "dsh-mail/remote-types#MailSettingsSaveResult",
+					schema: dsh_mail_mailSettings_load_result$schema
 				},
 				sourceLocation: {
 					"file": "packages/mail/src/index.ts",
-					"line": 53,
+					"line": 57,
 					"column": 3
 				}
 			}, {
-				id: "dsh-mail-plugin#mailSettings/save",
+				id: "dsh-mail#mailSettings/save",
 				service: "mailSettings",
 				namespace: "mailSettings",
 				method: "save",
@@ -4079,18 +4085,18 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					source: "json",
 					codec: {
 						mode: "strict",
-						typeSymbol: "dsh-mail-plugin/remote-types#MailSettingsSaveRequest",
-						schema: dsh_mail_plugin_mailSettings_save_parameter_0$schema
+						typeSymbol: "dsh-mail/remote-types#MailSettingsSaveRequest",
+						schema: dsh_mail_mailSettings_save_parameter_0$schema
 					}
 				}],
 				result: {
 					mode: "strict",
-					typeSymbol: "dsh-mail-plugin/remote-types#MailSettingsSaveResult",
-					schema: dsh_mail_plugin_mailSettings_save_result$schema
+					typeSymbol: "dsh-mail/remote-types#MailSettingsSaveResult",
+					schema: dsh_mail_mailSettings_save_result$schema
 				},
 				sourceLocation: {
 					"file": "packages/mail/src/index.ts",
-					"line": 61,
+					"line": 65,
 					"column": 9
 				}
 			}]
@@ -4193,8 +4199,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			if (injected || typeof document === "undefined") return;
 			injected = true;
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "dsh-mail-plugin";
-			tag.dataset.pluginCss = "dsh-mail-plugin/card";
+			tag.dataset.plugin = "dsh-mail";
+			tag.dataset.pluginCss = "dsh-mail/card";
 			tag.textContent = STYLE;
 			document.head.appendChild(tag);
 		}
@@ -4447,6 +4453,29 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 						onReset: () => props.resetField("mailbox")
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
+						id: "mail-archive-mailbox",
+						label: readT("mailArchiveMailbox"),
+						hint: readT("mailArchiveMailboxHint"),
+						text: state.archiveMailbox.text,
+						overridden: state.archiveMailbox.overridden,
+						invalid: state.archiveMailbox.invalid,
+						overriddenLabel: readT("overridden"),
+						resetLabel: readT("reset"),
+						invalidLabel: readT("invalidText"),
+						placeholder: "Archive",
+						disabled,
+						onEdit: (v) => props.edit("archiveMailbox", v),
+						onReset: () => props.resetField("archiveMailbox")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(CheckField, {
+						id: "mail-allow-delete",
+						label: readT("mailAllowDelete"),
+						hint: readT("mailAllowDeleteHint"),
+						checked: state.allowDelete.text === "true",
+						disabled,
+						onToggle: (c) => props.edit("allowDelete", c ? "true" : "false")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
 						id: "mail-imap-host",
 						label: readT("mailImapHost"),
 						hint: readT("mailImapHostHint"),
@@ -4572,12 +4601,17 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		const TEXT_FIELDS = /* @__PURE__ */ new Set([
 			"username",
 			"mailbox",
+			"archiveMailbox",
 			"imapHost",
 			"smtpHost"
 		]);
 		const PORT_FIELDS = /* @__PURE__ */ new Set(["imapPort", "smtpPort"]);
-		const SECURE_FIELDS = /* @__PURE__ */ new Set(["imapSecure", "smtpSecure"]);
-		const isFlat = (field) => field === "password" || TEXT_FIELDS.has(field) || PORT_FIELDS.has(field) || SECURE_FIELDS.has(field);
+		const BOOLEAN_FIELDS = /* @__PURE__ */ new Set([
+			"imapSecure",
+			"smtpSecure",
+			"allowDelete"
+		]);
+		const isFlat = (field) => field === "password" || TEXT_FIELDS.has(field) || PORT_FIELDS.has(field) || BOOLEAN_FIELDS.has(field);
 		/**
 		* Build the mail card controller.
 		* @param scope - the bound settings scope for the `mail` namespace.
@@ -4598,7 +4632,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				if (d !== void 0) return d;
 				const raw = field === "imapHost" ? nested(snap, "imap", "host") : field === "imapPort" ? nested(snap, "imap", "port") : field === "imapSecure" ? nested(snap, "imap", "secure") : field === "smtpHost" ? nested(snap, "smtp", "host") : field === "smtpPort" ? nested(snap, "smtp", "port") : field === "smtpSecure" ? nested(snap, "smtp", "secure") : scalar(snap, field);
 				if (PORT_FIELDS.has(field)) return typeof raw === "number" ? String(raw) : "";
-				if (SECURE_FIELDS.has(field)) return raw === true ? "true" : "false";
+				if (BOOLEAN_FIELDS.has(field)) return raw === true ? "true" : "false";
 				return typeof raw === "string" ? raw : "";
 			};
 			const fieldState = (snap, field) => {
@@ -4608,11 +4642,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					const w = staged.trim();
 					return {
 						text: staged,
-						overridden: SECURE_FIELDS.has(field) ? w === "true" || w === "false" : w !== "" && !invalid,
+						overridden: BOOLEAN_FIELDS.has(field) ? w === "true" || w === "false" : w !== "" && !invalid,
 						invalid
 					};
 				}
-				const stored = SECURE_FIELDS.has(field) ? storedGroup(snap, field === "imapSecure" ? "imap" : "smtp") : field === "imapHost" || field === "imapPort" ? storedGroup(snap, "imap") : field === "smtpHost" || field === "smtpPort" ? storedGroup(snap, "smtp") : storedScalar(snap, field);
+				const stored = field === "allowDelete" ? storedScalar(snap, field) : BOOLEAN_FIELDS.has(field) ? storedGroup(snap, field === "imapSecure" ? "imap" : "smtp") : field === "imapHost" || field === "imapPort" ? storedGroup(snap, "imap") : field === "smtpHost" || field === "smtpPort" ? storedGroup(snap, "smtp") : storedScalar(snap, field);
 				return {
 					text: valueOf(snap, field),
 					overridden: stored,
@@ -4631,6 +4665,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					failed,
 					username: fieldState(snap, "username"),
 					mailbox: fieldState(snap, "mailbox"),
+					archiveMailbox: fieldState(snap, "archiveMailbox"),
+					allowDelete: fieldState(snap, "allowDelete"),
 					imapHost: fieldState(snap, "imapHost"),
 					imapPort: fieldState(snap, "imapPort"),
 					imapSecure: fieldState(snap, "imapSecure"),
@@ -4687,10 +4723,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 						const v = field === "imapPort" ? nested(snap, "imap", "port") : nested(snap, "smtp", "port");
 						return typeof v === "number" ? v : 0;
 					};
-					const secureOf = (field) => {
+					const booleanOf = (field) => {
 						const d = drafts.get(field);
 						if (d !== void 0) return d === "true";
-						return (field === "imapSecure" ? nested(snap, "imap", "secure") : nested(snap, "smtp", "secure")) === true;
+						return (field === "allowDelete" ? scalar(snap, "allowDelete") : field === "imapSecure" ? nested(snap, "imap", "secure") : nested(snap, "smtp", "secure")) === true;
 					};
 					const hostOf = (field) => {
 						const d = drafts.get(field);
@@ -4702,15 +4738,17 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 						username: str("username", typeof scalar(snap, "username") === "string" ? scalar(snap, "username") : ""),
 						passwordEnv: typeof scalar(snap, "passwordEnv") === "string" ? scalar(snap, "passwordEnv") : PASSWORD_REF,
 						mailbox: str("mailbox", "INBOX") || "INBOX",
+						archiveMailbox: str("archiveMailbox", "Archive") || "Archive",
+						allowDelete: booleanOf("allowDelete"),
 						imap: {
 							host: hostOf("imapHost"),
 							port: portNum("imapPort"),
-							secure: secureOf("imapSecure")
+							secure: booleanOf("imapSecure")
 						},
 						smtp: {
 							host: hostOf("smtpHost"),
 							port: portNum("smtpPort"),
-							secure: secureOf("smtpSecure")
+							secure: booleanOf("smtpSecure")
 						}
 					});
 					const pw = drafts.get("password")?.trim();
@@ -4788,6 +4826,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			mailUsernameHint: "The mailbox whose mail is read and on whose behalf mail is sent.",
 			mailMailbox: "Mailbox",
 			mailMailboxHint: "IMAP folder to read, normally INBOX.",
+			mailArchiveMailbox: "Archive mailbox",
+			mailArchiveMailboxHint: "IMAP folder where archived messages are moved.",
+			mailAllowDelete: "Allow permanent deletion",
+			mailAllowDeleteHint: "Enable the permanently delete action for this account.",
 			mailImapHost: "IMAP server",
 			mailImapHostHint: "The IMAP receive server.",
 			mailImapPort: "IMAP port",
@@ -4824,6 +4866,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			mailUsernameHint: "用于读取收件箱，并以此身份发送邮件。",
 			mailMailbox: "邮箱",
 			mailMailboxHint: "要读取的 IMAP 文件夹，通常为 INBOX。",
+			mailArchiveMailbox: "归档邮箱",
+			mailArchiveMailboxHint: "归档邮件要移动到的 IMAP 文件夹。",
+			mailAllowDelete: "允许永久删除",
+			mailAllowDeleteHint: "为此账号启用永久删除操作。",
 			mailImapHost: "IMAP 服务器",
 			mailImapHostHint: "接收邮件的 IMAP 服务器。",
 			mailImapPort: "IMAP 端口",
@@ -4886,7 +4932,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		//#region src/client/index.ts
 		/** Copy namespace owned by this client plugin. */
 		const NS = "settings.plugins.mail";
-		const name = "mail-plugin-client";
+		const name = "mail-client";
 		const inject = ["remote"];
 		/** UI fiber started only after the parent has mounted the Mail Remote namespace. */
 		const mailClientFeature = Object.assign(async (ctx) => {
@@ -4894,7 +4940,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "mail-plugin-client: dictionaries");
+			}), "mail-client: dictionaries");
 			const mirror = createMailSettingsMirror(unwrapMailSettingsSave(await ctx.remote.mailSettings.load()).settings);
 			const controller = createMailCardController(mirror.scope, api, async (settings) => {
 				const saved = unwrapMailSettingsSave(await ctx.remote.mailSettings.save({ settings }));
@@ -4903,7 +4949,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			}, true);
 			ctx.effect(() => ctx.remote.$on("credentials/updated", () => {
 				controller.refreshCredential();
-			}), "mail-plugin-client: credential invalidations");
+			}), "mail-client: credential invalidations");
 			ctx.slots.inject("settings.plugin.item", function* () {
 				yield ctx.slots.register({
 					name: "settings.plugin.item",

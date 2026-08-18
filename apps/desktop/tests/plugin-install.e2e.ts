@@ -12,7 +12,7 @@ const node = join(runtime, 'node/bin/node')
 const cli = join(runtime, 'app/node_modules/@deepseek-ai/dsh/lib/bin.js')
 const packageBin = join(runtime, 'app/node_modules/.bin')
 const mailManifest = JSON.parse(readFileSync(join(packaging, 'plugins/mail/package.json'), 'utf8')) as { version: string }
-const archive = join(packaging, `plugins/mail/dsh-mail-plugin-${mailManifest.version}.tgz`)
+const archive = join(packaging, `plugins/mail/dsh-mail-${mailManifest.version}.tgz`)
 
 function run(home: string, args: string[]) {
   return spawnSync(node, [cli, ...args], {
@@ -82,9 +82,9 @@ describe('packaged native dsh plugin installation', () => {
       dependencies?: Record<string, string>
       dsh?: { profile?: { bundles?: string[] } }
     }
-    expect(manifest.dependencies?.['dsh-mail-plugin']).toBeTruthy()
-    expect(manifest.dependencies?.['dsh-mail-plugin']).not.toContain('link:')
-    expect(manifest.dsh?.profile?.bundles?.filter(name => name === 'dsh-mail-plugin')).toHaveLength(1)
+    expect(manifest.dependencies?.['dsh-mail']).toBeTruthy()
+    expect(manifest.dependencies?.['dsh-mail']).not.toContain('link:')
+    expect(manifest.dsh?.profile?.bundles?.filter(name => name === 'dsh-mail')).toHaveLength(1)
 
     const probe = spawnSync(node, ['--input-type=module', '--eval', [
       `import { createRequire } from 'node:module'`,
@@ -92,7 +92,7 @@ describe('packaged native dsh plugin installation', () => {
       `import { dirname, join } from 'node:path'`,
       `const require = createRequire(${JSON.stringify(join(profile, 'package.json'))})`,
       `for (const name of ['@deepseek-ai/schemastery', 'imapflow', 'mailparser', 'nodemailer']) require.resolve(name)`,
-      `const packageRoot = dirname(require.resolve('dsh-mail-plugin/package.json'))`,
+      `const packageRoot = dirname(require.resolve('dsh-mail/package.json'))`,
       `const { NodeMailTransport } = await import(pathToFileURL(join(packageRoot, 'lib/transport.js')).href)`,
       `const transport = new NodeMailTransport()`,
       `const config = { username: 'user@example.com', passwordRef: { provider: 'env', key: 'MAIL_PASSWORD' }, mailbox: 'INBOX', imap: { host: 'imap.example.com', port: 143, secure: false }, smtp: { host: 'smtp.example.com', port: 587, secure: false } }`,
@@ -103,7 +103,7 @@ describe('packaged native dsh plugin installation', () => {
 
     const dump = run(home, ['--profile', 'web', '--dump-config'])
     expect(dump.status, `${dump.stdout}\n${dump.stderr}`).toBe(0)
-    expect(dump.stdout).toContain('dsh-mail-plugin')
+    expect(dump.stdout).toContain('dsh-mail')
     expect(dump.stdout).toContain('secure: true')
 
     await expect(bootWeb(home)).resolves.toMatch(/dsh web: http:\/\/127\.0\.0\.1:\d+/u)

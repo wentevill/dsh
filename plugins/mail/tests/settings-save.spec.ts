@@ -48,7 +48,7 @@ function baseSnapshot(): Snapshot {
   return {
     writable: true,
     value: {
-      username: 'user@example.com', mailbox: 'INBOX',
+      username: 'user@example.com', mailbox: 'INBOX', archiveMailbox: 'Archive', allowDelete: false,
       imap: { host: 'imap.example.com', port: 993, secure: true },
       smtp: { host: 'smtp.example.com', port: 465, secure: true },
     },
@@ -78,6 +78,8 @@ describe('mail settings save', () => {
       username: 'user@example.com',
       passwordEnv: 'MAIL_APP_PASSWORD',
       mailbox: 'INBOX',
+      archiveMailbox: 'Archive',
+      allowDelete: false,
       imap: { host: 'imap.example.com', port: 993, secure: true },
       smtp: { host: 'smtp.changed.example.com', port: 465, secure: true },
     }])

@@ -12,6 +12,11 @@ import z from '@deepseek-ai/schemastery';
 import { settingsNamespace } from '@deepseek-ai/dsh-settings';
 /** The user-settings namespace owning this plugin's account form. */
 export const MAIL_SETTINGS_NAMESPACE = settingsNamespace('mail');
+/** Derive operation availability from endpoint configuration and deletion consent. */
+export function mailCapabilities(settings) {
+    const imap = settings.imap.host.trim() !== '';
+    return { imap, smtp: settings.smtp.host.trim() !== '', delete: imap && settings.allowDelete };
+}
 /** Endpoint schema for a given default port (`imap` 993, `smtp` 465). */
 function endpoint(portDefault) {
     return z.object({
@@ -25,6 +30,8 @@ export const MailSettingsSchema = z.object({
     username: z.string().default(''),
     passwordEnv: z.string().role('credential-ref').default('MAIL_APP_PASSWORD'),
     mailbox: z.string().default('INBOX'),
+    archiveMailbox: z.string().default('Archive'),
+    allowDelete: z.boolean().default(false),
     imap: endpoint(993),
     smtp: endpoint(465),
 });

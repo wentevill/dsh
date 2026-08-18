@@ -10,17 +10,19 @@ function pack(): string {
   const destination = mkdtempSync(resolve(tmpdir(), 'dsh-mail-pack-'))
   execFileSync('corepack', ['pnpm', '--dir', root, 'pack', '--pack-destination', destination])
   const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { version: string }
-  return resolve(destination, `dsh-mail-plugin-${manifest.version}.tgz`)
+  return resolve(destination, `dsh-mail-${manifest.version}.tgz`)
 }
 
 describe('published mail plugin', () => {
   it('declares plugin libraries as dependencies and DSH capabilities as peers', () => {
     const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
+      name: string
       dependencies?: Record<string, string>
       peerDependencies?: Record<string, string>
       files?: string[]
       dsh?: { bundle?: { patch?: string } }
     }
+    expect(manifest.name).toBe('dsh-mail')
     expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual([
       '@deepseek-ai/schemastery',
       'imapflow',

@@ -26,10 +26,22 @@ export interface MailSettings {
     passwordEnv: string;
     /** IMAP mailbox to list/read. */
     mailbox: string;
+    /** IMAP mailbox where archived messages are moved. */
+    archiveMailbox: string;
+    /** Whether permanently deleting a message is available. */
+    allowDelete: boolean;
     /** IMAP receive endpoint. */
     imap: NetworkEndpoint;
     /** SMTP send endpoint. */
     smtp: NetworkEndpoint;
 }
+/** Operations enabled by the independently configured mail endpoints. */
+export interface MailCapabilities {
+    imap: boolean;
+    smtp: boolean;
+    delete: boolean;
+}
+/** Derive operation availability from endpoint configuration and deletion consent. */
+export declare function mailCapabilities(settings: MailSettings): MailCapabilities;
 /** Schemastery schema rendered as the account form by configuration surfaces. */
 export declare const MailSettingsSchema: z<MailSettings>;

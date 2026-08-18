@@ -18,6 +18,8 @@ export interface Config {
     readonly username: string;
     readonly passwordEnv?: string;
     readonly mailbox?: string;
+    readonly archiveMailbox?: string;
+    readonly allowDelete?: boolean;
     readonly imap: EndpointConfig;
     readonly smtp: EndpointConfig;
     readonly listMaxResults?: number;
@@ -30,6 +32,8 @@ export interface ResolvedConfig {
     readonly username: string;
     readonly passwordRef: CredentialRef;
     readonly mailbox: string;
+    readonly archiveMailbox: string;
+    readonly allowDelete: boolean;
     readonly imap: EndpointConfig;
     readonly smtp: EndpointConfig;
 }
@@ -49,7 +53,7 @@ export interface MailTransport {
     send(config: ResolvedConfig, password: string, request: MailSendRequest, signal?: AbortSignal): Promise<MailSendResult>;
 }
 export declare const Config: z<Config>;
-export declare const name = "mail-plugin";
+export declare const name = "mail";
 /** Uses the key-management component (`credentials`) for the password. */
 export declare const inject: string[];
 export declare function apply(ctx: Context, config: Config): void;

@@ -3,7 +3,7 @@ import type {
   RemoteResult,
   TypertRemoteContribution,
 } from '@deepseek-ai/dsh-typert-protocol'
-import type { MailSettingsSaveRequest, MailSettingsSaveResult } from 'dsh-mail-plugin/remote-types'
+import type { MailSettingsSaveRequest, MailSettingsSaveResult } from 'dsh-mail/remote-types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$6d61696c53657474696e6773 {

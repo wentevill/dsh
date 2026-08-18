@@ -1,5 +1,5 @@
 /**
- * Client-bundle emitter for dsh-mail-plugin.
+ * Client-bundle emitter for dsh-mail.
  *
  * Reuses the harness client preset's platform table ({@link CLIENT_EXTERNALS})
  * so the browser bundle resolves its externals against the loader module table
@@ -7,7 +7,7 @@
  * the frozen instances; `@deepseek-ai/dsh-client-runtime/client` rides its
  * documented store-engine exemption), bundles everything else inline, and lands
  * in `lib/client.js` as a `window.__ModuleLoader__.load({ id, factory })`
- * closure-factory artifact served at `/plugins/dsh-mail-plugin/client.js`.
+ * closure-factory artifact served at `/plugins/dsh-mail/client.js`.
  *
  * This config emits ONLY the client bundle; the node half (`lib/index.js`, …)
  * is produced by the plain `tsc -p tsconfig.build.json` host build.
@@ -23,7 +23,7 @@ const CLIENT_EXTERNALS = [
 ] as const
 
 /** Must match the package name — the boot-graph entry id the browser correlates the load with. */
-const PLUGIN_ID = 'dsh-mail-plugin'
+const PLUGIN_ID = 'dsh-mail'
 
 const NODE_ENV = process.env.NODE_ENV ?? 'production'
 

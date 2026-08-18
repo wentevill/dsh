@@ -47,6 +47,18 @@ export function MailCard(props: MailCardProps) {
         onEdit={v => props.edit('mailbox', v)} onReset={() => props.resetField('mailbox')}
       />
       <ValueField
+        id="mail-archive-mailbox" label={readT('mailArchiveMailbox')} hint={readT('mailArchiveMailboxHint')}
+        text={state.archiveMailbox.text} overridden={state.archiveMailbox.overridden} invalid={state.archiveMailbox.invalid}
+        overriddenLabel={readT('overridden')} resetLabel={readT('reset')} invalidLabel={readT('invalidText')}
+        placeholder="Archive" disabled={disabled}
+        onEdit={v => props.edit('archiveMailbox', v)} onReset={() => props.resetField('archiveMailbox')}
+      />
+      <CheckField
+        id="mail-allow-delete" label={readT('mailAllowDelete')} hint={readT('mailAllowDeleteHint')}
+        checked={state.allowDelete.text === 'true'} disabled={disabled}
+        onToggle={c => props.edit('allowDelete', c ? 'true' : 'false')}
+      />
+      <ValueField
         id="mail-imap-host" label={readT('mailImapHost')} hint={readT('mailImapHostHint')}
         text={state.imapHost.text} overridden={state.imapHost.overridden} invalid={state.imapHost.invalid}
         overriddenLabel={readT('overridden')} resetLabel={readT('reset')} invalidLabel={readT('invalidText')}

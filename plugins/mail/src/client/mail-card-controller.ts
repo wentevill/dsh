@@ -29,7 +29,7 @@ const PASSWORD_REF = 'MAIL_APP_PASSWORD'
 
 /** Flat control names the card chrome edits; nested fields map onto the section. */
 type FlatField =
-  | 'username' | 'mailbox'
+  | 'username' | 'mailbox' | 'archiveMailbox' | 'allowDelete'
   | 'imapHost' | 'imapPort' | 'imapSecure'
   | 'smtpHost' | 'smtpPort' | 'smtpSecure'
   | 'password'
@@ -44,6 +44,8 @@ interface CredentialView {
 export interface MailCardState extends CardShell {
   username: CardFieldState
   mailbox: CardFieldState
+  archiveMailbox: CardFieldState
+  allowDelete: CardFieldState
   imapHost: CardFieldState
   imapPort: CardFieldState
   imapSecure: CardFieldState
@@ -84,12 +86,12 @@ function isValidPort(text: string): boolean {
   return Number.isInteger(n) && n >= 1 && n <= 65535
 }
 
-const TEXT_FIELDS: ReadonlySet<FlatField> = new Set(['username', 'mailbox', 'imapHost', 'smtpHost'])
+const TEXT_FIELDS: ReadonlySet<FlatField> = new Set(['username', 'mailbox', 'archiveMailbox', 'imapHost', 'smtpHost'])
 const PORT_FIELDS: ReadonlySet<FlatField> = new Set(['imapPort', 'smtpPort'])
-const SECURE_FIELDS: ReadonlySet<FlatField> = new Set(['imapSecure', 'smtpSecure'])
+const BOOLEAN_FIELDS: ReadonlySet<FlatField> = new Set(['imapSecure', 'smtpSecure', 'allowDelete'])
 
 const isFlat = (field: string): boolean =>
-  field === 'password' || TEXT_FIELDS.has(field as FlatField) || PORT_FIELDS.has(field as FlatField) || SECURE_FIELDS.has(field as FlatField)
+  field === 'password' || TEXT_FIELDS.has(field as FlatField) || PORT_FIELDS.has(field as FlatField) || BOOLEAN_FIELDS.has(field as FlatField)
 
 /**
  * Build the mail card controller.
@@ -120,7 +122,7 @@ export function createMailCardController(
       : field === 'smtpSecure' ? nested(snap, 'smtp', 'secure')
       : scalar(snap, field)
     if (PORT_FIELDS.has(field)) return typeof raw === 'number' ? String(raw) : ''
-    if (SECURE_FIELDS.has(field)) return raw === true ? 'true' : 'false'
+    if (BOOLEAN_FIELDS.has(field)) return raw === true ? 'true' : 'false'
     return typeof raw === 'string' ? raw : ''
   }
 
@@ -129,10 +131,12 @@ export function createMailCardController(
     if (staged !== undefined) {
       const invalid = PORT_FIELDS.has(field) ? !isValidPort(staged) : false
       const w = staged.trim()
-      const sets = SECURE_FIELDS.has(field) ? (w === 'true' || w === 'false') : (w !== '' && !invalid)
+      const sets = BOOLEAN_FIELDS.has(field) ? (w === 'true' || w === 'false') : (w !== '' && !invalid)
       return { text: staged, overridden: sets, invalid }
     }
-    const stored = SECURE_FIELDS.has(field)
+    const stored = field === 'allowDelete'
+      ? storedScalar(snap, field)
+      : BOOLEAN_FIELDS.has(field)
       ? storedGroup(snap, field === 'imapSecure' ? 'imap' : 'smtp')
       : (field === 'imapHost' || field === 'imapPort') ? storedGroup(snap, 'imap')
       : (field === 'smtpHost' || field === 'smtpPort') ? storedGroup(snap, 'smtp')
@@ -152,6 +156,8 @@ export function createMailCardController(
       failed,
       username: fieldState(snap, 'username'),
       mailbox: fieldState(snap, 'mailbox'),
+      archiveMailbox: fieldState(snap, 'archiveMailbox'),
+      allowDelete: fieldState(snap, 'allowDelete'),
       imapHost: fieldState(snap, 'imapHost'),
       imapPort: fieldState(snap, 'imapPort'),
       imapSecure: fieldState(snap, 'imapSecure'),
@@ -199,10 +205,12 @@ export function createMailCardController(
         const v = (field === 'imapPort' ? nested(snap, 'imap', 'port') : nested(snap, 'smtp', 'port'))
         return typeof v === 'number' ? v : 0
       }
-      const secureOf = (field: FlatField): boolean => {
+      const booleanOf = (field: FlatField): boolean => {
         const d = drafts.get(field)
         if (d !== undefined) return d === 'true'
-        const v = (field === 'imapSecure' ? nested(snap, 'imap', 'secure') : nested(snap, 'smtp', 'secure'))
+        const v = field === 'allowDelete'
+          ? scalar(snap, 'allowDelete')
+          : field === 'imapSecure' ? nested(snap, 'imap', 'secure') : nested(snap, 'smtp', 'secure')
         return v === true
       }
       const hostOf = (field: FlatField): string => {
@@ -216,8 +224,10 @@ export function createMailCardController(
         username: str('username', typeof scalar(snap, 'username') === 'string' ? scalar(snap, 'username') as string : ''),
         passwordEnv: typeof scalar(snap, 'passwordEnv') === 'string' ? scalar(snap, 'passwordEnv') as string : PASSWORD_REF,
         mailbox: str('mailbox', 'INBOX') || 'INBOX',
-        imap: { host: hostOf('imapHost'), port: portNum('imapPort'), secure: secureOf('imapSecure') },
-        smtp: { host: hostOf('smtpHost'), port: portNum('smtpPort'), secure: secureOf('smtpSecure') },
+        archiveMailbox: str('archiveMailbox', 'Archive') || 'Archive',
+        allowDelete: booleanOf('allowDelete'),
+        imap: { host: hostOf('imapHost'), port: portNum('imapPort'), secure: booleanOf('imapSecure') },
+        smtp: { host: hostOf('smtpHost'), port: portNum('smtpPort'), secure: booleanOf('smtpSecure') },
       })
 
       const pw = drafts.get('password' as FlatField)?.trim()

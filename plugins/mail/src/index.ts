@@ -25,6 +25,8 @@ export interface Config {
   readonly username: string
   readonly passwordEnv?: string
   readonly mailbox?: string
+  readonly archiveMailbox?: string
+  readonly allowDelete?: boolean
   readonly imap: EndpointConfig
   readonly smtp: EndpointConfig
   readonly listMaxResults?: number
@@ -38,6 +40,8 @@ export interface ResolvedConfig {
   readonly username: string
   readonly passwordRef: CredentialRef
   readonly mailbox: string
+  readonly archiveMailbox: string
+  readonly allowDelete: boolean
   readonly imap: EndpointConfig
   readonly smtp: EndpointConfig
 }
@@ -82,6 +86,8 @@ export const Config: z<Config> = z.object({
   username: z.string().required(),
   passwordEnv: z.string().role('credential-ref').default('MAIL_APP_PASSWORD'),
   mailbox: z.string().default('INBOX'),
+  archiveMailbox: z.string().default('Archive'),
+  allowDelete: z.boolean().default(false),
   imap: endpoint.required(),
   smtp: endpoint.required(),
   listMaxResults: z.number().step(1).min(1).default(20),
@@ -109,6 +115,8 @@ function resolveConfig(config: Config): ResolvedConfig {
     username: config.username,
     passwordRef: credentialRef(config.passwordEnv ?? 'MAIL_APP_PASSWORD'),
     mailbox: config.mailbox ?? 'INBOX',
+    archiveMailbox: config.archiveMailbox ?? 'Archive',
+    allowDelete: config.allowDelete ?? false,
     imap: { ...config.imap },
     smtp: { ...config.smtp },
   }
@@ -151,7 +159,7 @@ class MailAccount {
   }
 }
 
-export const name = 'mail-plugin'
+export const name = 'mail'
 /** Uses the key-management component (`credentials`) for the password. */
 export const inject = ['credentials', 'tools', 'systemPrompt']
 
@@ -221,6 +229,8 @@ export function apply(ctx: Context, config: Config): void {
           username: section.username,
           passwordRef: credentialRef(section.passwordEnv || 'MAIL_APP_PASSWORD'),
           mailbox: section.mailbox,
+          archiveMailbox: section.archiveMailbox,
+          allowDelete: section.allowDelete,
           imap: { ...section.imap },
           smtp: { ...section.smtp },
         }
@@ -241,6 +251,8 @@ export function apply(ctx: Context, config: Config): void {
         username: bootstrap.username,
         passwordEnv: config.passwordEnv ?? 'MAIL_APP_PASSWORD',
         mailbox: bootstrap.mailbox,
+        archiveMailbox: bootstrap.archiveMailbox,
+        allowDelete: bootstrap.allowDelete,
         imap: { ...bootstrap.imap },
         smtp: { ...bootstrap.smtp },
       },

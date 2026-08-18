@@ -48,16 +48,16 @@ try {
   const analyzer = new WorkspaceAnalyzer({
     root: stagingRoot,
     faces: ['host'],
-    packages: ['dsh-mail-plugin'],
+    packages: ['dsh-mail'],
     checkDiagnostics: true,
   })
   const discovered = analyzer.discoverPackages()
   const workspace = analyzer.analyze()
   const face = workspace.faces.find(candidate => candidate.face === 'host')
   if (face === undefined) throw new Error('mail Typert generation found no Host face')
-  const packageModel = face.packages.find(candidate => candidate.name === 'dsh-mail-plugin')
+  const packageModel = face.packages.find(candidate => candidate.name === 'dsh-mail')
   if (packageModel === undefined) {
-    throw new Error(`mail Typert generation did not model dsh-mail-plugin; discovered: ${JSON.stringify(discovered)}; modeled: ${face.packages.map(candidate => candidate.name).join(', ')}`)
+    throw new Error(`mail Typert generation did not model dsh-mail; discovered: ${JSON.stringify(discovered)}; modeled: ${face.packages.map(candidate => candidate.name).join(', ')}`)
   }
   const emitted = new FaceModelEmitter(face).emit(packageModel.name)
   if (emitted.remote === undefined) throw new Error('mail Typert generation found no Remote methods')
