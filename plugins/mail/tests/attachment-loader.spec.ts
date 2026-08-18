@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process'
-import { mkdir, mkdtemp, rm, symlink, truncate, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, mkdtemp, rename, rm, symlink, truncate, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   DEFAULT_ATTACHMENT_LIMITS,
+  createAttachmentLoader,
   loadAttachments,
 } from '../src/attachment-loader.ts'
 
@@ -42,6 +43,50 @@ describe('loadAttachments', () => {
       .resolves.toMatchObject([{ filename: 'report.txt', content: Buffer.from('absolute attachment'), size: 19 }])
   })
 
+  it('allows a harmless contained parent segment after canonical containment', async () => {
+    await mkdir(join(workspace, 'reports'))
+    await writeFile(join(workspace, 'report.txt'), 'contained')
+
+    await expect(loadAttachments([{ path: 'reports/../report.txt' }], workspace, DEFAULT_ATTACHMENT_LIMITS))
+      .resolves.toMatchObject([{ filename: 'report.txt', content: Buffer.from('contained') }])
+  })
+
+  it('uses a valid filename and content-type override without retaining the path', async () => {
+    await writeFile(join(workspace, 'report.txt'), 'overridden')
+
+    await expect(loadAttachments([{
+      path: 'report.txt',
+      filename: 'invoice.pdf',
+      contentType: 'application/pdf',
+    }], workspace, DEFAULT_ATTACHMENT_LIMITS)).resolves.toEqual([{
+      filename: 'invoice.pdf',
+      contentType: 'application/pdf',
+      content: Buffer.from('overridden'),
+      size: 10,
+    }])
+  })
+
+  it.each([
+    'nested/name.txt',
+    'nested\\name.txt',
+    '../name.txt',
+    '',
+    ' \t ',
+    'bad\nname.txt',
+  ])('rejects an unsafe filename override: %j', async filename => {
+    await writeFile(join(workspace, 'report.txt'), 'override')
+
+    await expect(loadAttachments([{ path: 'report.txt', filename }], workspace, DEFAULT_ATTACHMENT_LIMITS))
+      .rejects.toMatchObject({ code: 'MAIL_ATTACHMENT_INVALID_FILENAME' })
+  })
+
+  it.each(['', ' \t ', 'text/plain\r\nBcc: attacker@example.test'])('rejects an unsafe content-type override: %j', async contentType => {
+    await writeFile(join(workspace, 'report.txt'), 'override')
+
+    await expect(loadAttachments([{ path: 'report.txt', contentType }], workspace, DEFAULT_ATTACHMENT_LIMITS))
+      .rejects.toMatchObject({ code: 'MAIL_ATTACHMENT_INVALID_CONTENT_TYPE' })
+  })
+
   it('uses the binary fallback when a filename has no known MIME type', async () => {
     await writeFile(join(workspace, 'report.unknown-extension'), 'binary')
 
@@ -49,7 +94,7 @@ describe('loadAttachments', () => {
       .resolves.toMatchObject([{ contentType: 'application/octet-stream' }])
   })
 
-  it('rejects a parent traversal request before loading', async () => {
+  it('rejects a parent traversal request that escapes the workspace', async () => {
     await writeFile(join(fixtureRoot, 'outside.txt'), 'outside')
 
     await expect(loadAttachments([{ path: '../outside.txt' }], workspace, DEFAULT_ATTACHMENT_LIMITS))
@@ -120,7 +165,7 @@ describe('loadAttachments', () => {
     await truncate(filename, DEFAULT_ATTACHMENT_LIMITS.maxFileBytes + 1)
 
     await expect(loadAttachments([{ path: 'large.bin' }], workspace, DEFAULT_ATTACHMENT_LIMITS))
-      .rejects.toMatchObject({ code: 'MAIL_ATTACHMENT_LIMIT_EXCEEDED' })
+      .rejects.toMatchObject({ code: 'MAIL_ATTACHMENT_TOO_LARGE' })
   })
 
   it('accepts a file exactly ten MiB', async () => {
@@ -141,7 +186,7 @@ describe('loadAttachments', () => {
     }))
 
     await expect(loadAttachments(requests, workspace, DEFAULT_ATTACHMENT_LIMITS))
-      .rejects.toMatchObject({ code: 'MAIL_ATTACHMENT_LIMIT_EXCEEDED' })
+      .rejects.toMatchObject({ code: 'MAIL_ATTACHMENT_TOO_LARGE' })
   })
 
   it('accepts exactly twenty-five MiB in total', async () => {
@@ -165,5 +210,73 @@ describe('loadAttachments', () => {
 
     await expect(loadAttachments([{ path: 'report.txt' }], workspace, DEFAULT_ATTACHMENT_LIMITS, controller.signal))
       .rejects.toMatchObject({ name: 'AbortError' })
+  })
+
+  it('reads the opened file when its path is replaced by an outside symlink', async () => {
+    const target = join(workspace, 'safe.txt')
+    const outside = join(fixtureRoot, 'outside.txt')
+    await writeFile(target, 'safe content')
+    await writeFile(outside, 'outside content')
+    const loader = createAttachmentLoader({
+      afterOpen: async path => {
+        await rm(path)
+        await symlink(outside, path)
+      },
+    })
+
+    await expect(loader([{ path: 'safe.txt' }], workspace, DEFAULT_ATTACHMENT_LIMITS))
+      .resolves.toMatchObject([{ filename: 'safe.txt', content: Buffer.from('safe content'), size: 12 }])
+  })
+
+  it('rejects an identity replacement between pathname validation and open', async () => {
+    const target = join(workspace, 'report.txt')
+    const replacement = join(workspace, 'replacement.txt')
+    await writeFile(target, 'original')
+    await writeFile(replacement, 'replacement')
+    const loader = createAttachmentLoader({
+      beforeOpen: async path => rename(replacement, path),
+    })
+
+    await expect(loader([{ path: 'report.txt' }], workspace, DEFAULT_ATTACHMENT_LIMITS))
+      .rejects.toMatchObject({ code: 'MAIL_ATTACHMENT_CHANGED' })
+  })
+
+  it('rejects a non-regular replacement between pathname validation and open', async () => {
+    const target = join(workspace, 'report.txt')
+    await writeFile(target, 'original')
+    const loader = createAttachmentLoader({
+      beforeOpen: async path => {
+        await rm(path)
+        await mkdir(path)
+      },
+    })
+
+    await expect(loader([{ path: 'report.txt' }], workspace, DEFAULT_ATTACHMENT_LIMITS))
+      .rejects.toMatchObject({ code: 'MAIL_ATTACHMENT_NOT_REGULAR' })
+  })
+
+  it('rejects content that grows after metadata validation', async () => {
+    const target = join(workspace, 'report.txt')
+    await writeFile(target, 'small')
+    const loader = createAttachmentLoader({
+      afterMetadata: async path => appendFile(path, ' but now larger'),
+    })
+
+    await expect(loader([{ path: 'report.txt' }], workspace, DEFAULT_ATTACHMENT_LIMITS))
+      .rejects.toMatchObject({ code: 'MAIL_ATTACHMENT_CHANGED' })
+  })
+
+  it('closes an opened handle when cancellation interrupts before reads', async () => {
+    await writeFile(join(workspace, 'report.txt'), 'abort')
+    const controller = new AbortController()
+    let closed = 0
+    const loader = createAttachmentLoader({
+      afterMetadata: () => controller.abort(),
+      afterClose: () => { closed += 1 },
+    })
+
+    await expect(loader([{ path: 'report.txt' }], workspace, DEFAULT_ATTACHMENT_LIMITS, controller.signal))
+      .rejects.toMatchObject({ name: 'AbortError' })
+    expect(closed).toBe(1)
   })
 })

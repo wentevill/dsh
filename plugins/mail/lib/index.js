@@ -42,6 +42,7 @@ import { assertMailSettingsEndpoints, MAIL_SETTINGS_NAMESPACE, MailSettingsSchem
 import { loadMailSettings, saveMailSettings } from "./remote-settings.js";
 export { NodeMailTransport } from "./transport.js";
 export { MailImapTransport } from "./imap-transport.js";
+export { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from "./attachment-loader.js";
 /** Mail-owned Host/Client boundary; it never accepts an arbitrary namespace or path. */
 let MailSettingsRemote = (() => {
     let _classSuper = TypertRemoteService;

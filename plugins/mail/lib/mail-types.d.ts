@@ -37,6 +37,8 @@ export interface MailDeleteResult {
 /** A caller-supplied attachment path, resolved only within its session workspace. */
 export interface MailAttachmentRequest {
     path: string;
+    filename?: string;
+    contentType?: string;
 }
 /** Byte and item limits enforced before attachment contents are read. */
 export interface MailAttachmentLimits {

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -14,6 +14,21 @@ function pack(): string {
 }
 
 describe('published mail plugin', () => {
+  it('imports the public attachment loader from an installed-style package subpath', () => {
+    const consumer = mkdtempSync(resolve(tmpdir(), 'dsh-mail-consumer-'))
+    const modules = resolve(consumer, 'node_modules')
+    mkdirSync(modules)
+    symlinkSync(root, resolve(modules, 'dsh-mail'))
+
+    const result = execFileSync(process.execPath, [
+      '--input-type=module',
+      '--eval',
+      'import("dsh-mail/attachment-loader").then(module => process.stdout.write(typeof module.loadAttachments))',
+    ], { cwd: consumer, encoding: 'utf8' })
+
+    expect(result).toBe('function')
+  })
+
   it('declares plugin libraries as dependencies and DSH capabilities as peers', () => {
     const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
       name: string

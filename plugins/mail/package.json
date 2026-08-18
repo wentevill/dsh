@@ -22,6 +22,10 @@
       "types": "./lib/mail-types.d.ts",
       "default": "./lib/mail-types.js"
     },
+    "./attachment-loader": {
+      "types": "./lib/attachment-loader.d.ts",
+      "default": "./lib/attachment-loader.js"
+    },
     "./remote-types": {
       "types": "./lib/remote-types.d.ts",
       "default": "./lib/remote-types.js"

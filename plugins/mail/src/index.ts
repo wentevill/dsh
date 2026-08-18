@@ -14,6 +14,7 @@ import { loadMailSettings, saveMailSettings } from './remote-settings.ts'
 
 export { NodeMailTransport } from './transport.ts'
 export { MailImapTransport } from './imap-transport.ts'
+export { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from './attachment-loader.ts'
 export type * from './mail-types.ts'
 
 /** SMTP/IMAP endpoint: host + port + whether to connect securely (implicit TLS). */
