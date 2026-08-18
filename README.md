@@ -29,3 +29,27 @@ repository's local branch `archive/desktop-packaging-20260818` at commit
 See [Updating upstream](docs/operations/upstream-update.md) before selecting a
 new GitHub revision.
 
+## Make commands
+
+From the repository root:
+
+```sh
+make release-dmg     # build and audit the release app and DMG
+make run             # start Tauri development mode
+make pack-plugin     # create the production mail plugin tgz
+make install-plugin  # pack and install mail into the Desktop web profile
+```
+
+Quit the installed DeepSeek Harness application before `make install-plugin`
+to avoid concurrent access to its profile. Installation uses only the Node,
+dsh CLI, and pnpm bundled in `/Applications/DeepSeek Harness.app`; it targets
+the Desktop data root rather than `~/.dsh`.
+
+Override paths and selection when needed:
+
+```sh
+make install-plugin APP_PATH="/Applications/DeepSeek Harness.app" PROFILE=web
+```
+
+Supported variables are `APP_PATH`, `PLUGIN=mail`, `PROFILE`, and
+`DESKTOP_DSH_HOME`. Run `make help` for the command summary.
