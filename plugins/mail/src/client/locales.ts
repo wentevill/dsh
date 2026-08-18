@@ -17,6 +17,11 @@ export const en = {
   // card identity
   mailTitle: 'Mail (SMTP / IMAP)',
   mailDescription: 'Configure the account used to receive and send email; the password lives in key management.',
+  mailReceiveStatus: 'Receive',
+  mailSendStatus: 'Send',
+  mailDeleteStatus: 'Permanent delete',
+  mailStatusEnabled: 'Enabled',
+  mailStatusDisabled: 'Disabled',
   // account
   mailUsername: 'Email account',
   mailUsernameHint: 'The mailbox whose mail is read and on whose behalf mail is sent.',
@@ -62,6 +67,11 @@ export const zh = {
   invalidNumber: '请填数字；留空表示使用默认值。',
   mailTitle: '邮件（SMTP / IMAP）',
   mailDescription: '配置用于收发邮件的账号；密码保存在密钥管理中。',
+  mailReceiveStatus: '接收',
+  mailSendStatus: '发送',
+  mailDeleteStatus: '永久删除',
+  mailStatusEnabled: '已启用',
+  mailStatusDisabled: '已禁用',
   mailUsername: '邮箱账号',
   mailUsernameHint: '用于读取收件箱，并以此身份发送邮件。',
   mailMailbox: '邮箱',

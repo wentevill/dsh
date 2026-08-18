@@ -7,7 +7,7 @@ import type {} from '@deepseek-ai/dsh-system-prompt'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { NodeMailTransport } from './transport.ts'
-import { MAIL_SETTINGS_NAMESPACE, MailSettingsSchema, type MailSettings } from './mail-settings.ts'
+import { assertMailSettingsEndpoints, MAIL_SETTINGS_NAMESPACE, MailSettingsSchema, type MailSettings } from './mail-settings.ts'
 import type { MailSettingsSaveRequest, MailSettingsSaveResult } from './remote-types.ts'
 import { loadMailSettings, saveMailSettings } from './remote-settings.ts'
 
@@ -96,12 +96,6 @@ export const Config: z<Config> = z.object({
   maxBodyChars: z.number().step(1).min(1).default(100_000),
 })
 
-function assertEndpoint(label: string, value: EndpointConfig): void {
-  if (typeof value.secure !== 'boolean') throw new Error(`mail-plugin: ${label} secure must be a boolean`)
-  if (value.host.length === 0) throw new Error(`mail-plugin: ${label} host is required`)
-  if (!Number.isInteger(value.port) || value.port < 1 || value.port > 65535) throw new Error(`mail-plugin: ${label} port must be between 1 and 65535`)
-}
-
 function assertSingleLine(label: string, value: string): void {
   if (value.length === 0 || /[\r\n]/u.test(value)) throw new Error(`mail-plugin: ${label} must be a non-empty single line`)
 }
@@ -109,8 +103,7 @@ function assertSingleLine(label: string, value: string): void {
 function resolveConfig(config: Config): ResolvedConfig {
   assertSingleLine('username', config.username)
   assertSingleLine('mailbox', config.mailbox ?? 'INBOX')
-  assertEndpoint('IMAP', config.imap)
-  assertEndpoint('SMTP', config.smtp)
+  assertMailSettingsEndpoints(config)
   return {
     username: config.username,
     passwordRef: credentialRef(config.passwordEnv ?? 'MAIL_APP_PASSWORD'),
@@ -119,6 +112,21 @@ function resolveConfig(config: Config): ResolvedConfig {
     allowDelete: config.allowDelete ?? false,
     imap: { ...config.imap },
     smtp: { ...config.smtp },
+  }
+}
+
+/** Prefer the complete Mail settings section whenever the Host settings seam is available. */
+export function resolveEffectiveConfig(bootstrap: ResolvedConfig, settings?: MailSettings): ResolvedConfig {
+  if (settings === undefined) return bootstrap
+  assertMailSettingsEndpoints(settings)
+  return {
+    username: settings.username,
+    passwordRef: credentialRef(settings.passwordEnv || 'MAIL_APP_PASSWORD'),
+    mailbox: settings.mailbox,
+    archiveMailbox: settings.archiveMailbox,
+    allowDelete: settings.allowDelete,
+    imap: { ...settings.imap },
+    smtp: { ...settings.smtp },
   }
 }
 
@@ -219,25 +227,9 @@ export function apply(ctx: Context, config: Config): void {
   let settingsScope: SettingsScope<MailSettings> | undefined
   new MailSettingsRemote(ctx, () => settingsScope)
 
-  // Build the effective resolved config each operation: settings wins once it
-  // carries a meaningfully-configured account, otherwise fall back to bootstrap.
-  const effective = (): ResolvedConfig => {
-    if (settingsScope !== undefined) {
-      const section = settingsScope.get()
-      if (section.username !== '' && section.imap.host !== '' && section.smtp.host !== '') {
-        return {
-          username: section.username,
-          passwordRef: credentialRef(section.passwordEnv || 'MAIL_APP_PASSWORD'),
-          mailbox: section.mailbox,
-          archiveMailbox: section.archiveMailbox,
-          allowDelete: section.allowDelete,
-          imap: { ...section.imap },
-          smtp: { ...section.smtp },
-        }
-      }
-    }
-    return bootstrap
-  }
+  // A present settings scope owns all current values, including deliberately
+  // disabled endpoints. This keeps IMAP, SMTP, and deletion independently configurable.
+  const effective = (): ResolvedConfig => resolveEffectiveConfig(bootstrap, settingsScope?.get())
 
   const account = new MailAccount(ctx.credentials, effective, new NodeMailTransport())
 

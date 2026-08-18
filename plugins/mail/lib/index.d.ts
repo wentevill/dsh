@@ -53,6 +53,8 @@ export interface MailTransport {
     send(config: ResolvedConfig, password: string, request: MailSendRequest, signal?: AbortSignal): Promise<MailSendResult>;
 }
 export declare const Config: z<Config>;
+/** Prefer the complete Mail settings section whenever the Host settings seam is available. */
+export declare function resolveEffectiveConfig(bootstrap: ResolvedConfig, settings?: MailSettings): ResolvedConfig;
 export declare const name = "mail";
 /** Uses the key-management component (`credentials`) for the password. */
 export declare const inject: string[];

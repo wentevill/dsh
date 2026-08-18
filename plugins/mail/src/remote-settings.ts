@@ -1,5 +1,5 @@
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
-import type { MailSettings } from './mail-settings.ts'
+import { assertMailSettingsEndpoints, type MailSettings } from './mail-settings.ts'
 import type { MailSettingsSaveRequest, MailSettingsSaveResult } from './remote-types.ts'
 
 /** Read the resolved mail section through its owning Host settings scope. */
@@ -12,6 +12,7 @@ export async function saveMailSettings(
   scope: SettingsScope<MailSettings>,
   request: MailSettingsSaveRequest,
 ): Promise<MailSettingsSaveResult> {
+  assertMailSettingsEndpoints(request.settings)
   await scope.replace(request.settings)
   return { settings: scope.get() }
 }

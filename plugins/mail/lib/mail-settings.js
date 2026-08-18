@@ -12,6 +12,21 @@ import z from '@deepseek-ai/schemastery';
 import { settingsNamespace } from '@deepseek-ai/dsh-settings';
 /** The user-settings namespace owning this plugin's account form. */
 export const MAIL_SETTINGS_NAMESPACE = settingsNamespace('mail');
+/** Enforce the transport invariant only for an endpoint that is enabled by host. */
+export function assertConfiguredEndpoint(label, value) {
+    if (value.host.trim() === '')
+        return;
+    if (value.secure !== true)
+        throw new Error(`mail: ${label} must use TLS`);
+    if (!Number.isInteger(value.port) || value.port < 1 || value.port > 65535) {
+        throw new Error(`mail: ${label} port must be between 1 and 65535`);
+    }
+}
+/** Validate both independently enabled endpoints before they are persisted or used. */
+export function assertMailSettingsEndpoints(settings) {
+    assertConfiguredEndpoint('IMAP', settings.imap);
+    assertConfiguredEndpoint('SMTP', settings.smtp);
+}
 /** Derive operation availability from endpoint configuration and deletion consent. */
 export function mailCapabilities(settings) {
     const imap = settings.imap.host.trim() !== '';

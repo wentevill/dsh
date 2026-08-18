@@ -10,6 +10,7 @@
 
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { PluginCard } from './PluginCard.tsx'
+import { css } from './card-css.ts'
 import { CheckField, SecretField, ValueField } from './fields.tsx'
 import type { MailCardFace, MailCardState } from './mail-card-controller.ts'
 
@@ -32,6 +33,11 @@ export function MailCard(props: MailCardProps) {
       onSave={props.save}
       onDiscard={props.discard}
     >
+      <div className={css.status} role="status">
+        <span>{readT('mailReceiveStatus')}: {readT(state.status.receive ? 'mailStatusEnabled' : 'mailStatusDisabled')}</span>
+        <span>{readT('mailSendStatus')}: {readT(state.status.send ? 'mailStatusEnabled' : 'mailStatusDisabled')}</span>
+        <span>{readT('mailDeleteStatus')}: {readT(state.status.permanentDelete ? 'mailStatusEnabled' : 'mailStatusDisabled')}</span>
+      </div>
       <ValueField
         id="mail-username" label={readT('mailUsername')} hint={readT('mailUsernameHint')}
         text={state.username.text} overridden={state.username.overridden} invalid={state.username.invalid}

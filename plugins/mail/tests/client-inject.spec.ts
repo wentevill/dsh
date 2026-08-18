@@ -8,8 +8,8 @@ describe('mail client injection contract', () => {
   it('mounts its own Mail Remote instead of deadlocking on it as a loader prerequisite', () => {
     let exports: Record<string, unknown> | undefined
     const loader = {
-      load({ factory }: { factory: (require: () => unknown) => Record<string, unknown> }) {
-        exports = factory(() => ({}))
+      load({ factory }: { factory: (require: (name: string) => unknown) => Record<string, unknown> }) {
+        exports = factory(name => name === '@deepseek-ai/cordis' ? { Service: class {} } : {})
       },
     }
     ;(globalThis as unknown as { window: unknown }).window = { __ModuleLoader__: loader }

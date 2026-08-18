@@ -30,6 +30,7 @@ export const css: Record<string, string> = {
   readOnly: `${P}_readOnly`,
   pending: `${P}_pending`,
   footer: `${P}_footer`,
+  status: `${P}_status`,
   failed: `${P}_failed`,
   discard: `${P}_discard`,
   save: `${P}_save`,
@@ -65,6 +66,7 @@ const STYLE = `
 .${css.readOnly}{margin:12px 0 0;font-size:12px;line-height:1.5;color:var(--dsw-alias-label-tertiary)}
 .${css.pending}{flex:none;border-radius:999px;padding:1px 8px;font-size:11px;line-height:17px;font-weight:500;white-space:nowrap;background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary)}
 .${css.footer}{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 0 4px;border-top:1px solid var(--dsw-alias-border-l2)}
+.${css.status}{display:flex;flex-wrap:wrap;gap:6px 12px;padding:12px 0;font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary)}
 .${css.failed}{flex:1;min-width:0;margin:0;font-size:12px;line-height:1.5;color:var(--dsw-alias-label-error)}
 .${css.discard},.${css.save}{appearance:none;border:1px solid transparent;border-radius:8px;padding:5px 14px;font:inherit;font-size:13px;line-height:1.5;cursor:pointer}
 .${css.discard}{border-color:var(--dsw-alias-border-l2);background:none;color:var(--dsw-alias-label-secondary)}

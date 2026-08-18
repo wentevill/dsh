@@ -22,15 +22,17 @@ async function loadController() {
         ? runtime
         : name === 'react'
           ? { useState: () => [false, () => undefined] }
-          : name === 'react/jsx-runtime'
-            ? { jsx: () => undefined, jsxs: () => undefined }
-            : {})
+        : name === 'react/jsx-runtime'
+          ? { jsx: () => undefined, jsxs: () => undefined }
+          : name === '@deepseek-ai/cordis'
+            ? { Service: class {} }
+          : {})
     },
   }
   ;(globalThis as unknown as { window: unknown }).window = { __ModuleLoader__: loader }
   Function(readFileSync(resolve(import.meta.dirname, '../lib/client.js'), 'utf8'))()
   return exports as { createMailCardController: (scope: unknown, api: unknown, saveSettings: (settings: Record<string, unknown>) => Promise<{ settings: Record<string, unknown> }>, available: boolean) => {
-    face(): { hooks: { mailCard: { getSnapshot(): { dirty: boolean; saving: boolean; failed: boolean } } }; edit(field: string, value: string): void; save(): void }
+    face(): { hooks: { mailCard: { getSnapshot(): { dirty: boolean; saving: boolean; failed: boolean; status: { receive: boolean; send: boolean; permanentDelete: boolean } } } }; edit(field: string, value: string): void; save(): void }
   } }
 }
 
@@ -56,6 +58,30 @@ function baseSnapshot(): Snapshot {
 }
 
 describe('mail settings save', () => {
+  it('projects receive, send, and permanent-delete status independently', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot: Snapshot = {
+      writable: true,
+      value: {
+        username: 'user@example.com', mailbox: 'INBOX', archiveMailbox: 'Archive', allowDelete: true,
+        imap: { host: 'imap.test', port: 993, secure: true },
+        smtp: { host: '', port: 465, secure: true },
+      },
+    }
+    const controller = createMailCardController(
+      { getSnapshot: () => snapshot, subscribe: () => () => undefined },
+      { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } },
+      async settings => ({ settings }),
+      true,
+    )
+    const face = controller.face()
+
+    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: true, send: false, permanentDelete: true })
+    face.edit('imapHost', '')
+    face.edit('smtpHost', 'smtp.test')
+    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: false, send: true, permanentDelete: false })
+  })
+
   it('saves the complete mail section through the mail-owned Host boundary', async () => {
     const { createMailCardController } = await loadController()
     const snapshot = baseSnapshot()

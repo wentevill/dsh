@@ -18,6 +18,8 @@ export interface NetworkEndpoint {
     /** Secure connection on connect (implicit TLS). */
     secure: boolean;
 }
+/** Enforce the transport invariant only for an endpoint that is enabled by host. */
+export declare function assertConfiguredEndpoint(label: 'IMAP' | 'SMTP', value: Readonly<NetworkEndpoint>): void;
 /** The account fields a user configures in the page. No secrets here. */
 export interface MailSettings {
     /** Account whose mailbox is read and on whose behalf mail is sent. */
@@ -35,6 +37,8 @@ export interface MailSettings {
     /** SMTP send endpoint. */
     smtp: NetworkEndpoint;
 }
+/** Validate both independently enabled endpoints before they are persisted or used. */
+export declare function assertMailSettingsEndpoints(settings: Pick<MailSettings, 'imap' | 'smtp'>): void;
 /** Operations enabled by the independently configured mail endpoints. */
 export interface MailCapabilities {
     imap: boolean;

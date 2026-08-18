@@ -29,4 +29,17 @@ describe('mail Host settings save', () => {
     await expect(saveMailSettings(scope as never, { settings: configured })).resolves.toEqual({ settings: configured })
     expect(durable).toEqual(configured)
   })
+
+  it('refuses to persist a configured endpoint that does not use TLS', async () => {
+    let replacements = 0
+    const scope = {
+      async replace() { replacements += 1 },
+      get: () => configured,
+    }
+
+    await expect(saveMailSettings(scope as never, {
+      settings: { ...configured, smtp: { ...configured.smtp, secure: false } },
+    })).rejects.toThrow('SMTP must use TLS')
+    expect(replacements).toBe(0)
+  })
 })

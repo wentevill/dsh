@@ -17,7 +17,7 @@ import {
   type SnapshotStore,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import type { IApiClient } from '@deepseek-ai/dsh-client-connection/client'
-import type { MailSettings } from '../mail-settings.ts'
+import { mailCapabilities, type MailCapabilities, type MailSettings } from '../mail-settings.ts'
 import type { MailSettingsSaveResult } from '../remote-types.ts'
 import type { CardActions, CardFieldState, CardShell } from './card-types.ts'
 
@@ -40,8 +40,17 @@ interface CredentialView {
   writable: boolean
 }
 
+/** User-facing operation availability projected from the Mail capability predicate. */
+export interface MailCardStatus {
+  receive: boolean
+  send: boolean
+  permanentDelete: boolean
+}
+
 /** The card's renderable state. */
 export interface MailCardState extends CardShell {
+  capabilities: MailCapabilities
+  status: MailCardStatus
   username: CardFieldState
   mailbox: CardFieldState
   archiveMailbox: CardFieldState
@@ -147,6 +156,20 @@ export function createMailCardController(
   const project = (): MailCardState => {
     const snap = scope.getSnapshot()
     const planInvalid = [...PORT_FIELDS].some(f => drafts.has(f) && !isValidPort(drafts.get(f) as string))
+    const capabilities = mailCapabilities({
+      username: '',
+      passwordEnv: PASSWORD_REF,
+      mailbox: 'INBOX',
+      archiveMailbox: 'Archive',
+      allowDelete: valueOf(snap, 'allowDelete') === 'true',
+      imap: { host: valueOf(snap, 'imapHost'), port: 993, secure: valueOf(snap, 'imapSecure') === 'true' },
+      smtp: { host: valueOf(snap, 'smtpHost'), port: 465, secure: valueOf(snap, 'smtpSecure') === 'true' },
+    })
+    const status: MailCardStatus = {
+      receive: capabilities.imap,
+      send: capabilities.smtp,
+      permanentDelete: capabilities.delete,
+    }
     return {
       available,
       writable: snap.writable,
@@ -154,6 +177,8 @@ export function createMailCardController(
       invalid: planInvalid,
       saving,
       failed,
+      capabilities,
+      status,
       username: fieldState(snap, 'username'),
       mailbox: fieldState(snap, 'mailbox'),
       archiveMailbox: fieldState(snap, 'archiveMailbox'),

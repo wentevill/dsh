@@ -23,6 +23,15 @@ export interface NetworkEndpoint {
   secure: boolean
 }
 
+/** Enforce the transport invariant only for an endpoint that is enabled by host. */
+export function assertConfiguredEndpoint(label: 'IMAP' | 'SMTP', value: Readonly<NetworkEndpoint>): void {
+  if (value.host.trim() === '') return
+  if (value.secure !== true) throw new Error(`mail: ${label} must use TLS`)
+  if (!Number.isInteger(value.port) || value.port < 1 || value.port > 65535) {
+    throw new Error(`mail: ${label} port must be between 1 and 65535`)
+  }
+}
+
 /** The account fields a user configures in the page. No secrets here. */
 export interface MailSettings {
   /** Account whose mailbox is read and on whose behalf mail is sent. */
@@ -39,6 +48,12 @@ export interface MailSettings {
   imap: NetworkEndpoint
   /** SMTP send endpoint. */
   smtp: NetworkEndpoint
+}
+
+/** Validate both independently enabled endpoints before they are persisted or used. */
+export function assertMailSettingsEndpoints(settings: Pick<MailSettings, 'imap' | 'smtp'>): void {
+  assertConfiguredEndpoint('IMAP', settings.imap)
+  assertConfiguredEndpoint('SMTP', settings.smtp)
 }
 
 /** Operations enabled by the independently configured mail endpoints. */
