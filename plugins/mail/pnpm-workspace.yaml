@@ -1,0 +1,9 @@
+packages:
+  - '.'
+  - '../../packages/mail/mail'
+
+autoInstallPeers: false
+
+minimumReleaseAgeExclude:
+  - '@deepseek-ai/dsh-typert-generator@0.1.0-rc.7'
+  - '@deepseek-ai/dsh-typert-protocol@0.1.0-rc.7'

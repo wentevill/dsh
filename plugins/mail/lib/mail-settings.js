@@ -17,7 +17,7 @@ function endpoint(portDefault) {
     return z.object({
         host: z.string().default(''),
         port: z.number().step(1).min(1).max(65535).default(portDefault),
-        secure: z.const(true).default(true),
+        secure: z.boolean().default(true),
     });
 }
 /** Schemastery schema rendered as the account form by configuration surfaces. */

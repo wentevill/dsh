@@ -2,12 +2,16 @@ import type { Context } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
 import { type CredentialRef } from '@deepseek-ai/dsh-credentials';
 import { type MailListRequest, type MailListResult, type MailReadRequest, type MailReadResult, type MailSendRequest, type MailSendResult } from '@deepseek-ai/dsh-mail';
-export { NodeMailTransport } from './transport.js';
+import type { SettingsScope } from '@deepseek-ai/dsh-settings';
+import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
+import { type MailSettings } from './mail-settings.ts';
+import type { MailSettingsSaveRequest, MailSettingsSaveResult } from './remote-types.ts';
+export { NodeMailTransport } from './transport.ts';
 /** SMTP/IMAP endpoint: host + port + whether to connect securely (implicit TLS). */
 export interface EndpointConfig {
     readonly host: string;
     readonly port: number;
-    readonly secure: true;
+    readonly secure: boolean;
 }
 /** User-facing plugin configuration (Schemastery-validated). */
 export interface Config {
@@ -28,6 +32,13 @@ export interface ResolvedConfig {
     readonly mailbox: string;
     readonly imap: EndpointConfig;
     readonly smtp: EndpointConfig;
+}
+/** Mail-owned Host/Client boundary; it never accepts an arbitrary namespace or path. */
+export declare class MailSettingsRemote extends TypertRemoteService {
+    private readonly scope;
+    constructor(ctx: Context, scope: () => SettingsScope<MailSettings> | undefined);
+    /** Persist one complete non-secret mail section through the official Settings owner scope. */
+    save(request: MailSettingsSaveRequest): Promise<MailSettingsSaveResult>;
 }
 /** Protocol transport seam, so tests/drivers can substitute a fake. */
 export interface MailTransport {

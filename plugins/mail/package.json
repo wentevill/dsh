@@ -1,8 +1,9 @@
 {
   "name": "dsh-mail-plugin",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "description": "TLS-only IMAP and SMTP mail bundle for DeepSeek Harness",
   "type": "module",
+  "packageManager": "pnpm@11.7.0",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "exports": {
@@ -13,10 +14,40 @@
     "./client": {
       "default": "./lib/client.js"
     },
+    "./mail-settings": {
+      "types": "./lib/mail-settings.d.ts",
+      "default": "./lib/mail-settings.js"
+    },
+    "./remote-types": {
+      "types": "./lib/remote-types.d.ts",
+      "default": "./lib/remote-types.js"
+    },
+    "./typert": {
+      "types": "./lib/typert.host.d.ts",
+      "default": "./lib/typert.host.js"
+    },
+    "./remote": {
+      "types": "./lib/typert.remote-client.d.ts",
+      "default": "./lib/typert.remote-client.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
-    "lib",
+    "lib/index.js",
+    "lib/index.d.ts",
+    "lib/mail-settings.js",
+    "lib/mail-settings.d.ts",
+    "lib/remote-types.js",
+    "lib/remote-types.d.ts",
+    "lib/remote-settings.js",
+    "lib/remote-settings.d.ts",
+    "lib/transport.js",
+    "lib/transport.d.ts",
+    "lib/client.js",
+    "lib/typert.host.js",
+    "lib/typert.host.d.ts",
+    "lib/typert.remote-client.js",
+    "lib/typert.remote-client.d.ts",
     "cordis.patch.yml",
     "README.md",
     "LICENSE"
@@ -28,19 +59,45 @@
   "publishConfig": {
     "access": "public"
   },
+  "scripts": {
+    "build:mail": "tsc -p ../../packages/mail/mail/tsconfig.json",
+    "build:host": "tsc -p tsconfig.build.json",
+    "build:typert": "node scripts/generate-typert.mjs",
+    "build:client": "tsdown --config tsdown.config.ts && node scripts/format-generated.mjs",
+    "build": "node scripts/clean.mjs && tsc -p ../../packages/mail/mail/tsconfig.json && tsc -p tsconfig.build.json && node scripts/generate-typert.mjs && tsdown --config tsdown.config.ts && node scripts/format-generated.mjs",
+    "prepack": "npm run build"
+  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",
     "@deepseek-ai/dsh-credentials": "*",
     "@deepseek-ai/dsh-mail": "*",
     "@deepseek-ai/dsh-settings": "*",
     "@deepseek-ai/dsh-system-prompt": "*",
+    "@deepseek-ai/dsh-typert-protocol": "*",
     "@deepseek-ai/dsh-tools": "*"
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.1",
     "imapflow": "^1.7.1",
     "mailparser": "^3.9.15",
-    "nodemailer": "^9.0.5"
+    "nodemailer": "^9.0.5",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh-credentials": "0.0.1-rc.1",
+    "@deepseek-ai/dsh-mail": "workspace:*",
+    "@deepseek-ai/dsh-settings": "0.0.1-rc.1",
+    "@deepseek-ai/dsh-system-prompt": "0.0.1-rc.1",
+    "@deepseek-ai/dsh-tools": "0.0.1-rc.1",
+    "@deepseek-ai/dsh-typert-protocol": "0.1.0-rc.7",
+    "@deepseek-ai/dsh-typert-generator": "0.1.0-rc.7",
+    "@types/nodemailer": "^7.0.4",
+    "@types/mailparser": "^3.4.6",
+    "react": "^19.2.4",
+    "tsdown": "^0.22.2",
+    "typescript": "^6.0.3",
+    "unrun": "^0.3.1"
   },
   "dsh": {
     "bundle": {

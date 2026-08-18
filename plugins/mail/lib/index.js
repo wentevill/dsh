@@ -1,14 +1,77 @@
+var __runInitializers = (this && this.__runInitializers) || function (thisArg, initializers, value) {
+    var useValue = arguments.length > 2;
+    for (var i = 0; i < initializers.length; i++) {
+        value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
+    }
+    return useValue ? value : void 0;
+};
+var __esDecorate = (this && this.__esDecorate) || function (ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
+    function accept(f) { if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected"); return f; }
+    var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
+    var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
+    var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
+    var _, done = false;
+    for (var i = decorators.length - 1; i >= 0; i--) {
+        var context = {};
+        for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
+        for (var p in contextIn.access) context.access[p] = contextIn.access[p];
+        context.addInitializer = function (f) { if (done) throw new TypeError("Cannot add initializers after decoration has completed"); extraInitializers.push(accept(f || null)); };
+        var result = (0, decorators[i])(kind === "accessor" ? { get: descriptor.get, set: descriptor.set } : descriptor[key], context);
+        if (kind === "accessor") {
+            if (result === void 0) continue;
+            if (result === null || typeof result !== "object") throw new TypeError("Object expected");
+            if (_ = accept(result.get)) descriptor.get = _;
+            if (_ = accept(result.set)) descriptor.set = _;
+            if (_ = accept(result.init)) initializers.unshift(_);
+        }
+        else if (_ = accept(result)) {
+            if (kind === "field") initializers.unshift(_);
+            else descriptor[key] = _;
+        }
+    }
+    if (target) Object.defineProperty(target, contextIn.name, descriptor);
+    done = true;
+};
 import z from '@deepseek-ai/schemastery';
 import { credentialRef } from '@deepseek-ai/dsh-credentials';
 import { MailError } from '@deepseek-ai/dsh-mail';
 import { defineTool } from '@deepseek-ai/dsh-tools';
+import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import { NodeMailTransport } from "./transport.js";
 import { MAIL_SETTINGS_NAMESPACE, MailSettingsSchema } from "./mail-settings.js";
+import { saveMailSettings } from "./remote-settings.js";
 export { NodeMailTransport } from "./transport.js";
+/** Mail-owned Host/Client boundary; it never accepts an arbitrary namespace or path. */
+let MailSettingsRemote = (() => {
+    let _classSuper = TypertRemoteService;
+    let _instanceExtraInitializers = [];
+    let _save_decorators;
+    return class MailSettingsRemote extends _classSuper {
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            _save_decorators = [Remote('save')];
+            __esDecorate(this, null, _save_decorators, { kind: "method", name: "save", static: false, private: false, access: { has: obj => "save" in obj, get: obj => obj.save }, metadata: _metadata }, null, _instanceExtraInitializers);
+            if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+        }
+        scope = __runInitializers(this, _instanceExtraInitializers);
+        constructor(ctx, scope) {
+            super(ctx, 'mailSettings');
+            this.scope = scope;
+        }
+        /** Persist one complete non-secret mail section through the official Settings owner scope. */
+        async save(request) {
+            const scope = this.scope();
+            if (scope === undefined)
+                throw new Error('mail settings are unavailable');
+            return saveMailSettings(scope, request);
+        }
+    };
+})();
+export { MailSettingsRemote };
 const endpoint = z.object({
     host: z.string().required(),
     port: z.number().step(1).min(1).max(65535).required(),
-    secure: z.const(true).default(true),
+    secure: z.boolean().default(true),
 });
 export const Config = z.object({
     username: z.string().required(),
@@ -22,8 +85,8 @@ export const Config = z.object({
     maxBodyChars: z.number().step(1).min(1).default(100_000),
 });
 function assertEndpoint(label, value) {
-    if (value.secure !== true)
-        throw new Error(`mail-plugin: ${label} must use TLS on connect`);
+    if (typeof value.secure !== 'boolean')
+        throw new Error(`mail-plugin: ${label} secure must be a boolean`);
     if (value.host.length === 0)
         throw new Error(`mail-plugin: ${label} host is required`);
     if (!Number.isInteger(value.port) || value.port < 1 || value.port > 65535)
@@ -135,6 +198,7 @@ export function apply(ctx, config) {
     // source of truth edited on the web page; the bootstrap covers headless runs.
     const bootstrap = resolveConfig(config);
     let settingsScope;
+    new MailSettingsRemote(ctx, () => settingsScope);
     // Build the effective resolved config each operation: settings wins once it
     // carries a meaningfully-configured account, otherwise fall back to bootstrap.
     const effective = () => {

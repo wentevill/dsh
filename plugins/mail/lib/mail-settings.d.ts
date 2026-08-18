@@ -10,13 +10,13 @@
  */
 import z from '@deepseek-ai/schemastery';
 /** The user-settings namespace owning this plugin's account form. */
-export declare const MAIL_SETTINGS_NAMESPACE: any;
+export declare const MAIL_SETTINGS_NAMESPACE: Branded<"SettingsNamespace">;
 /** SMTP/IMAP endpoint shared shape. */
 export interface NetworkEndpoint {
     host: string;
     port: number;
     /** Secure connection on connect (implicit TLS). */
-    secure: true;
+    secure: boolean;
 }
 /** The account fields a user configures in the page. No secrets here. */
 export interface MailSettings {

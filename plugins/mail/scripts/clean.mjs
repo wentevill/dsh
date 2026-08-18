@@ -1,0 +1,7 @@
+import { rmSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
+rmSync(resolve(root, 'lib'), { recursive: true, force: true })
+rmSync(resolve(root, 'tsconfig.build.tsbuildinfo'), { force: true })

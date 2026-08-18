@@ -26,6 +26,7 @@ describe('published mail plugin', () => {
       'imapflow',
       'mailparser',
       'nodemailer',
+      'zod',
     ])
     expect(Object.keys(manifest.peerDependencies ?? {}).sort()).toEqual([
       '@deepseek-ai/cordis',
@@ -34,9 +35,17 @@ describe('published mail plugin', () => {
       '@deepseek-ai/dsh-settings',
       '@deepseek-ai/dsh-system-prompt',
       '@deepseek-ai/dsh-tools',
+      '@deepseek-ai/dsh-typert-protocol',
     ])
     expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
-    expect(manifest.files).toEqual(expect.arrayContaining(['lib', 'cordis.patch.yml', 'LICENSE']))
+    expect(manifest.files).toEqual(expect.arrayContaining([
+      'lib/index.js',
+      'lib/client.js',
+      'lib/typert.host.js',
+      'lib/typert.remote-client.js',
+      'cordis.patch.yml',
+      'LICENSE',
+    ]))
     expect(manifest.files).not.toContain('src')
   })
 
@@ -53,6 +62,10 @@ describe('published mail plugin', () => {
       'package/package.json',
       'package/lib/index.js',
       'package/lib/client.js',
+      'package/lib/typert.host.js',
+      'package/lib/typert.host.d.ts',
+      'package/lib/typert.remote-client.js',
+      'package/lib/typert.remote-client.d.ts',
       'package/cordis.patch.yml',
       'package/LICENSE',
     ]))

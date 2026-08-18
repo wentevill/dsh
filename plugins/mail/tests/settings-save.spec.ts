@@ -29,7 +29,7 @@ async function loadController() {
   }
   ;(globalThis as unknown as { window: unknown }).window = { __ModuleLoader__: loader }
   Function(readFileSync(resolve(import.meta.dirname, '../lib/client.js'), 'utf8'))()
-  return exports as { createMailCardController: (scope: unknown, api: unknown, available: boolean) => {
+  return exports as { createMailCardController: (scope: unknown, api: unknown, saveSettings: (settings: Record<string, unknown>) => Promise<{ settings: Record<string, unknown> }>, available: boolean) => {
     face(): { hooks: { mailCard: { getSnapshot(): { dirty: boolean; saving: boolean; failed: boolean } } }; edit(field: string, value: string): void; save(): void }
   } }
 }
@@ -56,36 +56,40 @@ function baseSnapshot(): Snapshot {
 }
 
 describe('mail settings save', () => {
-  it('writes only the SMTP group when only SMTP was edited', async () => {
+  it('saves the complete mail section through the mail-owned Host boundary', async () => {
     const { createMailCardController } = await loadController()
     const snapshot = baseSnapshot()
-    const writes: Array<[string, unknown]> = []
-    const listeners = new Set<() => void>()
     const scope = {
       getSnapshot: () => snapshot,
-      subscribe: (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener) },
-      async set(field: string, value: unknown) {
-        writes.push([field, value])
-        snapshot.user = { ...(snapshot.user ?? {}), [field]: value }
-        snapshot.value = { ...(snapshot.value ?? {}), [field]: value }
-        listeners.forEach(listener => listener())
-      },
+      subscribe: () => () => undefined,
     }
-    const controller = createMailCardController(scope, { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } }, true)
+    const writes: Array<Record<string, unknown>> = []
+    const saveSettings = async (settings: Record<string, unknown>) => {
+      writes.push(settings)
+      return { settings }
+    }
+    const controller = createMailCardController(scope, { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } }, saveSettings, true)
     const face = controller.face()
     face.edit('smtpHost', 'smtp.changed.example.com')
     face.save()
     await settle(face.hooks.mailCard)
 
-    expect(writes).toEqual([['smtp', { host: 'smtp.changed.example.com', port: 465, secure: true }]])
+    expect(writes).toEqual([{
+      username: 'user@example.com',
+      passwordEnv: 'MAIL_APP_PASSWORD',
+      mailbox: 'INBOX',
+      imap: { host: 'imap.example.com', port: 993, secure: true },
+      smtp: { host: 'smtp.changed.example.com', port: 465, secure: true },
+    }])
     expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: false, failed: false })
   })
 
   it('keeps drafts when the Host does not confirm the write in the user layer', async () => {
     const { createMailCardController } = await loadController()
     const snapshot = baseSnapshot()
-    const scope = { getSnapshot: () => snapshot, subscribe: () => () => undefined, set: async () => undefined }
-    const controller = createMailCardController(scope, { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } }, true)
+    const scope = { getSnapshot: () => snapshot, subscribe: () => () => undefined }
+    const saveSettings = async () => { throw new Error('Host rejected mail settings') }
+    const controller = createMailCardController(scope, { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } }, saveSettings, true)
     const face = controller.face()
     face.edit('smtpHost', 'rejected.example.com')
     face.save()
@@ -94,27 +98,19 @@ describe('mail settings save', () => {
     expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: true, failed: true })
   })
 
-  it('retries once after the Host recovers from a settings revision conflict', async () => {
+  it('does not retry a failed Host commit behind the user\'s back', async () => {
     const { createMailCardController } = await loadController()
     const snapshot = baseSnapshot()
     let attempts = 0
-    const scope = {
-      getSnapshot: () => snapshot,
-      subscribe: () => () => undefined,
-      async set(field: string, value: unknown) {
-        attempts += 1
-        if (attempts === 1) return
-        snapshot.user = { ...(snapshot.user ?? {}), [field]: value }
-        snapshot.value = { ...(snapshot.value ?? {}), [field]: value }
-      },
-    }
-    const controller = createMailCardController(scope, { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } }, true)
+    const scope = { getSnapshot: () => snapshot, subscribe: () => () => undefined }
+    const saveSettings = async () => { attempts += 1; throw new Error('revision conflict') }
+    const controller = createMailCardController(scope, { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } }, saveSettings, true)
     const face = controller.face()
     face.edit('smtpHost', 'smtp.recovered.example.com')
     face.save()
     await settle(face.hooks.mailCard)
 
-    expect(attempts).toBe(2)
-    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: false, failed: false })
+    expect(attempts).toBe(1)
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: true, failed: true })
   })
 })

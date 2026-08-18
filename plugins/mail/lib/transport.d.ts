@@ -1,5 +1,5 @@
 import type { MailListRequest, MailListResult, MailReadRequest, MailReadResult, MailSendRequest, MailSendResult } from '@deepseek-ai/dsh-mail';
-import type { MailTransport, ResolvedConfig } from './index.js';
+import type { MailTransport, ResolvedConfig } from './index.ts';
 /**
  * Concrete IMAP/SMTP transport. Read operations are TLS-only and
  * read-only; send connects to SMTP with path/URL file access disabled.
