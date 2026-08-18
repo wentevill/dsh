@@ -4810,6 +4810,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			mailPasswordUnset: "尚未存储密码"
 		};
 		//#endregion
+		//#region src/client/remote-save.ts
+		/** Unwrap the Typert RemoteResult returned directly by a generated method. */
+		function unwrapMailSettingsSave(response) {
+			if (!response.ok) throw new Error(response.error.message);
+			return response.value;
+		}
+		//#endregion
 		//#region src/client/index.ts
 		/** Copy namespace owned by this client plugin. */
 		const NS = "settings.plugins.mail";
@@ -4829,9 +4836,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				en
 			}), "mail-plugin-client: dictionaries");
 			const controller = createMailCardController(ctx.settingsScope.bind({ namespace: MAIL_NS }), api, async (settings) => {
-				const response = await ctx.remote.mailSettings.save({ settings });
-				if (!response.result.ok) throw new Error(response.result.error.message);
-				return response.result.value;
+				return unwrapMailSettingsSave(await ctx.remote.mailSettings.save({ settings }));
 			}, true);
 			ctx.effect(() => ctx.remote.$on("credentials/updated", () => {
 				controller.refreshCredential();

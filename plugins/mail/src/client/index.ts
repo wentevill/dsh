@@ -20,6 +20,7 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import { MailCard } from './MailCard.tsx'
 import { MAIL_SETTINGS_NAMESPACE, createMailCardController } from './mail-card-controller.ts'
 import { en, zh } from './locales.ts'
+import { unwrapMailSettingsSave } from './remote-save.ts'
 
 export { MailCard, createMailCardController, MAIL_SETTINGS_NAMESPACE }
 export type { MailCardFace, MailCardState } from './mail-card-controller.ts'
@@ -40,8 +41,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     api,
     async settings => {
       const response = await ctx.remote.mailSettings.save({ settings })
-      if (!response.result.ok) throw new Error(response.result.error.message)
-      return response.result.value
+      return unwrapMailSettingsSave(response)
     },
     true,
   )
