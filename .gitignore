@@ -2,6 +2,7 @@
 .pnpm-store/
 .project-knowledge/
 node_modules/
+plugins/mail/*.tgz
 target/
 dist/
 *.dmg
@@ -9,4 +10,3 @@ dist/
 # The GitHub checkout is a separate, upstream-owned repository.
 deepseek-harness/
 deepseek-harness-source/
-

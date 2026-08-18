@@ -32,4 +32,21 @@ describe('DMG packaging', () => {
 
     expect(readFileSync(output, 'utf8')).toBe('previous image')
   })
+
+  it('audits the completed image before publishing it', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-dmg-audit-'))
+    const app = join(root, 'DeepSeek Harness.app')
+    const output = join(root, 'DeepSeek Harness.dmg')
+    mkdirSync(app)
+    let audited = ''
+
+    packageDmg(app, output, (_source, temporaryOutput) => {
+      writeFileSync(temporaryOutput, 'complete image')
+    }, image => {
+      audited = image
+      expect(readFileSync(image, 'utf8')).toBe('complete image')
+    })
+
+    expect(audited).toBe(output)
+  })
 })

@@ -33,6 +33,8 @@ function assertNotAborted(signal) {
 }
 async function withImap(config, password, signal, operation) {
     assertNotAborted(signal);
+    if (config.imap.secure !== true)
+        throw new Error('mail-plugin: IMAP must use TLS on connect');
     const client = new ImapFlow({
         host: config.imap.host,
         port: config.imap.port,
@@ -145,11 +147,14 @@ export class NodeMailTransport {
     }
     async send(config, password, request, signal) {
         assertNotAborted(signal);
+        if (config.smtp.secure !== true)
+            throw new Error('mail-plugin: SMTP must use TLS on connect');
         const transport = nodemailer.createTransport({
             host: config.smtp.host,
             port: config.smtp.port,
             secure: config.smtp.secure,
             ignoreTLS: false,
+            requireTLS: true,
             auth: { user: config.username, pass: password },
             logger: false,
             debug: false,
@@ -177,4 +182,3 @@ export class NodeMailTransport {
         }
     }
 }
-

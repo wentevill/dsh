@@ -16,7 +16,7 @@ export interface NetworkEndpoint {
     host: string;
     port: number;
     /** Secure connection on connect (implicit TLS). */
-    secure: boolean;
+    secure: true;
 }
 /** The account fields a user configures in the page. No secrets here. */
 export interface MailSettings {
@@ -33,4 +33,3 @@ export interface MailSettings {
 }
 /** Schemastery schema rendered as the account form by configuration surfaces. */
 export declare const MailSettingsSchema: z<MailSettings>;
-

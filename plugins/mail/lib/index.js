@@ -8,7 +8,7 @@ export { NodeMailTransport } from "./transport.js";
 const endpoint = z.object({
     host: z.string().required(),
     port: z.number().step(1).min(1).max(65535).required(),
-    secure: z.boolean().default(true),
+    secure: z.const(true).default(true),
 });
 export const Config = z.object({
     username: z.string().required(),
@@ -22,8 +22,8 @@ export const Config = z.object({
     maxBodyChars: z.number().step(1).min(1).default(100_000),
 });
 function assertEndpoint(label, value) {
-    if (typeof value.secure !== 'boolean')
-        throw new Error(`mail-plugin: ${label} secure must be a boolean`);
+    if (value.secure !== true)
+        throw new Error(`mail-plugin: ${label} must use TLS on connect`);
     if (value.host.length === 0)
         throw new Error(`mail-plugin: ${label} host is required`);
     if (!Number.isInteger(value.port) || value.port < 1 || value.port > 65535)
@@ -215,4 +215,3 @@ export function apply(ctx, config) {
         execute: async (args, exec) => formatSend(await account.send(parseSend(args, maxRecipients, maxBodyChars), exec.signal)),
     }));
 }
-

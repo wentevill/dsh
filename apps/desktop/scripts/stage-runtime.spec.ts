@@ -3,9 +3,36 @@ import { linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, statSync, sy
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { breakRuntimeHardlinks, buildEnvironment, createStageDirectory, materializeRuntimeLinks, verifySha256 } from './stage-runtime.ts'
+import { augmentDesktopRuntimeClosure, breakRuntimeHardlinks, buildEnvironment, createStageDirectory, materializeRuntimeLinks, verifyPackageIntegrity, verifySha256 } from './stage-runtime.ts'
 
 describe('runtime staging', () => {
+  it('adds Desktop workspace capabilities to the packaged dsh dependency closure', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-runtime-closure-'))
+    const cli = join(root, 'apps/cli/package.json')
+    const desktop = join(root, 'apps/desktop/package.json')
+    mkdirSync(join(root, 'apps/cli'), { recursive: true })
+    mkdirSync(join(root, 'apps/desktop'), { recursive: true })
+    writeFileSync(cli, JSON.stringify({ name: '@deepseek-ai/dsh', dependencies: { existing: 'workspace:^' } }))
+    writeFileSync(desktop, JSON.stringify({ dependencies: {
+      '@deepseek-ai/dsh': 'workspace:^',
+      '@deepseek-ai/dsh-mail': 'workspace:^',
+      pnpm: '11.7.0',
+    } }))
+
+    augmentDesktopRuntimeClosure(root)
+
+    const manifest = JSON.parse(readFileSync(cli, 'utf8')) as { dependencies: Record<string, string> }
+    expect(manifest.dependencies).toMatchObject({ existing: 'workspace:^', '@deepseek-ai/dsh-mail': 'workspace:^' })
+    expect(manifest.dependencies).not.toHaveProperty('pnpm')
+  })
+
+  it('rejects a lockfile whose bundled package integrity is not pinned', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-lock-integrity-'))
+    const lock = join(root, 'pnpm-lock.yaml')
+    writeFileSync(lock, "packages:\n\n  pnpm@11.7.0:\n    resolution: {integrity: sha512-wrong}\n")
+    expect(() => verifyPackageIntegrity(lock, 'pnpm', '11.7.0', 'sha512-expected')).toThrow(/integrity mismatch/)
+  })
+
   it('creates staging outside the Desktop source tree on a fresh checkout', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-stage-parent-'))
     const destination = join(root, 'missing', 'resources', 'runtime')

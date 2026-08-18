@@ -9,11 +9,22 @@ export interface RuntimeConfig {
   archive: string
   url: string
   sha256: string
+  pnpmVersion: string
+  pnpmIntegrity: string
 }
 
 export function verifySha256(path: string, expected: string): void {
   const actual = createHash('sha256').update(readFileSync(path)).digest('hex')
   if (actual !== expected) throw new Error(`Node archive checksum mismatch: expected ${expected}, got ${actual}`)
+}
+
+export function verifyPackageIntegrity(lockPath: string, name: string, version: string, expected: string): void {
+  const lock = readFileSync(lockPath, 'utf8')
+  const escaped = `${name}@${version}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const entry = lock.match(new RegExp(`^  ${escaped}:\\n((?: {4}.*\\n)+)`, 'm'))?.[1] ?? ''
+  if (!entry.includes(`resolution: {integrity: ${expected}}`)) {
+    throw new Error(`${name}@${version} lockfile integrity mismatch`)
+  }
 }
 
 /** Export only tracked files from the pinned upstream commit into a writable assembly tree. */
@@ -56,7 +67,10 @@ export function stageRuntime(
     // A second install updates only this disposable assembly's lock and links.
     copyPackagingPackage(join(packagingRoot, 'apps/desktop'), join(assembly, 'apps/desktop'))
     copyPackagingPackage(join(packagingRoot, 'packages/mail'), join(assembly, 'packages/mail'))
-    execFileSync('corepack', ['pnpm', 'install', '--no-frozen-lockfile'], { cwd: assembly, env: environment, stdio: 'inherit' })
+    augmentDesktopRuntimeClosure(assembly)
+    execFileSync('corepack', ['pnpm', 'install', '--lockfile-only', '--no-frozen-lockfile'], { cwd: assembly, env: environment, stdio: 'inherit' })
+    verifyPackageIntegrity(join(assembly, 'pnpm-lock.yaml'), 'pnpm', config.pnpmVersion, config.pnpmIntegrity)
+    execFileSync('corepack', ['pnpm', 'install', '--frozen-lockfile'], { cwd: assembly, env: environment, stdio: 'inherit' })
     execFileSync('corepack', ['pnpm', 'exec', 'tsc', '-b', 'packages/mail/mail/tsconfig.json'], {
       cwd: assembly,
       env: environment,
@@ -85,6 +99,18 @@ export function stageRuntime(
   } finally {
     rmSync(temporary, { recursive: true, force: true })
   }
+}
+
+/** Make Desktop-only capabilities part of the installed dsh closure used by profile peer fallback. */
+export function augmentDesktopRuntimeClosure(assembly: string): void {
+  const cliPath = join(assembly, 'apps/cli/package.json')
+  const desktopPath = join(assembly, 'apps/desktop/package.json')
+  const cli = JSON.parse(readFileSync(cliPath, 'utf8')) as { dependencies?: Record<string, string> }
+  const desktop = JSON.parse(readFileSync(desktopPath, 'utf8')) as { dependencies?: Record<string, string> }
+  const additions = Object.fromEntries(Object.entries(desktop.dependencies ?? {})
+    .filter(([name, version]) => name !== '@deepseek-ai/dsh' && name !== 'pnpm' && version.startsWith('workspace:')))
+  cli.dependencies = { ...cli.dependencies, ...additions }
+  writeFileSync(cliPath, JSON.stringify(cli, undefined, 2) + '\n')
 }
 
 export function createStageDirectory(destination: string, stagingParent: string): string {

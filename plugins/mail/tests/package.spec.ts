@@ -1,9 +1,16 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const root = resolve(import.meta.dirname, '..')
+
+function pack(): string {
+  const destination = mkdtempSync(resolve(tmpdir(), 'dsh-mail-pack-'))
+  execFileSync('corepack', ['pnpm', '--dir', root, 'pack', '--pack-destination', destination])
+  return resolve(destination, 'dsh-mail-plugin-0.1.0.tgz')
+}
 
 describe('published mail plugin', () => {
   it('declares plugin libraries as dependencies and DSH capabilities as peers', () => {
@@ -39,7 +46,7 @@ describe('published mail plugin', () => {
   })
 
   it('ships every declared runtime artifact in the production archive', () => {
-    const archive = resolve(root, 'dsh-mail-plugin-0.1.0.tgz')
+    const archive = pack()
     const files = execFileSync('tar', ['-tzf', archive], { encoding: 'utf8' }).trim().split('\n')
     expect(files).toEqual(expect.arrayContaining([
       'package/package.json',

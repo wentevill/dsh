@@ -37,7 +37,7 @@
     "@deepseek-ai/dsh-tools": "*"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "*",
+    "@deepseek-ai/schemastery": "^3.18.1",
     "imapflow": "^1.7.1",
     "mailparser": "^3.9.15",
     "nodemailer": "^9.0.5"

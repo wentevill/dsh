@@ -7,7 +7,7 @@ export { NodeMailTransport } from './transport.js';
 export interface EndpointConfig {
     readonly host: string;
     readonly port: number;
-    readonly secure: boolean;
+    readonly secure: true;
 }
 /** User-facing plugin configuration (Schemastery-validated). */
 export interface Config {

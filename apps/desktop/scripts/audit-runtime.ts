@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { lstatSync, readFileSync, readdirSync } from 'node:fs'
-import { extname, join, relative, resolve } from 'node:path'
+import { delimiter, dirname, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const FORBIDDEN_TEXT = [/pnpm-store/, /["']@deepseek-ai\/dsh\/src\//m]
@@ -14,6 +14,7 @@ export function auditRuntime(root: string): void {
   for (const required of [node, cli, pnpm, pnpmShim]) {
     if (!lstatSync(required, { throwIfNoEntry: false })?.isFile()) throw new Error(`Missing runtime artifact: ${relative(root, required)}`)
   }
+  if ((lstatSync(pnpmShim).mode & 0o111) === 0) throw new Error('Bundled pnpm launcher must be executable')
   for (const sourceDirectory of ['src', 'scripts', 'tests', 'src-tauri']) {
     const path = join(root, 'app', sourceDirectory)
     if (lstatSync(path, { throwIfNoEntry: false })) throw new Error(`Runtime contains Desktop source: app/${sourceDirectory}`)
@@ -27,7 +28,10 @@ export function auditRuntime(root: string): void {
   }
   const arch = execFileSync(node, ['-p', 'process.arch'], { encoding: 'utf8' }).trim()
   if (arch !== 'arm64') throw new Error(`Bundled Node architecture must be arm64, got ${arch}`)
-  const pnpmVersion = execFileSync(node, [pnpm, '--version'], { encoding: 'utf8' }).trim()
+  const pnpmVersion = execFileSync(pnpmShim, ['--version'], {
+    encoding: 'utf8',
+    env: { ...process.env, PATH: [dirname(node), dirname(pnpmShim), process.env.PATH ?? ''].join(delimiter) },
+  }).trim()
   if (pnpmVersion !== '11.7.0') throw new Error(`Bundled pnpm version must be 11.7.0, got ${pnpmVersion}`)
   const nodeModules = join(root, 'app/node_modules')
   validateRuntimeDependencies(nodeModules, nodeModules)
