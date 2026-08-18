@@ -30,11 +30,11 @@ export type { MailCardFace, MailCardState } from './mail-card-controller.ts'
 const NS = 'settings.plugins.mail'
 
 export const name = 'mail-plugin-client'
-export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.mailSettings', 'settingsScope']
+export const inject = ['remote']
 
-export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
+/** UI fiber started only after the parent has mounted the Mail Remote namespace. */
+export const mailClientFeature = Object.assign(async (ctx: ClientContext): Promise<void> => {
   const { api } = ctx.get('connection') as ConnectionHandle
-  const disposeRemote = await ctx.remote.$mount(mailRemote)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'mail-plugin-client: dictionaries')
 
   const loaded = unwrapMailSettingsSave(await ctx.remote.mailSettings.load())
@@ -66,5 +66,14 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       inject: controller.face,
     }, MailCard)
   })
-  return disposeRemote
+}, { inject: ['slots', 'locale', 'connection', 'remote', 'remote.mailSettings', 'settingsScope'] })
+
+export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
+  const disposeRemote = await ctx.remote.$mount(mailRemote)
+  const feature = ctx.plugin(mailClientFeature)
+  await feature
+  return async () => {
+    await feature.dispose()
+    await disposeRemote()
+  }
 }

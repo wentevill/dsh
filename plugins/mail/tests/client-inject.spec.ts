@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 afterEach(() => { delete (globalThis as unknown as { window?: unknown }).window })
 
 describe('mail client injection contract', () => {
-  it('declares the dynamically mounted Mail Remote before reading it during apply', () => {
+  it('mounts its own Mail Remote instead of deadlocking on it as a loader prerequisite', () => {
     let exports: Record<string, unknown> | undefined
     const loader = {
       load({ factory }: { factory: (require: () => unknown) => Record<string, unknown> }) {
@@ -15,6 +15,7 @@ describe('mail client injection contract', () => {
     ;(globalThis as unknown as { window: unknown }).window = { __ModuleLoader__: loader }
     Function(readFileSync(resolve(import.meta.dirname, '../lib/client.js'), 'utf8'))()
 
-    expect(exports?.inject).toContain('remote.mailSettings')
+    expect(exports?.inject).toEqual(['remote'])
+    expect((exports?.mailClientFeature as { inject?: string[] } | undefined)?.inject).toContain('remote.mailSettings')
   })
 })

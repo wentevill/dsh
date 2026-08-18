@@ -4887,17 +4887,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		/** Copy namespace owned by this client plugin. */
 		const NS = "settings.plugins.mail";
 		const name = "mail-plugin-client";
-		const inject = [
-			"slots",
-			"locale",
-			"connection",
-			"remote",
-			"remote.mailSettings",
-			"settingsScope"
-		];
-		async function apply(ctx) {
+		const inject = ["remote"];
+		/** UI fiber started only after the parent has mounted the Mail Remote namespace. */
+		const mailClientFeature = Object.assign(async (ctx) => {
 			const { api } = ctx.get("connection");
-			const disposeRemote = await ctx.remote.$mount(TYPERT_REMOTE);
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
@@ -4920,7 +4913,22 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					inject: controller.face
 				}, MailCard);
 			});
-			return disposeRemote;
+		}, { inject: [
+			"slots",
+			"locale",
+			"connection",
+			"remote",
+			"remote.mailSettings",
+			"settingsScope"
+		] });
+		async function apply(ctx) {
+			const disposeRemote = await ctx.remote.$mount(TYPERT_REMOTE);
+			const feature = ctx.plugin(mailClientFeature);
+			await feature;
+			return async () => {
+				await feature.dispose();
+				await disposeRemote();
+			};
 		}
 		//#endregion
 		exports.MAIL_SETTINGS_NAMESPACE = MAIL_NS;
@@ -4928,6 +4936,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		exports.apply = apply;
 		exports.createMailCardController = createMailCardController;
 		exports.inject = inject;
+		exports.mailClientFeature = mailClientFeature;
 		exports.name = name;
 		return module.exports;
 	}
