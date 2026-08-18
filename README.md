@@ -1,0 +1,31 @@
+# DeepSeek Harness Desktop Packaging
+
+This repository owns the private macOS Desktop distribution around the public
+DeepSeek Harness project. It does not own or modify the upstream source.
+
+## Layout
+
+- `upstream` is a tracked relative symlink to the local GitHub checkout in
+  `deepseek-harness-source/`.
+- `apps/desktop/` owns Tauri, runtime staging, release audits, and DMG creation.
+- `packages/mail/` and `plugins/` own private product extensions and publish
+  packages.
+- `packaging/` owns source-boundary checks and packaging-only orchestration.
+
+Run `corepack pnpm run verify:upstream` before packaging work. Desktop stage and
+build scripts call this guard automatically. A dirty checkout, changed remote,
+or revision different from `upstream.lock.json` is an error; tooling never
+resets or repairs upstream.
+
+Runtime staging exports tracked upstream files with `git archive` into a
+temporary writable assembly. Dependency installation, builds, overlays, and
+deployment happen there. No generated file or `node_modules` directory is
+written through `upstream`.
+
+The pre-separation implementation remains recoverable from the upstream
+repository's local branch `archive/desktop-packaging-20260818` at commit
+`2c4cf69b2fd5e526831ea7275d6711a2667c8d84`.
+
+See [Updating upstream](docs/operations/upstream-update.md) before selecting a
+new GitHub revision.
+
