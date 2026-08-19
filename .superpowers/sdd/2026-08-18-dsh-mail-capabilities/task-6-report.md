@@ -8,6 +8,8 @@ Fix round 2: settings and credential writes now settle as independent ordered st
 
 Credential badge reads now use a monotonic request generation: only the latest-started describe may publish. The post-write describe supersedes initial and invalidation reads, and controller disposal invalidates outstanding requests and unsubscribes from the settings scope.
 
+Fix round 3: an active save now retains the confirmed pre-submit baseline for every submitted settings field until both Remote and credential stages settle. Resetting a submitted field after the Remote mirror has advanced therefore still stages the original value for the next save; resetting a non-submitted concurrent edit continues to use the current confirmed value. Password edits containing only whitespace are normalized to no draft, including when they supersede an older in-flight credential write.
+
 - Added controller coverage for independent receive/send/permanent-delete status from current settings and staged drafts.
 - A complete save projection now preserves unedited `mailbox` and `archiveMailbox` values, keeps `allowDelete`, and defaults omitted or blank port values to IMAP 993 and SMTP 465.
 - Invalid port drafts (`1..65535` integers only) are rejected before any Remote save.
@@ -22,6 +24,8 @@ Verification:
 - `corepack pnpm exec vitest run plugins/mail/tests --exclude '.worktrees/**' --exclude '.pnpm-store/**'` — 15 files, 122 tests passed.
 - Fix round 2 focused suite: `corepack pnpm exec vitest run plugins/mail/tests/settings-save.spec.ts plugins/mail/tests/client-capability-status.spec.ts plugins/mail/tests/client-inject.spec.ts plugins/mail/tests/client-settings-mirror.spec.ts` — 10 project-file runs, 33 tests passed.
 - Fix round 2 full suite: `corepack pnpm exec vitest run plugins/mail/tests --exclude '.worktrees/**' --exclude '.pnpm-store/**'` — 15 files, 134 tests passed.
+- Fix round 3 focused suite: `corepack pnpm exec vitest run plugins/mail/tests/settings-save.spec.ts` — 3 project-file runs, 27 tests passed.
+- Fix round 3 full suite: `corepack pnpm exec vitest run plugins/mail/tests --exclude '.worktrees/**' --exclude '.pnpm-store/**'` — 15 files, 138 tests passed.
 - `corepack pnpm exec tsc --noEmit -p plugins/mail/tsconfig.build.json`
 - `corepack pnpm exec tsc --noEmit -p packages/mail/mail/tsconfig.json`
 - `git diff --check`

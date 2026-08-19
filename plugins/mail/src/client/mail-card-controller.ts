@@ -128,6 +128,7 @@ export function createMailCardController(
   let mutationGeneration = 0
   let credentialReadGeneration = 0
   let disposed = false
+  let activeSettingsBaseline: Map<FlatField, string> | undefined
 
   const confirmedValueOf = (snap: SettingsScopeSnapshot<MailSettings>, field: FlatField): string => {
     const raw = field === 'imapHost' ? nested(snap, 'imap', 'host')
@@ -251,6 +252,9 @@ export function createMailCardController(
     let credentialLanded = true
     if (submittedSettings.size > 0) try {
       const snap = scope.getSnapshot()
+      activeSettingsBaseline = new Map(
+        [...submittedSettings.keys()].map(field => [field, confirmedValueOf(snap, field)]),
+      )
       const str = (field: FlatField, fallback: string): string => {
         const d = submittedDrafts.get(field)
         return d !== undefined ? d.text.trim() : fallback
@@ -308,6 +312,7 @@ export function createMailCardController(
     }
     saving = false
     retireSatisfiedResets()
+    activeSettingsBaseline = undefined
     failed = !settingsLanded || !credentialLanded
     publish()
   }
@@ -315,7 +320,10 @@ export function createMailCardController(
   const actions: CardActions = {
     edit: (field, text) => {
       if (!isFlat(field)) return
-      drafts.set(field as FlatField, { text, generation: ++mutationGeneration, reset: false })
+      const flat = field as FlatField
+      mutationGeneration += 1
+      if (flat === 'password' && text.trim() === '') drafts.delete(flat)
+      else drafts.set(flat, { text, generation: mutationGeneration, reset: false })
       failed = false
       publish()
     },
@@ -324,7 +332,7 @@ export function createMailCardController(
       const flat = field as FlatField
       if (saving && flat !== 'password') {
         drafts.set(flat, {
-          text: confirmedValueOf(scope.getSnapshot(), flat),
+          text: activeSettingsBaseline?.get(flat) ?? confirmedValueOf(scope.getSnapshot(), flat),
           generation: ++mutationGeneration,
           reset: true,
         })

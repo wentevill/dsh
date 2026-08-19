@@ -5489,6 +5489,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			let mutationGeneration = 0;
 			let credentialReadGeneration = 0;
 			let disposed = false;
+			let activeSettingsBaseline;
 			const confirmedValueOf = (snap, field) => {
 				const raw = field === "imapHost" ? nested(snap, "imap", "host") : field === "imapPort" ? nested(snap, "imap", "port") : field === "imapSecure" ? nested(snap, "imap", "secure") : field === "smtpHost" ? nested(snap, "smtp", "host") : field === "smtpPort" ? nested(snap, "smtp", "port") : field === "smtpSecure" ? nested(snap, "smtp", "secure") : scalar(snap, field);
 				if (PORT_FIELDS.has(field)) return typeof raw === "number" ? String(raw) : "";
@@ -5612,6 +5613,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				let credentialLanded = true;
 				if (submittedSettings.size > 0) try {
 					const snap = scope.getSnapshot();
+					activeSettingsBaseline = new Map([...submittedSettings.keys()].map((field) => [field, confirmedValueOf(snap, field)]));
 					const str = (field, fallback) => {
 						const d = submittedDrafts.get(field);
 						return d !== void 0 ? d.text.trim() : fallback;
@@ -5677,15 +5679,19 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				}
 				saving = false;
 				retireSatisfiedResets();
+				activeSettingsBaseline = void 0;
 				failed = !settingsLanded || !credentialLanded;
 				publish();
 			}
 			const actions = {
 				edit: (field, text) => {
 					if (!isFlat(field)) return;
-					drafts.set(field, {
+					const flat = field;
+					mutationGeneration += 1;
+					if (flat === "password" && text.trim() === "") drafts.delete(flat);
+					else drafts.set(flat, {
 						text,
-						generation: ++mutationGeneration,
+						generation: mutationGeneration,
 						reset: false
 					});
 					failed = false;
@@ -5695,7 +5701,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					if (!isFlat(field)) return;
 					const flat = field;
 					if (saving && flat !== "password") drafts.set(flat, {
-						text: confirmedValueOf(scope.getSnapshot(), flat),
+						text: activeSettingsBaseline?.get(flat) ?? confirmedValueOf(scope.getSnapshot(), flat),
 						generation: ++mutationGeneration,
 						reset: true
 					});
