@@ -1,0 +1,5 @@
+- insert:
+    - id: wecom
+      name: dsh-wecom
+      config:
+        profile: web

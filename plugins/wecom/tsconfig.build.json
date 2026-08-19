@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "./lib",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "./src",
+    "rewriteRelativeImportExtensions": true,
+    "allowImportingTsExtensions": false
+  },
+  "include": ["src/index.ts", "src/auth.ts", "src/auth-files.ts", "src/auth-remote.ts", "src/capabilities.ts", "src/catalog.ts", "src/cli-auth-backend.ts", "src/discovery.ts", "src/generation-installer.ts", "src/host.ts", "src/policy.ts", "src/qr-file.ts", "src/remote-types.ts", "src/schema-adapter.ts", "src/tool-adapter.ts", "src/transport.ts"]
+}

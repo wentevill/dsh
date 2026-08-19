@@ -4,6 +4,7 @@
 .worktrees/
 node_modules/
 plugins/mail/*.tgz
+plugins/wecom/*.tgz
 target/
 dist/
 *.dmg
