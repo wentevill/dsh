@@ -53,6 +53,18 @@ describe('WeCom process transport', () => {
     })
   })
 
+  it('parses pretty-printed JSON as one document', async () => {
+    const fake = executor({ code: 0, stdout: '[\n  {\n    "name": "calendar"\n  }\n]\n' })
+    const runner = createWeComProcessRunner({
+      executable: 'wecom-cli', configDir: '/config', tempDir: '/tmp/wecom', execute: fake.execute,
+    })
+
+    await expect(runner.run({ path: ['schema', 'list'] })).resolves.toEqual({
+      value: [{ name: 'calendar' }],
+      stderr: '',
+    })
+  })
+
   it('maps a structured CLI failure without returning stderr as model data', async () => {
     const fake = executor({
       code: 1,

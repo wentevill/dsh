@@ -113,9 +113,15 @@ interface RunnerOptions {
 }
 
 function parseJsonOutput(stdout: string): JsonValue {
-  const lines = stdout.split(/\r?\n/u).filter(line => line.trim() !== '')
-  if (lines.length === 0) throw new WeComCliError('wecom-cli returned invalid JSON output', 0)
+  const document = stdout.trim()
+  if (document === '') throw new WeComCliError('wecom-cli returned invalid JSON output', 0)
   try {
+    return JSON.parse(document) as JsonValue
+  } catch {
+    // Paginated commands may emit one complete JSON value per line.
+  }
+  try {
+    const lines = document.split(/\r?\n/u).filter(line => line.trim() !== '')
     const pages = lines.map(line => JSON.parse(line) as JsonValue)
     return pages.length === 1 ? pages[0] as JsonValue : pages
   } catch {

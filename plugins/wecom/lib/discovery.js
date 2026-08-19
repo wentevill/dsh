@@ -25,7 +25,9 @@ export async function discoverWeComMethods(runner) {
             const summary = object(summaryValue, 'method summary');
             if (typeof summary.name !== 'string')
                 throw new Error('method summary name must be a string');
-            const requestedPath = `${service.name}.${summary.name}`;
+            const requestedPath = summary.name.startsWith(`${service.name}.`)
+                ? summary.name
+                : `${service.name}.${summary.name}`;
             const detail = object((await runner.run({ path: ['schema', 'get', requestedPath] })).value, 'method schema');
             if (detail.method !== requestedPath)
                 throw new Error(`method path mismatch: expected ${requestedPath}`);

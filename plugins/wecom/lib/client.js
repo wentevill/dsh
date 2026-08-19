@@ -4474,19 +4474,31 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			document.head.appendChild(tag);
 		}
 		//#endregion
+		//#region src/client/error-state.ts
+		function clearPollingError(errors) {
+			return errors.action === void 0 ? {} : { action: errors.action };
+		}
+		function visibleAuthError(errors) {
+			return errors.action ?? errors.polling;
+		}
+		//#endregion
 		//#region src/client/index.tsx
 		const NS = "settings.plugins.wecom";
 		function WeComCard({ api, t }) {
 			ensureWeComCardCSS();
 			const [snapshot, setSnapshot] = (0, react.useState)({ state: "unauthorized" });
 			const [busy, setBusy] = (0, react.useState)(false);
-			const [error, setError] = (0, react.useState)();
+			const [errors, setErrors] = (0, react.useState)({});
 			const refreshStatus = (0, react.useCallback)(async () => {
 				try {
 					setSnapshot(unwrapAuthResult(await api.status()));
-					setError(void 0);
+					setErrors(clearPollingError);
 				} catch (cause) {
-					setError(cause instanceof Error ? cause.message : t("remoteFailed"));
+					const polling = cause instanceof Error ? cause.message : t("remoteFailed");
+					setErrors((current) => ({
+						...current,
+						polling
+					}));
 				}
 			}, [api, t]);
 			(0, react.useEffect)(() => {
@@ -4498,11 +4510,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			}, [refreshStatus]);
 			const run = async (operation) => {
 				setBusy(true);
-				setError(void 0);
+				setErrors((current) => current.polling === void 0 ? {} : { polling: current.polling });
 				try {
 					setSnapshot(unwrapAuthResult(await operation()));
+					setErrors((current) => current.polling === void 0 ? {} : { polling: current.polling });
 				} catch (cause) {
-					setError(cause instanceof Error ? cause.message : t("remoteFailed"));
+					const action = cause instanceof Error ? cause.message : t("remoteFailed");
+					setErrors((current) => ({
+						...current,
+						action
+					}));
 				} finally {
 					setBusy(false);
 				}
@@ -4546,10 +4563,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 						className: css.error,
 						children: snapshot.message
 					}),
-					error && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					visibleAuthError(errors) && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: css.error,
 						role: "alert",
-						children: error
+						children: visibleAuthError(errors)
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: css.actions,

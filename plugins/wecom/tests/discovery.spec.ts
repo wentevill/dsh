@@ -50,6 +50,27 @@ describe('WeCom schema discovery', () => {
     ])
   })
 
+  it('uses the full method name emitted by the real service catalog', async () => {
+    const cli = runner({
+      'schema list': [{ name: 'calendar', methods: [
+        { name: 'calendar.schedules.cancel', description: '取消日程' },
+      ] }],
+      'schema get calendar.schedules.cancel': {
+        method: 'calendar.schedules.cancel',
+        response: { '$ref': 'CancelRes' },
+        schemas: { CancelRes: { type: 'object' } },
+      },
+    })
+
+    await expect(discoverWeComMethods(cli)).resolves.toMatchObject([{
+      path: ['calendar', 'schedules', 'cancel'],
+    }])
+    expect(cli.calls.map(call => call.path)).toEqual([
+      ['schema', 'list'],
+      ['schema', 'get', 'calendar.schedules.cancel'],
+    ])
+  })
+
   it('rejects a method whose detailed path disagrees with the catalog', async () => {
     const cli = runner({
       'schema list': [{ name: 'contact', methods: [{ name: 'users.search' }] }],

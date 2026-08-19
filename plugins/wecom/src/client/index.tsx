@@ -10,6 +10,7 @@ import { unwrapAuthResult } from './remote-result.ts'
 import type { WeComAuthSnapshot } from '../remote-types.ts'
 import { en, zh, type WeComLocaleKey } from './locales.ts'
 import { css, ensureWeComCardCSS } from './card-css.ts'
+import { clearPollingError, visibleAuthError, type AuthErrors } from './error-state.ts'
 
 type Snapshot = WeComAuthSnapshot
 
@@ -19,10 +20,15 @@ function WeComCard({ api, t }: { api: any; t: (key: WeComLocaleKey) => string })
   ensureWeComCardCSS()
   const [snapshot, setSnapshot] = useState<Snapshot>({ state: 'unauthorized' })
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string>()
+  const [errors, setErrors] = useState<AuthErrors>({})
   const refreshStatus = useCallback(async () => {
-    try { setSnapshot(unwrapAuthResult(await api.status())); setError(undefined) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : t('remoteFailed')) }
+    try {
+      setSnapshot(unwrapAuthResult(await api.status()))
+      setErrors(clearPollingError)
+    } catch (cause) {
+      const polling = cause instanceof Error ? cause.message : t('remoteFailed')
+      setErrors(current => ({ ...current, polling }))
+    }
   }, [api, t])
   useEffect(() => {
     void refreshStatus()
@@ -31,9 +37,14 @@ function WeComCard({ api, t }: { api: any; t: (key: WeComLocaleKey) => string })
   }, [refreshStatus])
   const run = async (operation: () => Promise<unknown>) => {
     setBusy(true)
-    setError(undefined)
-    try { setSnapshot(unwrapAuthResult(await operation() as Parameters<typeof unwrapAuthResult>[0])) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : t('remoteFailed')) }
+    setErrors(current => current.polling === undefined ? {} : { polling: current.polling })
+    try {
+      setSnapshot(unwrapAuthResult(await operation() as Parameters<typeof unwrapAuthResult>[0]))
+      setErrors(current => current.polling === undefined ? {} : { polling: current.polling })
+    } catch (cause) {
+      const action = cause instanceof Error ? cause.message : t('remoteFailed')
+      setErrors(current => ({ ...current, action }))
+    }
     finally { setBusy(false) }
   }
   const authorized = ['authorized', 'refreshing_schema', 'ready', 'sync_failed'].includes(snapshot.state)
@@ -45,7 +56,7 @@ function WeComCard({ api, t }: { api: any; t: (key: WeComLocaleKey) => string })
     </p>
     {snapshot.state === 'awaiting_scan' && <img className={css.qr} src={snapshot.qrDataUrl} alt={t('qrAlt')} width={240} height={240} />}
     {snapshot.state === 'sync_failed' && <p className={css.error}>{snapshot.message}</p>}
-    {error && <p className={css.error} role="alert">{error}</p>}
+    {visibleAuthError(errors) && <p className={css.error} role="alert">{visibleAuthError(errors)}</p>}
     <div className={css.actions}>
       {!authorized && snapshot.state !== 'awaiting_scan' && snapshot.state !== 'generating_qr' &&
         <button type="button" className={css.primary} disabled={busy} onClick={() => void run(() => api.connect())}>{t('authorize')}</button>}
