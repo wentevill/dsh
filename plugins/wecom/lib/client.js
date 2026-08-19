@@ -4372,6 +4372,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			]
 		};
 		//#endregion
+		//#region src/client/slot-options.ts
+		/** Runtime registration shape used before the configurable tab declares its keyed child slot. */
+		const WECOM_CARD_SLOT_OPTIONS = {
+			name: "settings.plugin.item",
+			id: "wecom",
+			order: 35,
+			locale: "settings.plugins.wecom"
+		};
+		//#endregion
 		//#region src/client/index.tsx
 		const labels = {
 			title: "企业微信 AI",
@@ -4480,12 +4489,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			const disposeRemote = await ctx.remote.$mount(TYPERT_REMOTE);
 			const feature = ctx.plugin(Object.assign(async (child) => {
 				child.slots.inject("settings.plugin.item", function* () {
-					yield child.slots.register({
-						name: "settings.plugin.item",
-						key: "wecom",
-						order: 35,
-						locale: "settings.plugins.wecom"
-					}, () => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(WeComCard, { api: child.remote.wecomAuth }));
+					yield child.slots.register(WECOM_CARD_SLOT_OPTIONS, () => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(WeComCard, { api: child.remote.wecomAuth }));
 				});
 			}, { inject: [
 				"slots",

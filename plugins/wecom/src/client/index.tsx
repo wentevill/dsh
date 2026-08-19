@@ -5,6 +5,7 @@ import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import React, { useCallback, useEffect, useState } from 'react'
 import remote from '../../lib/typert.remote-client.js'
+import { WECOM_CARD_SLOT_OPTIONS } from './slot-options.ts'
 
 type Snapshot =
   | { state: 'unauthorized' | 'generating_qr' | 'deleting' }
@@ -63,7 +64,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const disposeRemote = await ctx.remote.$mount(remote)
   const feature = ctx.plugin(Object.assign(async (child: ClientContext) => {
     child.slots.inject('settings.plugin.item', function* () {
-      yield child.slots.register({ name: 'settings.plugin.item', key: 'wecom', order: 35, locale: 'settings.plugins.wecom' },
+      yield child.slots.register(WECOM_CARD_SLOT_OPTIONS,
         () => <WeComCard api={child.remote.wecomAuth} />)
     })
   }, { inject: ['slots', 'remote', 'remote.wecomAuth'] }))
