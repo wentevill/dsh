@@ -146,10 +146,12 @@ The SDK adapter converts callbacks into a plugin-owned envelope containing the
 callback request context, message ID, room identity, sender identity, mention
 state, normalized text, and bounded attachment descriptors.
 
-Direct messages are accepted immediately. Group messages are accepted only when
-the callback says the bot was explicitly mentioned. Unsupported or malformed
-callbacks are acknowledged without starting an agent turn and are recorded as
-bounded diagnostics without message content.
+Direct messages are accepted immediately. WeCom emits group callbacks to the bot
+for bot-targeted messages; SDK 1.0.7 does not expose a separate mention flag, so
+the plugin relies on that server-side eligibility contract and does not attempt
+to infer mentions by parsing display text. Unsupported or malformed callbacks
+are acknowledged without starting an agent turn and are recorded as bounded
+diagnostics without message content.
 
 Accepted messages pass through an in-process `Bot ID + msgid` deduplication
 cache. Each room owns a serial promise queue, while different rooms may execute
@@ -165,9 +167,10 @@ canonical session persistence path.
 ## Referenced Replies
 
 The bridge collects the final assistant text for the inbound turn and replies
-through the original SDK callback/request context. The reply carries the
-originating WeCom message ID using the official referenced-reply field; it does
-not emulate a quote by copying user text into Markdown.
+through the original SDK callback/request context. SDK 1.0.7 binds a passive
+reply to the originating message by forwarding the callback frame's
+`headers.req_id` through `replyStream`; `msgid` remains the deduplication key.
+The plugin does not emulate a quote by copying user text into Markdown.
 
 Only a successful WeCom send acknowledgement marks delivery complete. A stale
 callback context, expired reply window, aborted generation, or send timeout is
@@ -227,8 +230,8 @@ observation, clean shutdown, and installed-version verification.
 2. Different rooms and different Bot IDs never share a session mapping.
 3. Same-room turns and replies remain ordered; different rooms can progress
    concurrently within the global bound.
-4. Every successful reply references the exact originating WeCom message and is
-   accepted by WeCom.
+4. Every successful reply is sent through the exact originating callback
+   `headers.req_id` and receives a successful WeCom acknowledgement.
 5. TCP/WebSocket interruption reconnects with bounded exponential backoff and
    successful resubscription restores `connected`.
 6. Authentication failure stops retrying until credentials change.
