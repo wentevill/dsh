@@ -2,6 +2,8 @@
 
 Completed the Mail Client capability-settings slice without replacing the Task 1 UI work.
 
+Fix round 1: credential write rejections and throws now retain the password draft and show a failed save. A submitted draft snapshot prevents a pending save from clearing edits made afterward.
+
 - Added controller coverage for independent receive/send/permanent-delete status from current settings and staged drafts.
 - A complete save projection now preserves unedited `mailbox` and `archiveMailbox` values, keeps `allowDelete`, and defaults omitted or blank port values to IMAP 993 and SMTP 465.
 - Invalid port drafts (`1..65535` integers only) are rejected before any Remote save.

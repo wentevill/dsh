@@ -5592,15 +5592,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				failed = false;
 				publish();
 				let landed = true;
+				const submittedDrafts = new Map(drafts);
 				try {
 					const snap = scope.getSnapshot();
 					const str = (field, fallback) => {
-						const d = drafts.get(field);
+						const d = submittedDrafts.get(field);
 						return d !== void 0 ? d.trim() : fallback;
 					};
 					const portNum = (field) => {
 						const fallback = field === "imapPort" ? 993 : 465;
-						const d = drafts.get(field);
+						const d = submittedDrafts.get(field);
 						if (d !== void 0) {
 							const text = d.trim();
 							if (text === "") return fallback;
@@ -5611,12 +5612,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 						return typeof v === "number" && isValidPort(String(v)) ? v : fallback;
 					};
 					const booleanOf = (field) => {
-						const d = drafts.get(field);
+						const d = submittedDrafts.get(field);
 						if (d !== void 0) return d === "true";
 						return (field === "allowDelete" ? scalar(snap, "allowDelete") : field === "imapSecure" ? nested(snap, "imap", "secure") : nested(snap, "smtp", "secure")) === true;
 					};
 					const hostOf = (field) => {
-						const d = drafts.get(field);
+						const d = submittedDrafts.get(field);
 						if (d !== void 0) return d.trim();
 						const v = field === "imapHost" ? nested(snap, "imap", "host") : nested(snap, "smtp", "host");
 						return typeof v === "string" ? v : "";
@@ -5638,18 +5639,21 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 							secure: booleanOf("smtpSecure")
 						}
 					});
-					const pw = drafts.get("password")?.trim();
-					if (pw) try {
-						await api.credentials.set({
+					const pw = submittedDrafts.get("password")?.trim();
+					if (pw) {
+						const result = await api.credentials.set({
 							ref: PASSWORD_REF,
 							value: pw
 						});
-					} catch {}
+						if (result.ok === false || result.result?.ok === false) throw new Error("credential write was rejected");
+					}
 					await readCredential();
 				} catch {
 					landed = false;
 				}
-				if (landed) drafts.clear();
+				if (landed) {
+					for (const [field, submitted] of submittedDrafts) if (drafts.get(field) === submitted) drafts.delete(field);
+				}
 				saving = false;
 				failed = !landed;
 				publish();

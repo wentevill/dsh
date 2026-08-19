@@ -221,15 +221,16 @@ export function createMailCardController(
     failed = false
     publish()
     let landed = true
+    const submittedDrafts = new Map(drafts)
     try {
       const snap = scope.getSnapshot()
       const str = (field: FlatField, fallback: string): string => {
-        const d = drafts.get(field)
+        const d = submittedDrafts.get(field)
         return d !== undefined ? d.trim() : fallback
       }
       const portNum = (field: FlatField): number => {
         const fallback = field === 'imapPort' ? 993 : 465
-        const d = drafts.get(field)
+        const d = submittedDrafts.get(field)
         if (d !== undefined) {
           const text = d.trim()
           if (text === '') return fallback
@@ -240,7 +241,7 @@ export function createMailCardController(
         return typeof v === 'number' && isValidPort(String(v)) ? v : fallback
       }
       const booleanOf = (field: FlatField): boolean => {
-        const d = drafts.get(field)
+        const d = submittedDrafts.get(field)
         if (d !== undefined) return d === 'true'
         const v = field === 'allowDelete'
           ? scalar(snap, 'allowDelete')
@@ -248,7 +249,7 @@ export function createMailCardController(
         return v === true
       }
       const hostOf = (field: FlatField): string => {
-        const d = drafts.get(field)
+        const d = submittedDrafts.get(field)
         if (d !== undefined) return d.trim()
         const v = (field === 'imapHost' ? nested(snap, 'imap', 'host') : nested(snap, 'smtp', 'host'))
         return typeof v === 'string' ? v : ''
@@ -264,13 +265,19 @@ export function createMailCardController(
         smtp: { host: hostOf('smtpHost'), port: portNum('smtpPort'), secure: booleanOf('smtpSecure') },
       })
 
-      const pw = drafts.get('password' as FlatField)?.trim()
+      const pw = submittedDrafts.get('password')?.trim()
       if (pw) {
-        try { await api.credentials.set({ ref: PASSWORD_REF, value: pw }) } catch { /* re-read below */ }
+        const response = await api.credentials.set({ ref: PASSWORD_REF, value: pw })
+        const result = response as unknown as { ok?: boolean; result?: { ok?: boolean } }
+        if (result.ok === false || result.result?.ok === false) throw new Error('credential write was rejected')
       }
       await readCredential()
     } catch { landed = false }
-    if (landed) drafts.clear()
+    if (landed) {
+      for (const [field, submitted] of submittedDrafts) {
+        if (drafts.get(field) === submitted) drafts.delete(field)
+      }
+    }
     saving = false
     failed = !landed
     publish()

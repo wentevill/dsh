@@ -141,4 +141,42 @@ describe('mail settings save', () => {
     expect(attempts).toBe(1)
     expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: true, failed: true })
   })
+
+  it.each([
+    ['a rejected credential result', async () => ({ result: { ok: false } })],
+    ['a thrown credential error', async () => { throw new Error('credential unavailable') }],
+  ])('keeps the password draft after %s', async (_name, set) => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    const controller = createMailCardController(
+      { getSnapshot: () => snapshot, subscribe: () => () => undefined },
+      { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }), set } },
+      async settings => ({ settings }), true,
+    )
+    const face = controller.face()
+    face.edit('password', 'not-a-secret-assertion')
+    face.save()
+    await settle(face.hooks.mailCard)
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: true, failed: true, password: { text: 'not-a-secret-assertion' } })
+  })
+
+  it('preserves an edit made while an earlier settings save is pending', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    let resolveSave: ((value: { settings: Record<string, unknown> }) => void) | undefined
+    const sent: Array<Record<string, unknown>> = []
+    const controller = createMailCardController(
+      { getSnapshot: () => snapshot, subscribe: () => () => undefined },
+      { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } },
+      async settings => { sent.push(settings); return await new Promise(resolve => { resolveSave = resolve }) }, true,
+    )
+    const face = controller.face()
+    face.edit('smtpHost', 'first.example.com')
+    face.save()
+    face.edit('smtpHost', 'second.example.com')
+    resolveSave?.({ settings: sent[0] as Record<string, unknown> })
+    await settle(face.hooks.mailCard)
+    expect(sent[0]).toMatchObject({ smtp: { host: 'first.example.com' } })
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: true, failed: false, smtpHost: { text: 'second.example.com' } })
+  })
 })
