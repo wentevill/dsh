@@ -90,12 +90,12 @@
     "access": "public"
   },
   "scripts": {
-    "build:mail": "tsc -p ../../packages/mail/mail/tsconfig.json",
+    "build:mail": "tsc -p tsconfig.mail-build.json",
     "build:host": "tsc -p tsconfig.build.json",
     "build:typert": "node scripts/generate-typert.mjs",
     "build:client": "tsdown --config tsdown.config.ts && node scripts/format-generated.mjs",
-    "build": "node scripts/clean.mjs && tsc -p ../../packages/mail/mail/tsconfig.json && tsc -p tsconfig.build.json && node scripts/generate-typert.mjs && tsdown --config tsdown.config.ts && node scripts/format-generated.mjs",
-    "prepack": "npm run build"
+    "build": "node scripts/clean.mjs && tsc -p tsconfig.mail-build.json && tsc -p tsconfig.build.json && node scripts/generate-typert.mjs && tsdown --config tsdown.config.ts && node scripts/format-generated.mjs",
+    "prepack": "pnpm run build"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",
@@ -115,6 +115,15 @@
     "nodemailer": "^9.0.5",
     "zod": "^4.4.3"
   },
+  "bundledDependencies": [
+    "@deepseek-ai/schemastery",
+    "html-to-text",
+    "imapflow",
+    "mailparser",
+    "mime-types",
+    "nodemailer",
+    "zod"
+  ],
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.1",
     "@deepseek-ai/dsh-credentials": "0.0.1-rc.1",

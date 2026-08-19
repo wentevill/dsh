@@ -4,6 +4,11 @@ packages:
 
 autoInstallPeers: false
 
+# pnpm can only embed bundledDependencies from a hoisted package tree. The
+# release archive must be self-contained because Desktop plugin installation
+# is intentionally offline with respect to the host machine.
+nodeLinker: hoisted
+
 minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-typert-generator@0.1.0-rc.7'
   - '@deepseek-ai/dsh-typert-protocol@0.1.0-rc.7'

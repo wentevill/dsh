@@ -78,7 +78,7 @@ export const TYPERT = {
         typeSymbol: 'dsh-mail/remote-types#MailSettingsSaveResult',
         schema: dsh_mail_mailSettings_load_result$schema,
       },
-      sourceLocation: {"file":"packages/mail/src/index.ts","line":57,"column":3},
+      sourceLocation: {"file":"packages/mail/src/index.ts","line":65,"column":3},
     },
     {
       id: 'dsh-mail#mailSettings/save',
@@ -103,7 +103,7 @@ export const TYPERT = {
         typeSymbol: 'dsh-mail/remote-types#MailSettingsSaveResult',
         schema: dsh_mail_mailSettings_save_result$schema,
       },
-      sourceLocation: {"file":"packages/mail/src/index.ts","line":65,"column":9},
+      sourceLocation: {"file":"packages/mail/src/index.ts","line":73,"column":9},
     },
   ],
   model: {

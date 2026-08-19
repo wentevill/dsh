@@ -15,6 +15,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    "paths": {
+      "@deepseek-ai/dsh-llm": ["./node_modules/@deepseek-ai/dsh-llm/lib/types/index.d.ts"]
+    },
     "noEmit": true
   },
   "include": ["src/**/*.ts"]

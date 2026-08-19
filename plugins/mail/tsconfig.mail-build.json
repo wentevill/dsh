@@ -1,0 +1,14 @@
+{
+  "extends": "../../packages/mail/mail/tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@deepseek-ai/cordis": ["./node_modules/@deepseek-ai/cordis/lib/types/index.d.ts"],
+      "@deepseek-ai/schemastery": ["./node_modules/@deepseek-ai/schemastery/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-invariants": ["./node_modules/@deepseek-ai/dsh-invariants/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-llm": ["./node_modules/@deepseek-ai/dsh-llm/lib/types/index.d.ts"]
+    },
+    "rootDir": "../../packages/mail/mail/src",
+    "outDir": "../../packages/mail/mail/lib"
+  },
+  "include": ["../../packages/mail/mail/src"]
+}

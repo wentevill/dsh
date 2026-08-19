@@ -5,6 +5,16 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const root = resolve(import.meta.dirname, '..')
+const packagingRoot = resolve(root, '../..')
+const runtimeDependencies = [
+  '@deepseek-ai/schemastery',
+  'html-to-text',
+  'imapflow',
+  'mailparser',
+  'mime-types',
+  'nodemailer',
+  'zod',
+]
 
 function pack(): string {
   const destination = mkdtempSync(resolve(tmpdir(), 'dsh-mail-pack-'))
@@ -56,15 +66,7 @@ describe('published mail plugin', () => {
       dsh?: { bundle?: { patch?: string } }
     }
     expect(manifest.name).toBe('dsh-mail')
-    expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual([
-      '@deepseek-ai/schemastery',
-      'html-to-text',
-      'imapflow',
-      'mailparser',
-      'mime-types',
-      'nodemailer',
-      'zod',
-    ])
+    expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual(runtimeDependencies)
     expect(Object.keys(manifest.peerDependencies ?? {}).sort()).toEqual([
       '@deepseek-ai/cordis',
       '@deepseek-ai/dsh-credentials',
@@ -98,6 +100,23 @@ describe('published mail plugin', () => {
     expect(files).toEqual(expect.arrayContaining([
       'package/package.json',
       'package/lib/index.js',
+      'package/lib/index.d.ts',
+      'package/lib/approval.js',
+      'package/lib/approval.d.ts',
+      'package/lib/tools.js',
+      'package/lib/tools.d.ts',
+      'package/lib/mail-settings.js',
+      'package/lib/mail-settings.d.ts',
+      'package/lib/mail-types.js',
+      'package/lib/mail-types.d.ts',
+      'package/lib/remote-settings.js',
+      'package/lib/remote-settings.d.ts',
+      'package/lib/remote-types.js',
+      'package/lib/remote-types.d.ts',
+      'package/lib/transport.js',
+      'package/lib/transport.d.ts',
+      'package/lib/imap-transport.js',
+      'package/lib/imap-transport.d.ts',
       'package/lib/client.js',
       'package/lib/attachment-loader.js',
       'package/lib/attachment-loader.d.ts',
@@ -112,6 +131,17 @@ describe('published mail plugin', () => {
       'package/cordis.patch.yml',
       'package/LICENSE',
     ]))
+    for (const dependency of runtimeDependencies) {
+      expect(files.some(file => file.startsWith(`package/node_modules/${dependency}/`)), dependency).toBe(true)
+    }
     expect(files.some(file => file.startsWith('package/src/'))).toBe(false)
+  })
+
+  it('binds Make packaging and installation to the Desktop runtime', () => {
+    const makefile = readFileSync(resolve(packagingRoot, 'Makefile'), 'utf8')
+    expect(makefile).not.toMatch(/\$\(shell\s+node\b/u)
+    expect(makefile).not.toContain('corepack pnpm mail:pack')
+    expect(makefile).toContain('"$(NODE)" "$(PACKAGE_BIN)/pnpm"')
+    expect(makefile).toContain('"$(NODE)" "$(DSH_CLI)" plugin')
   })
 })

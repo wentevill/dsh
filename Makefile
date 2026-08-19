@@ -7,7 +7,7 @@ RUNTIME := $(APP_PATH)/Contents/Resources/runtime
 NODE := $(RUNTIME)/node/bin/node
 DSH_CLI := $(RUNTIME)/app/node_modules/@deepseek-ai/dsh/lib/bin.js
 PACKAGE_BIN := $(RUNTIME)/app/node_modules/.bin
-MAIL_PLUGIN_VERSION := $(shell node -p "require('./plugins/mail/package.json').version")
+MAIL_PLUGIN_VERSION = $(shell "$(NODE)" -p "require('./plugins/mail/package.json').version")
 PLUGIN_ARCHIVE := $(CURDIR)/plugins/mail/dsh-mail-$(MAIL_PLUGIN_VERSION).tgz
 
 ifneq ($(filter pack-plugin install-plugin,$(MAKECMDGOALS)),)
@@ -34,7 +34,11 @@ run:
 	corepack pnpm --dir apps/desktop dev
 
 pack-plugin:
-	corepack pnpm mail:pack
+	@test -x "$(NODE)" || { printf 'missing bundled Node: %s\n' "$(NODE)" >&2; exit 1; }
+	@test -x "$(PACKAGE_BIN)/pnpm" || { printf 'missing bundled pnpm: %s\n' "$(PACKAGE_BIN)/pnpm" >&2; exit 1; }
+	cd plugins/mail && \
+	PATH="$(RUNTIME)/node/bin:$(PACKAGE_BIN):/usr/bin:/bin" \
+	"$(NODE)" "$(PACKAGE_BIN)/pnpm" pack --pack-destination .
 
 install-plugin: pack-plugin
 	@test -x "$(NODE)" || { printf 'missing bundled Node: %s\n' "$(NODE)" >&2; exit 1; }
