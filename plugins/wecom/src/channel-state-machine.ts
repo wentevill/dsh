@@ -21,7 +21,7 @@ export interface ChannelControllerOptions {
   readonly now?: () => number
   readonly stableAfterMs?: number
   readonly subscribeNetworkRestored?: (listener: () => void) => () => void
-  readonly onMessage?: (frame: unknown, signal: AbortSignal) => void | Promise<void>
+  readonly onMessage?: (frame: unknown, signal: AbortSignal, client: SdkClient) => void | Promise<void>
 }
 
 interface Generation {
@@ -150,7 +150,7 @@ export function createChannelController(options: ChannelControllerOptions): Chan
       }),
       client.on('message', frame => {
         if (!isActive(generation) || generation.client !== client) return
-        const operation = Promise.resolve(options.onMessage?.(frame, generation.abort.signal))
+        const operation = Promise.resolve(options.onMessage?.(frame, generation.abort.signal, client))
           .then(() => undefined, () => undefined)
         generation.operations.add(operation)
         void operation.finally(() => generation.operations.delete(operation))

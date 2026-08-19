@@ -13,6 +13,10 @@ interface CliAuthBackendOptions {
   readonly deleteOwned: () => Promise<void>
 }
 
+export interface CliAuthBackend extends AuthBackend {
+  provision(botId: string, secret: string, signal?: AbortSignal): Promise<void>
+}
+
 function invocation(options: CliAuthBackendOptions, args: readonly string[], signal?: AbortSignal): ProcessInvocation {
   return {
     executable: options.executable,
@@ -29,7 +33,7 @@ function invocation(options: CliAuthBackendOptions, args: readonly string[], sig
 }
 
 /** Bind the fixed auth commands and QR file to one profile-owned CLI directory. */
-export function createCliAuthBackend(options: CliAuthBackendOptions): AuthBackend {
+export function createCliAuthBackend(options: CliAuthBackendOptions): CliAuthBackend {
   return {
     async status(): Promise<AuthStatus> {
       const result = await options.execute(invocation(options, ['auth', 'show', '--status']))
@@ -58,6 +62,11 @@ export function createCliAuthBackend(options: CliAuthBackendOptions): AuthBacken
         waiter.abort()
         await rm(path, { force: true })
       }
+    },
+    async provision(botId: string, secret: string, signal?: AbortSignal): Promise<void> {
+      const request = invocation(options, ['auth', 'init', '--manual'], signal)
+      const result = await options.execute({ ...request, input: `${botId}\n${secret}\n` })
+      if (result.code !== 0) throw new Error(`wecom-cli manual authorization failed (${result.code})`)
     },
     deleteOwnedAuthorization: options.deleteOwned,
   }

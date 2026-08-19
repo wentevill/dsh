@@ -68,4 +68,17 @@ describe('wecom-cli authorization backend', () => {
     await backend.deleteOwnedAuthorization()
     expect(deleted).toBe(1)
   })
+
+  it('provisions Bot credentials through stdin and never argv', async () => {
+    const calls: ProcessInvocation[] = []
+    const backend = createCliAuthBackend({
+      executable: 'wecom-cli', configDir: '/config', tempDir: '/tmp/wecom',
+      execute: async invocation => { calls.push(invocation); return { code: 0, stdout: '', stderr: '' } },
+      readQr: async () => new Uint8Array(), deleteOwned: async () => {},
+    }) as ReturnType<typeof createCliAuthBackend> & { provision(botId: string, secret: string): Promise<void> }
+    await backend.provision('bot-id', 'bot-secret')
+    expect(calls[0]?.args).toEqual(['auth', 'init', '--manual'])
+    expect(calls[0]?.input).toBe('bot-id\nbot-secret\n')
+    expect(JSON.stringify(calls[0]?.args)).not.toContain('bot-secret')
+  })
 })
