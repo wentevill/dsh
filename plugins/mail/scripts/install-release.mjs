@@ -21,6 +21,8 @@ if (resolve(process.argv[1] ?? '') === script) {
   if ([cli, archive, profile, dshHome, packageBin].some(value => value === undefined || value === '')) {
     throw new Error('mail install: --cli, --archive, --profile, --dsh-home, and --package-bin are required')
   }
+  const home = process.env.HOME
+  if (home === undefined || home === '') throw new Error('mail install: HOME is required for the persistent pnpm store')
   const temporary = mkdtempSync(`${tmpdir()}/dsh-mail-install-`)
   try {
     const env = buildHermeticEnvironment({
@@ -29,6 +31,8 @@ if (resolve(process.argv[1] ?? '') === script) {
       nodeBin: dirname(process.execPath),
       packageBin,
       offline: true,
+      home,
+      xdgDataHome: process.env.XDG_DATA_HOME ?? null,
     })
     const result = spawnSync(process.execPath, [cli, 'plugin', '--profile', profile, 'add', archive], { env, stdio: 'inherit' })
     if (result.error !== undefined) throw result.error

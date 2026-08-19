@@ -19,6 +19,19 @@ export function readPackageVersion(path = join(mailRoot, 'package.json')) {
   return manifest.version
 }
 
+export function publishArchive(stagedArchive, finalArchive, operations = {}) {
+  const pendingArchive = `${finalArchive}.pending-${process.pid}`
+  const copy = operations.copy ?? copyFileSync
+  const rename = operations.rename ?? renameSync
+  const remove = operations.remove ?? rmSync
+  try {
+    copy(stagedArchive, pendingArchive)
+    rename(pendingArchive, finalArchive)
+  } finally {
+    remove(pendingArchive, { force: true })
+  }
+}
+
 function copyPackage(source, destination) {
   cpSync(source, destination, {
     recursive: true,
@@ -58,6 +71,7 @@ export function packRelease({ pnpm, destination }) {
       nodeBin: dirname(process.execPath),
       packageBin: dirname(pnpmPath),
       offline: false,
+      storeDir: join(environmentRoot, 'store'),
     })
     const installArgs = ['install', '--frozen-lockfile', '--ignore-scripts', '--config.node-linker=hoisted', '--config.auto-install-peers=false']
     runPnpm(pnpmPath, stagedMail, env, installArgs)
@@ -82,9 +96,7 @@ export function packRelease({ pnpm, destination }) {
     const stagedArchive = join(packDestination, expectedName)
     auditPackageArchive(stagedArchive)
     const finalArchive = resolve(outputDirectory, expectedName)
-    const pendingArchive = `${finalArchive}.pending-${process.pid}`
-    copyFileSync(stagedArchive, pendingArchive)
-    renameSync(pendingArchive, finalArchive)
+    publishArchive(stagedArchive, finalArchive)
     return finalArchive
   } finally {
     rmSync(temporary, { recursive: true, force: true })

@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const root = resolve(import.meta.dirname, '..')
@@ -47,6 +48,45 @@ describe('Desktop Make commands', () => {
     expect(output.match(/--profile/g)).toHaveLength(1)
     expect(output).toContain('NODE_PATH=')
     expect(output).toContain('NODE_OPTIONS=')
+    expect(output).toContain('PLUGIN_VERSION="$("/tmp/DeepSeek Harness.app/Contents/Resources/runtime/node/bin/node"')
+  })
+
+  it('executes the Mail version probe through a quoted bundled Node path', () => {
+    const fixture = mkdtempSync(join(tmpdir(), 'dsh mail make probe-'))
+    try {
+      copyFileSync(resolve(root, 'Makefile'), join(fixture, 'Makefile'))
+      const app = join(fixture, 'DeepSeek Harness.app')
+      const runtime = join(app, 'Contents/Resources/runtime')
+      const node = join(runtime, 'node/bin/node')
+      const packageBin = join(runtime, 'app/node_modules/.bin')
+      const mail = join(fixture, 'plugins/mail')
+      const scripts = join(mail, 'scripts')
+      const log = join(fixture, 'probe.log')
+      mkdirSync(join(runtime, 'node/bin'), { recursive: true })
+      mkdirSync(join(runtime, 'app/node_modules/@deepseek-ai/dsh/lib'), { recursive: true })
+      mkdirSync(packageBin, { recursive: true })
+      mkdirSync(scripts, { recursive: true })
+      writeFileSync(node, `#!/bin/sh\nprintf '[' >> "$PROBE_LOG"\nfor arg in "$@"; do printf '<%s>' "$arg" >> "$PROBE_LOG"; done\nprintf ']\\n' >> "$PROBE_LOG"\ncase "$*" in *--version*) printf '9.8.7\\n';; esac\n`)
+      chmodSync(node, 0o755)
+      writeFileSync(join(packageBin, 'pnpm'), '')
+      chmodSync(join(packageBin, 'pnpm'), 0o755)
+      writeFileSync(join(runtime, 'app/node_modules/@deepseek-ai/dsh/lib/bin.js'), '')
+      writeFileSync(join(scripts, 'pack-release.mjs'), '')
+      writeFileSync(join(scripts, 'install-release.mjs'), '')
+      writeFileSync(join(mail, 'dsh-mail-9.8.7.tgz'), '')
+
+      execFileSync('make', ['install-plugin', `APP_PATH=${app}`, 'DESKTOP_DSH_HOME=/tmp/Desktop Profile'], {
+        cwd: fixture,
+        env: { ...process.env, PROBE_LOG: log },
+      })
+      const calls = readFileSync(log, 'utf8').trim().split('\n')
+      const realScripts = join(realpathSync(fixture), 'plugins/mail/scripts')
+      expect(calls).toHaveLength(3)
+      expect(calls[1]).toContain(`<${join(realScripts, 'pack-release.mjs')}><--version>`)
+      expect(calls[2]).toContain(`<${join(realScripts, 'install-release.mjs')}>`)
+    } finally {
+      rmSync(fixture, { recursive: true, force: true })
+    }
   })
 
   it('rejects unsupported plugin packages', () => {

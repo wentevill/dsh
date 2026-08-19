@@ -1,7 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
-import { readFileSync, readdirSync } from 'node:fs'
-import { mkdtempSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -14,6 +13,8 @@ const runtime = join(desktop, 'src-tauri/resources/runtime')
 const node = join(runtime, 'node/bin/node')
 const cli = join(runtime, 'app/node_modules/@deepseek-ai/dsh/lib/bin.js')
 const packageBin = join(runtime, 'app/node_modules/.bin')
+const pnpm = join(packageBin, 'pnpm')
+const mailInstaller = join(packaging, 'plugins/mail/scripts/install-release.mjs')
 const mailManifest = JSON.parse(readFileSync(join(packaging, 'plugins/mail/package.json'), 'utf8')) as { version: string }
 const archive = join(packaging, `plugins/mail/dsh-mail-${mailManifest.version}.tgz`)
 const runtimeRequire = createRequire(join(runtime, 'app/package.json'))
@@ -32,6 +33,29 @@ function run(env: NodeJS.ProcessEnv, args: string[]) {
     encoding: 'utf8',
     env,
   })
+}
+
+function installMail(env: NodeJS.ProcessEnv, home: string) {
+  return spawnSync(node, [mailInstaller,
+    '--cli', cli,
+    '--package-bin', packageBin,
+    '--profile', 'web',
+    '--dsh-home', home,
+    '--archive', archive,
+  ], { encoding: 'utf8', env })
+}
+
+function profileStore(profile: string): string {
+  const modules = readFileSync(join(profile, 'node_modules/.modules.yaml'), 'utf8')
+  let value: string | undefined
+  try {
+    const parsed = JSON.parse(modules) as { storeDir?: unknown }
+    if (typeof parsed.storeDir === 'string') value = parsed.storeDir
+  } catch {
+    value = /^storeDir:\s*(.+)$/mu.exec(modules)?.[1]?.trim().replace(/^['"]|['"]$/gu, '')
+  }
+  if (value === undefined || value === '') throw new Error('profile .modules.yaml has no storeDir')
+  return value
 }
 
 interface WebInspection {
@@ -235,24 +259,62 @@ describe('packaged native dsh plugin installation', () => {
       packageBin,
       offline: true,
     })
-    expect(readdirSync(env.npm_config_store_dir)).toEqual([])
+    expect(env.npm_config_store_dir).toBeUndefined()
     expect(readdirSync(env.npm_config_cache)).toEqual([])
     expect(readdirSync(env.XDG_DATA_HOME)).toEqual([])
     expect(readdirSync(env.XDG_CONFIG_HOME)).toEqual([])
     for (const key of Object.keys(env)) {
       expect(key).not.toMatch(/NODE_PATH|NODE_OPTIONS|proxy|npm_config_(?:config|globalconfig)|pnpm_(?:config|store)/iu)
     }
-    const install = run(env, ['plugin', '--profile', 'web', 'add', archive])
-    expect(install.status, `${install.stdout}\n${install.stderr}`).toBe(0)
+    const existing = join(sandbox, 'dsh-existing-fixture')
+    const existingPacks = join(sandbox, 'existing-packs')
+    mkdirSync(existingPacks)
+    mkdirSync(existing)
+    writeFileSync(join(existing, 'package.json'), JSON.stringify({
+      name: 'dsh-existing-fixture',
+      version: '1.0.0',
+      type: 'module',
+      main: './index.js',
+      files: ['index.js', 'cordis.patch.yml'],
+      dsh: { bundle: { patch: './cordis.patch.yml' } },
+    }))
+    writeFileSync(join(existing, 'index.js'), 'export function apply() {}\n')
+    writeFileSync(join(existing, 'cordis.patch.yml'), '- insert:\n    - id: existing-fixture\n      name: dsh-existing-fixture\n')
+    const fixturePack = spawnSync(node, [pnpm, 'pack', '--pack-destination', existingPacks], {
+      cwd: existing, encoding: 'utf8', env,
+    })
+    expect(fixturePack.status, `${fixturePack.stdout}\n${fixturePack.stderr}`).toBe(0)
+    const existingArchive = join(existingPacks, 'dsh-existing-fixture-1.0.0.tgz')
+    const existingAdd = run(env, ['plugin', '--profile', 'web', 'add', existingArchive])
+    expect(existingAdd.status, `${existingAdd.stdout}\n${existingAdd.stderr}`).toBe(0)
 
     const profile = join(home, 'profiles/web')
+    const persistentStore = profileStore(profile)
+    expect(existsSync(persistentStore)).toBe(true)
+
+    const install = installMail(env, home)
+    expect(install.status, `${install.stdout}\n${install.stderr}`).toBe(0)
+    expect(profileStore(profile)).toBe(persistentStore)
+    expect(existsSync(persistentStore)).toBe(true)
+
+    const update = run(env, ['plugin', '--profile', 'web', 'update', 'dsh-existing-fixture'])
+    expect(update.status, `${update.stdout}\n${update.stderr}`).toBe(0)
+    const remove = run(env, ['plugin', '--profile', 'web', 'remove', 'dsh-mail'])
+    expect(remove.status, `${remove.stdout}\n${remove.stderr}`).toBe(0)
+    const reinstall = installMail(env, home)
+    expect(reinstall.status, `${reinstall.stdout}\n${reinstall.stderr}`).toBe(0)
+    expect(profileStore(profile)).toBe(persistentStore)
+    expect(existsSync(persistentStore)).toBe(true)
+
     const manifest = JSON.parse(readFileSync(join(profile, 'package.json'), 'utf8')) as {
       dependencies?: Record<string, string>
       dsh?: { profile?: { bundles?: string[] } }
     }
     expect(manifest.dependencies?.['dsh-mail']).toBeTruthy()
+    expect(manifest.dependencies?.['dsh-existing-fixture']).toBeTruthy()
     expect(manifest.dependencies?.['dsh-mail']).not.toContain('link:')
     expect(manifest.dsh?.profile?.bundles?.filter(name => name === 'dsh-mail')).toHaveLength(1)
+    expect(manifest.dsh?.profile?.bundles).toContain('dsh-existing-fixture')
 
     const probe = spawnSync(node, ['--input-type=module', '--eval', [
       `import { createRequire } from 'node:module'`,

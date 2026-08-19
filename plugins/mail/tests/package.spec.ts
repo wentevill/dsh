@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { auditPackageArchive, auditPackageEntries } from '../scripts/release-audit.mjs'
-import { readPackageVersion } from '../scripts/pack-release.mjs'
+import { publishArchive, readPackageVersion } from '../scripts/pack-release.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const packagingRoot = resolve(root, '../..')
@@ -194,5 +194,23 @@ describe('published mail plugin', () => {
     expect(script.match(/--config\.node-linker=hoisted/gu)).toHaveLength(3)
     expect(script).not.toContain("['prune'")
     expect(script).not.toContain("['install', '--prod'")
+  })
+
+  it('removes the pending archive when atomic publication fails', () => {
+    const fixture = mkdtempSync(resolve(tmpdir(), 'dsh-mail-publish-'))
+    const source = resolve(fixture, 'source.tgz')
+    const destination = resolve(fixture, 'dsh-mail-1.0.0.tgz')
+    const pending = `${destination}.pending-${process.pid}`
+    try {
+      writeFileSync(source, 'new archive')
+      writeFileSync(destination, 'existing archive')
+      expect(() => publishArchive(source, destination, {
+        rename() { throw new Error('injected rename failure') },
+      })).toThrow(/injected rename failure/u)
+      expect(existsSync(pending)).toBe(false)
+      expect(readFileSync(destination, 'utf8')).toBe('existing archive')
+    } finally {
+      rmSync(fixture, { recursive: true, force: true })
+    }
   })
 })

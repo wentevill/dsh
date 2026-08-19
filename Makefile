@@ -58,7 +58,7 @@ install-plugin: pack-plugin
 	@test -x "$(PACKAGE_BIN)/pnpm" || { printf 'missing bundled pnpm: %s\n' "$(PACKAGE_BIN)/pnpm" >&2; exit 1; }
 	@printf '%s\n' 'Quit DeepSeek Harness before installing to avoid concurrent profile access.'
 ifeq ($(PLUGIN),mail)
-	@PLUGIN_VERSION="$$($(NODE) "$(MAIL_RELEASE)" --version)"; \
+	@PLUGIN_VERSION="$$("$(NODE)" "$(MAIL_RELEASE)" --version)"; \
 	PLUGIN_ARCHIVE="$(CURDIR)/plugins/mail/dsh-mail-$$PLUGIN_VERSION.tgz"; \
 	test -f "$$PLUGIN_ARCHIVE" || { printf 'missing plugin archive: %s\n' "$$PLUGIN_ARCHIVE" >&2; exit 1; }; \
 	NODE_PATH= NODE_OPTIONS= "$(NODE)" "$(MAIL_INSTALL)" \
