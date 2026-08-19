@@ -17,6 +17,20 @@ describe('Desktop Make commands', () => {
     expect(dryRun('pack-plugin')).toContain('corepack pnpm mail:pack')
   })
 
+  it('delegates WeCom packaging to its owned script', () => {
+    expect(dryRun('pack-plugin', ['PLUGIN=wecom'])).toContain('corepack pnpm wecom:pack')
+  })
+
+  it('installs the selected WeCom archive into the requested profile', () => {
+    const manifest = JSON.parse(readFileSync(resolve(root, 'plugins/wecom/package.json'), 'utf8')) as { version: string }
+    const output = dryRun('install-plugin', [
+      'PLUGIN=wecom', 'PROFILE=custom', 'APP_PATH=/tmp/DeepSeek Harness.app',
+    ])
+    expect(output).toContain(`plugins/wecom/dsh-wecom-${manifest.version}.tgz`)
+    expect(output).toContain('plugin --profile "custom" add')
+    expect(output.match(/plugin --profile/g)).toHaveLength(1)
+  })
+
   it('installs mail with only the installed app runtime and Desktop profile home', () => {
     const mailManifest = JSON.parse(readFileSync(resolve(root, 'plugins/mail/package.json'), 'utf8')) as { version: string }
     const output = dryRun('install-plugin', [
@@ -50,5 +64,6 @@ describe('Desktop Make commands', () => {
     const result = spawnSync('make', ['-n', 'pack-plugin', 'PLUGIN=unknown'], { cwd: root, encoding: 'utf8' })
     expect(result.status).not.toBe(0)
     expect(`${result.stdout}${result.stderr}`).toContain('unsupported PLUGIN=unknown')
+    expect(`${result.stdout}${result.stderr}`).toContain('supported plugins: mail wecom')
   })
 })

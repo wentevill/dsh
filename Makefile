@@ -7,13 +7,18 @@ RUNTIME := $(APP_PATH)/Contents/Resources/runtime
 NODE := $(RUNTIME)/node/bin/node
 DSH_CLI := $(RUNTIME)/app/node_modules/@deepseek-ai/dsh/lib/bin.js
 PACKAGE_BIN := $(RUNTIME)/app/node_modules/.bin
-MAIL_PLUGIN_VERSION := $(shell node -p "require('./plugins/mail/package.json').version")
-PLUGIN_ARCHIVE := $(CURDIR)/plugins/mail/dsh-mail-$(MAIL_PLUGIN_VERSION).tgz
-
 ifneq ($(filter pack-plugin install-plugin,$(MAKECMDGOALS)),)
-ifneq ($(PLUGIN),mail)
-$(error unsupported PLUGIN=$(PLUGIN); supported plugins: mail)
+ifeq ($(PLUGIN),mail)
+PLUGIN_PACKAGE := dsh-mail
+PLUGIN_PACK_SCRIPT := mail:pack
+else ifeq ($(PLUGIN),wecom)
+PLUGIN_PACKAGE := dsh-wecom
+PLUGIN_PACK_SCRIPT := wecom:pack
+else
+$(error unsupported PLUGIN=$(PLUGIN); supported plugins: mail wecom)
 endif
+PLUGIN_VERSION := $(shell node -p "require('./plugins/$(PLUGIN)/package.json').version")
+PLUGIN_ARCHIVE := $(CURDIR)/plugins/$(PLUGIN)/$(PLUGIN_PACKAGE)-$(PLUGIN_VERSION).tgz
 endif
 
 .PHONY: help release-dmg run pack-plugin install-plugin
@@ -22,10 +27,10 @@ help:
 	@printf '%s\n' \
 		'make release-dmg    Build and audit the release app and DMG' \
 		'make run            Start Tauri development mode' \
-		'make pack-plugin    Build the production mail plugin tgz' \
-		'make install-plugin Pack and install mail into the Desktop web profile' \
+		'make pack-plugin    Build a production plugin tgz (PLUGIN=mail|wecom)' \
+		'make install-plugin Pack and install a plugin into the Desktop web profile' \
 		'' \
-		'Variables: APP_PATH, PLUGIN=mail, PROFILE=web, DESKTOP_DSH_HOME'
+		'Variables: APP_PATH, PLUGIN=mail|wecom, PROFILE=web, DESKTOP_DSH_HOME'
 
 release-dmg:
 	corepack pnpm desktop:build
@@ -34,7 +39,7 @@ run:
 	corepack pnpm --dir apps/desktop dev
 
 pack-plugin:
-	corepack pnpm mail:pack
+	corepack pnpm $(PLUGIN_PACK_SCRIPT)
 
 install-plugin: pack-plugin
 	@test -x "$(NODE)" || { printf 'missing bundled Node: %s\n' "$(NODE)" >&2; exit 1; }

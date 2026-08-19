@@ -36,8 +36,9 @@ From the repository root:
 ```sh
 make release-dmg     # build and audit the release app and DMG
 make run             # start Tauri development mode
-make pack-plugin     # create the production mail plugin tgz
-make install-plugin  # pack and install mail into the Desktop web profile
+make pack-plugin                       # create the production mail plugin tgz
+make pack-plugin PLUGIN=wecom          # create the production WeCom plugin tgz
+make install-plugin PLUGIN=wecom       # pack and install WeCom into the Desktop web profile
 ```
 
 Quit the installed DeepSeek Harness application before `make install-plugin`
@@ -48,8 +49,8 @@ the Desktop data root rather than `~/.dsh`.
 Override paths and selection when needed:
 
 ```sh
-make install-plugin APP_PATH="/Applications/DeepSeek Harness.app" PROFILE=web
+make install-plugin PLUGIN=wecom APP_PATH="/Applications/DeepSeek Harness.app" PROFILE=web
 ```
 
-Supported variables are `APP_PATH`, `PLUGIN=mail`, `PROFILE`, and
+Supported variables are `APP_PATH`, `PLUGIN=mail|wecom`, `PROFILE`, and
 `DESKTOP_DSH_HOME`. Run `make help` for the command summary.
