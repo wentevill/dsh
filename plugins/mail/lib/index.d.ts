@@ -12,6 +12,8 @@ export { normalizeBodies } from './html.ts';
 export { MailSmtpTransport } from './smtp-transport.ts';
 export { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from './attachment-loader.ts';
 export type * from './mail-types.ts';
+export { createMailApprovalPolicy } from './approval.ts';
+export { MailCapabilityManager } from './tools.ts';
 /** SMTP/IMAP endpoint: host + port + whether to connect securely (implicit TLS). */
 export interface EndpointConfig {
     readonly host: string;

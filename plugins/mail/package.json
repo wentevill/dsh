@@ -51,6 +51,10 @@
   "files": [
     "lib/index.js",
     "lib/index.d.ts",
+    "lib/approval.js",
+    "lib/approval.d.ts",
+    "lib/tools.js",
+    "lib/tools.d.ts",
     "lib/mail-settings.js",
     "lib/mail-settings.d.ts",
     "lib/remote-types.js",
