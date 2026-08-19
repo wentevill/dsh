@@ -1,8 +1,10 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { auditPackageArchive, auditPackageEntries } from '../scripts/release-audit.mjs'
+import { readPackageVersion } from '../scripts/pack-release.mjs'
 
 const root = resolve(import.meta.dirname, '..')
 const packagingRoot = resolve(root, '../..')
@@ -88,6 +90,15 @@ describe('published mail plugin', () => {
     expect(manifest.files).not.toContain('src')
   })
 
+  it('validates release identity and semantic version before naming the archive', () => {
+    const fixture = mkdtempSync(resolve(tmpdir(), 'dsh-mail-version-'))
+    const manifest = resolve(fixture, 'package.json')
+    writeFileSync(manifest, JSON.stringify({ name: 'dsh-mail', version: 'not-a-version' }))
+    expect(() => readPackageVersion(manifest)).toThrow(/invalid package version/u)
+    writeFileSync(manifest, JSON.stringify({ name: 'legacy-mail', version: '1.2.3' }))
+    expect(() => readPackageVersion(manifest)).toThrow(/expected package name dsh-mail/u)
+  })
+
   it('uses the endpoint secure boolean expected by the mail seam', () => {
     const patch = readFileSync(resolve(root, 'cordis.patch.yml'), 'utf8')
     expect(patch).toContain('secure: true')
@@ -135,13 +146,53 @@ describe('published mail plugin', () => {
       expect(files.some(file => file.startsWith(`package/node_modules/${dependency}/`)), dependency).toBe(true)
     }
     expect(files.some(file => file.startsWith('package/src/'))).toBe(false)
+    expect(auditPackageArchive(archive).productionPackages).toContain('nodemailer')
+  })
+
+  it('rejects incomplete, dev-only, linked, and workspace-derived archive trees', () => {
+    const manifest = (value: unknown) => Buffer.from(JSON.stringify(value))
+    const rootManifest = {
+      name: 'fixture', version: '1.0.0', dependencies: { runtime: '1.0.0' },
+      devDependencies: { developer: '1.0.0' },
+    }
+    const entries = (runtime: unknown = { name: 'runtime', version: '1.0.0' }) => [
+      { path: 'package/package.json', type: 'file' as const, content: manifest(rootManifest) },
+      { path: 'package/node_modules/runtime/package.json', type: 'file' as const, content: manifest(runtime) },
+    ]
+
+    expect(() => auditPackageEntries(entries().slice(0, 1))).toThrow(/missing production dependency/u)
+    expect(() => auditPackageEntries([
+      ...entries(),
+      { path: 'package/node_modules/developer/package.json', type: 'file' as const, content: manifest({ name: 'developer', version: '1.0.0' }) },
+    ])).toThrow(/dev-only|unreachable/u)
+    expect(() => auditPackageEntries([
+      ...entries(),
+      { path: 'package/node_modules/runtime/node_modules/developer/package.json', type: 'file' as const, content: manifest({ name: 'developer', version: '1.0.0' }) },
+    ])).toThrow(/dev-only|unreachable/u)
+    expect(() => auditPackageEntries([
+      ...entries(),
+      { path: 'package/node_modules/runtime/link', type: 'symlink' as const, linkPath: '/tmp/escape' },
+    ])).toThrow(/link/u)
+    expect(() => auditPackageEntries(entries({ name: 'runtime', version: '1.0.0', dependencies: { leaked: 'workspace:*' } }))).toThrow(/workspace/u)
   })
 
   it('binds Make packaging and installation to the Desktop runtime', () => {
     const makefile = readFileSync(resolve(packagingRoot, 'Makefile'), 'utf8')
-    expect(makefile).not.toMatch(/\$\(shell\s+node\b/u)
+    expect(makefile).not.toMatch(/MAIL_[A-Z_]+\s*[:?+]?=\s*\$\(shell\b/u)
     expect(makefile).not.toContain('corepack pnpm mail:pack')
-    expect(makefile).toContain('"$(NODE)" "$(PACKAGE_BIN)/pnpm"')
-    expect(makefile).toContain('"$(NODE)" "$(DSH_CLI)" plugin')
+    expect(makefile).toContain('scripts/pack-release.mjs')
+    expect(makefile).toContain('"$(NODE)"')
+    expect(makefile).toContain('scripts/install-release.mjs')
+    expect(makefile).toContain('--cli "$(DSH_CLI)"')
+  })
+
+  it('builds the release from a frozen install and an offline production deploy tree', () => {
+    const script = readFileSync(resolve(root, 'scripts/pack-release.mjs'), 'utf8')
+    expect(script).toContain("'install', '--frozen-lockfile'")
+    expect(script).toContain("'deploy', '--prod'")
+    expect(script).toContain("npm_config_offline: 'true'")
+    expect(script.match(/--config\.node-linker=hoisted/gu)).toHaveLength(3)
+    expect(script).not.toContain("['prune'")
+    expect(script).not.toContain("['install', '--prod'")
   })
 })

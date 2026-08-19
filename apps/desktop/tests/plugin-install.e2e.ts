@@ -1,9 +1,12 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { readFileSync, readdirSync } from 'node:fs'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { delimiter, join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { buildHermeticEnvironment } from '../../../plugins/mail/scripts/release-env.mjs'
 
 const desktop = resolve(import.meta.dirname, '..')
 const packaging = resolve(desktop, '../..')
@@ -13,6 +16,7 @@ const cli = join(runtime, 'app/node_modules/@deepseek-ai/dsh/lib/bin.js')
 const packageBin = join(runtime, 'app/node_modules/.bin')
 const mailManifest = JSON.parse(readFileSync(join(packaging, 'plugins/mail/package.json'), 'utf8')) as { version: string }
 const archive = join(packaging, `plugins/mail/dsh-mail-${mailManifest.version}.tgz`)
+const runtimeRequire = createRequire(join(runtime, 'app/package.json'))
 const runtimeDependencies = [
   '@deepseek-ai/schemastery',
   'html-to-text',
@@ -23,16 +27,10 @@ const runtimeDependencies = [
   'zod',
 ]
 
-function run(home: string, args: string[]) {
+function run(env: NodeJS.ProcessEnv, args: string[]) {
   return spawnSync(node, [cli, ...args], {
     encoding: 'utf8',
-    env: {
-      ...process.env,
-      DSH_HOME: home,
-      PATH: [join(runtime, 'node/bin'), packageBin, '/usr/bin', '/bin'].join(delimiter),
-      NODE_OPTIONS: '',
-      NODE_PATH: '',
-    },
+    env,
   })
 }
 
@@ -75,16 +73,10 @@ async function inspectWeb(origin: string): Promise<Pick<WebInspection, 'html' | 
   return { html, client, settings: envelope.result.value }
 }
 
-function bootWeb(home: string): Promise<WebInspection> {
+function bootWeb(env: NodeJS.ProcessEnv): Promise<WebInspection> {
   return new Promise((resolveBoot, rejectBoot) => {
     const child = spawn(node, [cli, '--profile', 'web', '--host', '127.0.0.1', '--port', '0'], {
-      env: {
-        ...process.env,
-        DSH_HOME: home,
-        PATH: [join(runtime, 'node/bin'), packageBin, '/usr/bin', '/bin'].join(delimiter),
-        NODE_OPTIONS: '',
-        NODE_PATH: '',
-      },
+      env,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     let stdout = ''
@@ -139,10 +131,118 @@ function bootWeb(home: string): Promise<WebInspection> {
   })
 }
 
+interface ClientHandoff {
+  id: string
+  factory(require: (specifier: string) => unknown): Record<string, unknown>
+}
+
+async function runtimeModule(specifier: string): Promise<unknown> {
+  return import(pathToFileURL(runtimeRequire.resolve(specifier)).href)
+}
+
+/** Execute the served handoff and activate its real Cordis lifecycle against deterministic service fakes. */
+async function activateServedClient(code: string, loadedSettings: unknown): Promise<{ activated: boolean; failures: string[] }> {
+  const failures: string[] = []
+  let handoff: ClientHandoff | undefined
+  const priorWindow = (globalThis as { window?: unknown }).window
+  ;(globalThis as { window?: unknown }).window = {
+    __ModuleLoader__: { load(value: ClientHandoff) { handoff = value } },
+  }
+  try {
+    Function(code)()
+    if (handoff === undefined) throw new Error('served Client bundle did not register a loader handoff')
+    if (handoff.id !== 'dsh-mail') throw new Error(`served Client registered unexpected id ${handoff.id}`)
+    const modules = new Map<string, unknown>(await Promise.all([
+      '@deepseek-ai/cordis',
+      'react',
+      'react/jsx-runtime',
+    ].map(async specifier => [specifier, await runtimeModule(specifier)] as const)))
+    modules.set('@deepseek-ai/dsh-client-ui-primitives', { IconChevronDownOutline14: () => undefined })
+    modules.set('@deepseek-ai/dsh-client-runtime/client', {
+      createSnapshotStore(initial: unknown) {
+        let value = initial
+        const listeners = new Set<() => void>()
+        return {
+          getSnapshot: () => value,
+          set(next: unknown) { value = next; for (const listener of listeners) listener() },
+          subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener) } },
+        }
+      },
+    })
+    const exports = handoff.factory(specifier => {
+      if (!modules.has(specifier)) throw new Error(`served Client required unknown runtime module ${specifier}`)
+      return modules.get(specifier)
+    })
+    const Context = (modules.get('@deepseek-ai/cordis') as { Context: new () => {
+      provide(name: string, value: unknown): unknown
+      plugin(plugin: unknown): { await(): Promise<unknown>; dispose(): Promise<void> }
+      fiber: { dispose(): Promise<void> }
+    } }).Context
+    const ctx = new Context()
+    const slots = new Set<string>()
+    const remote = {
+      mailSettings: {
+        load: async () => ({ ok: true, value: loadedSettings }),
+        save: async ({ settings }: { settings: unknown }) => ({ ok: true, value: { settings } }),
+      },
+      $mount: async () => async () => undefined,
+      $on: () => () => undefined,
+    }
+    ctx.provide('remote', remote)
+    ctx.provide('remote.mailSettings', remote.mailSettings)
+    ctx.provide('connection', {
+      api: { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } },
+    })
+    ctx.provide('locale', { register: () => () => undefined })
+    ctx.provide('settingsScope', {})
+    ctx.provide('slots', {
+      register(options: { id: string }) {
+        slots.add(options.id)
+        return () => { slots.delete(options.id) }
+      },
+      inject(_name: string, register: () => Iterable<() => void>) {
+        const disposers = [...register()]
+        return () => { for (const dispose of disposers.reverse()) dispose() }
+      },
+    })
+    const fiber = ctx.plugin({ inject: exports.inject, apply: exports.apply })
+    try {
+      await fiber.await()
+    } catch (error) {
+      failures.push(error instanceof Error ? error.message : String(error))
+    }
+    const activated = slots.has('mail')
+    await fiber.dispose()
+    await ctx.fiber.dispose()
+    return { activated, failures }
+  } catch (error) {
+    failures.push(error instanceof Error ? error.message : String(error))
+    return { activated: false, failures }
+  } finally {
+    if (priorWindow === undefined) delete (globalThis as { window?: unknown }).window
+    else (globalThis as { window?: unknown }).window = priorWindow
+  }
+}
+
 describe('packaged native dsh plugin installation', () => {
   it('installs the complete mail archive once and boots it immediately', { timeout: 120_000 }, async () => {
-    const home = mkdtempSync(join(tmpdir(), 'dsh-desktop-plugin-home-'))
-    const install = run(home, ['plugin', '--profile', 'web', 'add', archive])
+    const sandbox = mkdtempSync(join(tmpdir(), 'dsh-desktop-plugin-e2e-'))
+    const home = join(sandbox, 'dsh')
+    const env = buildHermeticEnvironment({
+      root: join(sandbox, 'environment'),
+      dshHome: home,
+      nodeBin: dirname(node),
+      packageBin,
+      offline: true,
+    })
+    expect(readdirSync(env.npm_config_store_dir)).toEqual([])
+    expect(readdirSync(env.npm_config_cache)).toEqual([])
+    expect(readdirSync(env.XDG_DATA_HOME)).toEqual([])
+    expect(readdirSync(env.XDG_CONFIG_HOME)).toEqual([])
+    for (const key of Object.keys(env)) {
+      expect(key).not.toMatch(/NODE_PATH|NODE_OPTIONS|proxy|npm_config_(?:config|globalconfig)|pnpm_(?:config|store)/iu)
+    }
+    const install = run(env, ['plugin', '--profile', 'web', 'add', archive])
     expect(install.status, `${install.stdout}\n${install.stderr}`).toBe(0)
 
     const profile = join(home, 'profiles/web')
@@ -168,20 +268,19 @@ describe('packaged native dsh plugin installation', () => {
       `const config = { username: 'user@example.com', passwordRef: { provider: 'env', key: 'MAIL_PASSWORD' }, mailbox: 'INBOX', imap: { host: 'imap.example.com', port: 143, secure: false }, smtp: { host: 'smtp.example.com', port: 587, secure: false } }`,
       `await transport.list(config, 'secret', { limit: 1 }).then(() => { throw new Error('insecure IMAP accepted') }, error => { if (!String(error).includes('IMAP must use TLS')) throw error })`,
       `await transport.send(config, 'secret', { to: ['to@example.com'], subject: 'test', text: 'test' }).then(() => { throw new Error('insecure SMTP accepted') }, error => { if (!String(error).includes('SMTP must use TLS')) throw error })`,
-    ].join(';')], { encoding: 'utf8', env: { ...process.env, PATH: '/usr/bin:/bin' } })
+    ].join(';')], { encoding: 'utf8', env })
     expect(probe.status, `${probe.stdout}\n${probe.stderr}`).toBe(0)
 
-    const dump = run(home, ['--profile', 'web', '--dump-config'])
+    const dump = run(env, ['--profile', 'web', '--dump-config'])
     expect(dump.status, `${dump.stdout}\n${dump.stderr}`).toBe(0)
     expect(dump.stdout).toContain('dsh-mail')
     expect(dump.stdout).toContain('secure: true')
 
-    const web = await bootWeb(home)
+    const web = await bootWeb(env)
     expect(web.stdout).toMatch(/dsh web: http:\/\/127\.0\.0\.1:\d+/u)
     expect(web.stderr).not.toMatch(/failed to apply loader entry|did not activate/u)
     expect(web.html).toContain('"id":"dsh-mail"')
     expect(web.html).toContain('/plugins/dsh-mail/client.js')
-    expect(web.client).toMatch(/window\.__ModuleLoader__\.load\(\{\s*id:\s*"dsh-mail"/u)
     expect(web.settings).toEqual({
       settings: {
         username: 'you@example.com',
@@ -193,5 +292,7 @@ describe('packaged native dsh plugin installation', () => {
         smtp: { host: '', port: 465, secure: true },
       },
     })
+    const activation = await activateServedClient(web.client, web.settings)
+    expect(activation).toEqual({ activated: true, failures: [] })
   })
 })
