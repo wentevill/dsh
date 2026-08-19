@@ -5488,6 +5488,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			let failed = false;
 			let mutationGeneration = 0;
 			let credentialReadGeneration = 0;
+			let saveGeneration = 0;
 			let disposed = false;
 			let activeSettingsBaseline;
 			const confirmedValueOf = (snap, field) => {
@@ -5579,13 +5580,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			};
 			const store = (0, _deepseek_ai_dsh_client_runtime_client.createSnapshotStore)(project());
 			const publish = () => {
-				store.set(project());
+				if (!disposed) store.set(project());
 			};
 			const unsubscribe = scope.subscribe(() => {
+				if (disposed) return;
 				retireSatisfiedResets();
 				publish();
 			});
 			async function readCredential() {
+				if (disposed) return;
 				const generation = ++credentialReadGeneration;
 				try {
 					const response = await api.credentials.describe({ refs: [PASSWORD_REF] });
@@ -5603,7 +5606,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				} catch {}
 			}
 			async function save() {
-				if (saving || hasInvalidPortDraft()) return;
+				if (disposed || saving || hasInvalidPortDraft()) return;
+				const generation = ++saveGeneration;
+				const transactionActive = () => !disposed && generation === saveGeneration;
 				saving = true;
 				failed = false;
 				publish();
@@ -5658,25 +5663,32 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 							secure: booleanOf("smtpSecure")
 						}
 					});
+					if (!transactionActive()) return;
 					for (const [field, submitted] of submittedSettings) if (drafts.get(field)?.generation === submitted.generation) drafts.delete(field);
 				} catch {
+					if (!transactionActive()) return;
 					settingsLanded = false;
 				}
 				if (settingsLanded) {
 					const passwordDraft = submittedDrafts.get("password");
 					const pw = passwordDraft?.text.trim();
 					if (pw) try {
-						const result = await api.credentials.set({
+						const response = await api.credentials.set({
 							ref: PASSWORD_REF,
 							value: pw
 						});
+						if (!transactionActive()) return;
+						const result = response;
 						if (result.ok === false || result.result?.ok === false) throw new Error("credential write was rejected");
 						if (drafts.get("password")?.generation === passwordDraft?.generation) drafts.delete("password");
 						await readCredential();
+						if (!transactionActive()) return;
 					} catch {
+						if (!transactionActive()) return;
 						credentialLanded = false;
 					}
 				}
+				if (!transactionActive()) return;
 				saving = false;
 				retireSatisfiedResets();
 				activeSettingsBaseline = void 0;
@@ -5685,7 +5697,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			}
 			const actions = {
 				edit: (field, text) => {
-					if (!isFlat(field)) return;
+					if (disposed || !isFlat(field)) return;
 					const flat = field;
 					mutationGeneration += 1;
 					if (flat === "password" && text.trim() === "") drafts.delete(flat);
@@ -5698,7 +5710,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					publish();
 				},
 				resetField: (field) => {
-					if (!isFlat(field)) return;
+					if (disposed || !isFlat(field)) return;
 					const flat = field;
 					if (saving && flat !== "password") drafts.set(flat, {
 						text: activeSettingsBaseline?.get(flat) ?? confirmedValueOf(scope.getSnapshot(), flat),
@@ -5716,6 +5728,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					save();
 				},
 				discard: () => {
+					if (disposed) return;
 					if (drafts.size === 0 && !failed) return;
 					drafts.clear();
 					failed = false;
@@ -5727,12 +5740,18 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				...actions
 			});
 			const refreshCredential = () => {
-				readCredential();
+				if (!disposed) readCredential();
 			};
 			const dispose = () => {
 				if (disposed) return;
-				disposed = true;
+				saveGeneration += 1;
 				credentialReadGeneration += 1;
+				activeSettingsBaseline = void 0;
+				saving = false;
+				failed = false;
+				drafts.clear();
+				store.set(project());
+				disposed = true;
 				unsubscribe();
 			};
 			readCredential();

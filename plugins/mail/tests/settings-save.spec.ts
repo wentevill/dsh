@@ -445,4 +445,60 @@ describe('mail settings save', () => {
 
     expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: false, failed: false, password: { text: '' }, passwordConfigured: true })
   })
+
+  it('releases the staged baseline and ignores completion when disposed during credential set', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    let resolveSet: ((value: unknown) => void) | undefined
+    const controller = createMailCardController(
+      { getSnapshot: () => snapshot, subscribe: () => () => undefined },
+      { credentials: {
+        describe: async () => ({ result: { ok: true, value: { credentials: {} } } }),
+        set: async () => await new Promise(resolve => { resolveSet = resolve }),
+      } },
+      async settings => { snapshot.value = settings; return { settings } }, true,
+    )
+    const face = controller.face()
+    face.edit('smtpHost', 'landed-before-dispose.example.com')
+    face.edit('password', 'pending-write')
+    face.save()
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    controller.dispose()
+    controller.dispose()
+    const disposedState = face.hooks.mailCard.getSnapshot()
+    face.resetField('smtpHost')
+    face.edit('smtpHost', 'must-be-ignored.example.com')
+    resolveSet?.({ result: { ok: true } })
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(disposedState).toMatchObject({ saving: false, smtpHost: { text: 'landed-before-dispose.example.com' } })
+    expect(face.hooks.mailCard.getSnapshot()).toEqual(disposedState)
+  })
+
+  it('ignores a post-write credential describe that settles after disposal', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    const describeResolvers: Array<(value: unknown) => void> = []
+    const controller = createMailCardController(
+      { getSnapshot: () => snapshot, subscribe: () => () => undefined },
+      { credentials: {
+        describe: async () => await new Promise(resolve => { describeResolvers.push(resolve) }),
+        set: async () => ({ result: { ok: true } }),
+      } },
+      async settings => { snapshot.value = settings; return { settings } }, true,
+    )
+    const face = controller.face()
+    face.edit('smtpHost', 'described-after-dispose.example.com')
+    face.edit('password', 'written')
+    face.save()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    controller.dispose()
+    const disposedState = face.hooks.mailCard.getSnapshot()
+    describeResolvers.at(-1)?.({ result: { ok: true, value: { credentials: { MAIL_APP_PASSWORD: { configured: true, writable: false } } } } })
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(disposedState).toMatchObject({ saving: false, passwordConfigured: false, passwordWritable: true })
+    expect(face.hooks.mailCard.getSnapshot()).toEqual(disposedState)
+  })
 })

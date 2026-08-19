@@ -127,6 +127,7 @@ export function createMailCardController(
   let failed = false
   let mutationGeneration = 0
   let credentialReadGeneration = 0
+  let saveGeneration = 0
   let disposed = false
   let activeSettingsBaseline: Map<FlatField, string> | undefined
 
@@ -220,13 +221,17 @@ export function createMailCardController(
   }
 
   const store = createSnapshotStore<MailCardState>(project())
-  const publish = (): void => { store.set(project()) }
+  const publish = (): void => {
+    if (!disposed) store.set(project())
+  }
   const unsubscribe = scope.subscribe(() => {
+    if (disposed) return
     retireSatisfiedResets()
     publish()
   })
 
   async function readCredential(): Promise<void> {
+    if (disposed) return
     const generation = ++credentialReadGeneration
     try {
       const response = await api.credentials.describe({ refs: [PASSWORD_REF] })
@@ -242,7 +247,9 @@ export function createMailCardController(
   }
 
   async function save(): Promise<void> {
-    if (saving || hasInvalidPortDraft()) return
+    if (disposed || saving || hasInvalidPortDraft()) return
+    const generation = ++saveGeneration
+    const transactionActive = (): boolean => !disposed && generation === saveGeneration
     saving = true
     failed = false
     publish()
@@ -295,21 +302,31 @@ export function createMailCardController(
         imap: { host: hostOf('imapHost'), port: portNum('imapPort'), secure: booleanOf('imapSecure') },
         smtp: { host: hostOf('smtpHost'), port: portNum('smtpPort'), secure: booleanOf('smtpSecure') },
       })
+      if (!transactionActive()) return
       for (const [field, submitted] of submittedSettings) {
         if (drafts.get(field)?.generation === submitted.generation) drafts.delete(field)
       }
-    } catch { settingsLanded = false }
+    } catch {
+      if (!transactionActive()) return
+      settingsLanded = false
+    }
     if (settingsLanded) {
       const passwordDraft = submittedDrafts.get('password')
       const pw = passwordDraft?.text.trim()
       if (pw) try {
         const response = await api.credentials.set({ ref: PASSWORD_REF, value: pw })
+        if (!transactionActive()) return
         const result = response as unknown as { ok?: boolean; result?: { ok?: boolean } }
         if (result.ok === false || result.result?.ok === false) throw new Error('credential write was rejected')
         if (drafts.get('password')?.generation === passwordDraft?.generation) drafts.delete('password')
         await readCredential()
-      } catch { credentialLanded = false }
+        if (!transactionActive()) return
+      } catch {
+        if (!transactionActive()) return
+        credentialLanded = false
+      }
     }
+    if (!transactionActive()) return
     saving = false
     retireSatisfiedResets()
     activeSettingsBaseline = undefined
@@ -319,7 +336,7 @@ export function createMailCardController(
 
   const actions: CardActions = {
     edit: (field, text) => {
-      if (!isFlat(field)) return
+      if (disposed || !isFlat(field)) return
       const flat = field as FlatField
       mutationGeneration += 1
       if (flat === 'password' && text.trim() === '') drafts.delete(flat)
@@ -328,7 +345,7 @@ export function createMailCardController(
       publish()
     },
     resetField: (field) => {
-      if (!isFlat(field)) return
+      if (disposed || !isFlat(field)) return
       const flat = field as FlatField
       if (saving && flat !== 'password') {
         drafts.set(flat, {
@@ -345,6 +362,7 @@ export function createMailCardController(
     },
     save: () => { void save() },
     discard: () => {
+      if (disposed) return
       if (drafts.size === 0 && !failed) return
       drafts.clear()
       failed = false
@@ -357,11 +375,19 @@ export function createMailCardController(
     ...actions,
   })
 
-  const refreshCredential = (): void => { void readCredential() }
+  const refreshCredential = (): void => {
+    if (!disposed) void readCredential()
+  }
   const dispose = (): void => {
     if (disposed) return
-    disposed = true
+    saveGeneration += 1
     credentialReadGeneration += 1
+    activeSettingsBaseline = undefined
+    saving = false
+    failed = false
+    drafts.clear()
+    store.set(project())
+    disposed = true
     unsubscribe()
   }
 
