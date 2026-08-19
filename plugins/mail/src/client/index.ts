@@ -50,6 +50,7 @@ export const mailClientFeature = Object.assign(async (ctx: ClientContext): Promi
     },
     true,
   )
+  ctx.effect(() => controller.dispose, 'mail-client: settings controller')
 
   // Re-read the password badge when the Host commits a change from anywhere.
   ctx.effect(

@@ -40,6 +40,12 @@ interface CredentialView {
   writable: boolean
 }
 
+interface DraftEntry {
+  text: string
+  generation: number
+  reset: boolean
+}
+
 /** User-facing operation availability projected from the Mail capability predicate. */
 export interface MailCardStatus {
   receive: boolean
@@ -114,15 +120,16 @@ export function createMailCardController(
   api: Pick<IApiClient, 'credentials'>,
   saveSettings: (settings: MailSettings) => Promise<MailSettingsSaveResult>,
   available: boolean,
-): { store: SnapshotStore<MailCardState>; face: () => MailCardFace; refreshCredential: () => void } {
-  const drafts = new Map<FlatField, string>()
+): { store: SnapshotStore<MailCardState>; face: () => MailCardFace; refreshCredential: () => void; dispose: () => void } {
+  const drafts = new Map<FlatField, DraftEntry>()
   const credential: CredentialView = { configured: false, writable: true }
   let saving = false
   let failed = false
+  let mutationGeneration = 0
+  let credentialReadGeneration = 0
+  let disposed = false
 
-  const valueOf = (snap: SettingsScopeSnapshot<MailSettings>, field: FlatField): string => {
-    const d = drafts.get(field)
-    if (d !== undefined) return d
+  const confirmedValueOf = (snap: SettingsScopeSnapshot<MailSettings>, field: FlatField): string => {
     const raw = field === 'imapHost' ? nested(snap, 'imap', 'host')
       : field === 'imapPort' ? nested(snap, 'imap', 'port')
       : field === 'imapSecure' ? nested(snap, 'imap', 'secure')
@@ -135,13 +142,18 @@ export function createMailCardController(
     return typeof raw === 'string' ? raw : ''
   }
 
+  const valueOf = (snap: SettingsScopeSnapshot<MailSettings>, field: FlatField): string => {
+    const d = drafts.get(field)
+    return d?.text ?? confirmedValueOf(snap, field)
+  }
+
   const fieldState = (snap: SettingsScopeSnapshot<MailSettings>, field: FlatField): CardFieldState => {
     const staged = drafts.get(field)
     if (staged !== undefined) {
-      const invalid = PORT_FIELDS.has(field) ? !isValidPort(staged) : false
-      const w = staged.trim()
+      const invalid = PORT_FIELDS.has(field) ? !isValidPort(staged.text) : false
+      const w = staged.text.trim()
       const sets = BOOLEAN_FIELDS.has(field) ? (w === 'true' || w === 'false') : (w !== '' && !invalid)
-      return { text: staged, overridden: sets, invalid }
+      return { text: staged.text, overridden: sets, invalid }
     }
     const stored = field === 'allowDelete'
       ? storedScalar(snap, field)
@@ -154,7 +166,15 @@ export function createMailCardController(
   }
 
   const hasInvalidPortDraft = (): boolean =>
-    [...PORT_FIELDS].some(field => drafts.has(field) && !isValidPort(drafts.get(field) as string))
+    [...PORT_FIELDS].some(field => drafts.has(field) && !isValidPort(drafts.get(field)?.text ?? ''))
+
+  const retireSatisfiedResets = (): void => {
+    if (saving) return
+    const snap = scope.getSnapshot()
+    for (const [field, draft] of drafts) {
+      if (draft.reset && confirmedValueOf(snap, field) === draft.text) drafts.delete(field)
+    }
+  }
 
   const project = (): MailCardState => {
     const snap = scope.getSnapshot()
@@ -192,7 +212,7 @@ export function createMailCardController(
       smtpHost: fieldState(snap, 'smtpHost'),
       smtpPort: fieldState(snap, 'smtpPort'),
       smtpSecure: fieldState(snap, 'smtpSecure'),
-      password: { text: drafts.get('password' as FlatField) ?? '', overridden: false, invalid: false },
+      password: { text: drafts.get('password' as FlatField)?.text ?? '', overridden: false, invalid: false },
       passwordConfigured: credential.configured,
       passwordWritable: credential.writable,
     }
@@ -200,11 +220,16 @@ export function createMailCardController(
 
   const store = createSnapshotStore<MailCardState>(project())
   const publish = (): void => { store.set(project()) }
-  scope.subscribe(publish)
+  const unsubscribe = scope.subscribe(() => {
+    retireSatisfiedResets()
+    publish()
+  })
 
   async function readCredential(): Promise<void> {
+    const generation = ++credentialReadGeneration
     try {
       const response = await api.credentials.describe({ refs: [PASSWORD_REF] })
+      if (disposed || generation !== credentialReadGeneration) return
       if (!response.result.ok) return
       const view = response.result.value.credentials[PASSWORD_REF]
       const next = { configured: view?.configured ?? false, writable: view?.writable ?? true }
@@ -220,19 +245,21 @@ export function createMailCardController(
     saving = true
     failed = false
     publish()
-    let landed = true
     const submittedDrafts = new Map(drafts)
-    try {
+    const submittedSettings = new Map([...submittedDrafts].filter(([field]) => field !== 'password'))
+    let settingsLanded = true
+    let credentialLanded = true
+    if (submittedSettings.size > 0) try {
       const snap = scope.getSnapshot()
       const str = (field: FlatField, fallback: string): string => {
         const d = submittedDrafts.get(field)
-        return d !== undefined ? d.trim() : fallback
+        return d !== undefined ? d.text.trim() : fallback
       }
       const portNum = (field: FlatField): number => {
         const fallback = field === 'imapPort' ? 993 : 465
         const d = submittedDrafts.get(field)
         if (d !== undefined) {
-          const text = d.trim()
+          const text = d.text.trim()
           if (text === '') return fallback
           const n = Number(text)
           return Number.isInteger(n) && isValidPort(text) ? n : 0
@@ -242,7 +269,7 @@ export function createMailCardController(
       }
       const booleanOf = (field: FlatField): boolean => {
         const d = submittedDrafts.get(field)
-        if (d !== undefined) return d === 'true'
+        if (d !== undefined) return d.text === 'true'
         const v = field === 'allowDelete'
           ? scalar(snap, 'allowDelete')
           : field === 'imapSecure' ? nested(snap, 'imap', 'secure') : nested(snap, 'smtp', 'secure')
@@ -250,7 +277,7 @@ export function createMailCardController(
       }
       const hostOf = (field: FlatField): string => {
         const d = submittedDrafts.get(field)
-        if (d !== undefined) return d.trim()
+        if (d !== undefined) return d.text.trim()
         const v = (field === 'imapHost' ? nested(snap, 'imap', 'host') : nested(snap, 'smtp', 'host'))
         return typeof v === 'string' ? v : ''
       }
@@ -264,35 +291,47 @@ export function createMailCardController(
         imap: { host: hostOf('imapHost'), port: portNum('imapPort'), secure: booleanOf('imapSecure') },
         smtp: { host: hostOf('smtpHost'), port: portNum('smtpPort'), secure: booleanOf('smtpSecure') },
       })
-
-      const pw = submittedDrafts.get('password')?.trim()
-      if (pw) {
+      for (const [field, submitted] of submittedSettings) {
+        if (drafts.get(field)?.generation === submitted.generation) drafts.delete(field)
+      }
+    } catch { settingsLanded = false }
+    if (settingsLanded) {
+      const passwordDraft = submittedDrafts.get('password')
+      const pw = passwordDraft?.text.trim()
+      if (pw) try {
         const response = await api.credentials.set({ ref: PASSWORD_REF, value: pw })
         const result = response as unknown as { ok?: boolean; result?: { ok?: boolean } }
         if (result.ok === false || result.result?.ok === false) throw new Error('credential write was rejected')
-      }
-      await readCredential()
-    } catch { landed = false }
-    if (landed) {
-      for (const [field, submitted] of submittedDrafts) {
-        if (drafts.get(field) === submitted) drafts.delete(field)
-      }
+        if (drafts.get('password')?.generation === passwordDraft?.generation) drafts.delete('password')
+        await readCredential()
+      } catch { credentialLanded = false }
     }
     saving = false
-    failed = !landed
+    retireSatisfiedResets()
+    failed = !settingsLanded || !credentialLanded
     publish()
   }
 
   const actions: CardActions = {
     edit: (field, text) => {
       if (!isFlat(field)) return
-      drafts.set(field as FlatField, text)
+      drafts.set(field as FlatField, { text, generation: ++mutationGeneration, reset: false })
       failed = false
       publish()
     },
     resetField: (field) => {
       if (!isFlat(field)) return
-      drafts.delete(field as FlatField)
+      const flat = field as FlatField
+      if (saving && flat !== 'password') {
+        drafts.set(flat, {
+          text: confirmedValueOf(scope.getSnapshot(), flat),
+          generation: ++mutationGeneration,
+          reset: true,
+        })
+      } else {
+        mutationGeneration += 1
+        drafts.delete(flat)
+      }
       failed = false
       publish()
     },
@@ -311,9 +350,15 @@ export function createMailCardController(
   })
 
   const refreshCredential = (): void => { void readCredential() }
+  const dispose = (): void => {
+    if (disposed) return
+    disposed = true
+    credentialReadGeneration += 1
+    unsubscribe()
+  }
 
   void readCredential()
-  return { store, face, refreshCredential }
+  return { store, face, refreshCredential, dispose }
 }
 
 export { MAIL_NS as MAIL_SETTINGS_NAMESPACE }

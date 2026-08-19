@@ -32,7 +32,9 @@ async function loadController() {
   ;(globalThis as unknown as { window: unknown }).window = { __ModuleLoader__: loader }
   Function(readFileSync(resolve(import.meta.dirname, '../lib/client.js'), 'utf8'))()
   return exports as { createMailCardController: (scope: unknown, api: unknown, saveSettings: (settings: Record<string, unknown>) => Promise<{ settings: Record<string, unknown> }>, available: boolean) => {
-    face(): { hooks: { mailCard: { getSnapshot(): { dirty: boolean; saving: boolean; failed: boolean; status: { receive: boolean; send: boolean; permanentDelete: boolean } } } }; edit(field: string, value: string): void; save(): void }
+    face(): { hooks: { mailCard: { getSnapshot(): { dirty: boolean; saving: boolean; failed: boolean; status: { receive: boolean; send: boolean; permanentDelete: boolean }; smtpHost: { text: string }; password: { text: string }; passwordConfigured: boolean; passwordWritable: boolean } } }; edit(field: string, value: string): void; resetField(field: string): void; save(): void }
+    refreshCredential(): void
+    dispose(): void
   } }
 }
 
@@ -178,5 +180,178 @@ describe('mail settings save', () => {
     await settle(face.hooks.mailCard)
     expect(sent[0]).toMatchObject({ smtp: { host: 'first.example.com' } })
     expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: true, failed: false, smtpHost: { text: 'second.example.com' } })
+  })
+
+  it('preserves a same-value edit made while its save is pending', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    let resolveSave: ((value: { settings: Record<string, unknown> }) => void) | undefined
+    const controller = createMailCardController(
+      { getSnapshot: () => snapshot, subscribe: () => () => undefined },
+      { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } },
+      async settings => await new Promise(resolve => { resolveSave = resolve }), true,
+    )
+    const face = controller.face()
+    face.edit('smtpHost', 'same.example.com')
+    face.save()
+    face.edit('smtpHost', 'same.example.com')
+    resolveSave?.({ settings: snapshot.value as Record<string, unknown> })
+    await settle(face.hooks.mailCard)
+
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: true, smtpHost: { text: 'same.example.com' } })
+  })
+
+  it('keeps a reset made during save when the confirmed server value changes', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    let resolveSave: ((value: { settings: Record<string, unknown> }) => void) | undefined
+    const controller = createMailCardController(
+      { getSnapshot: () => snapshot, subscribe: () => () => undefined },
+      { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } },
+      async settings => await new Promise(resolve => { resolveSave = resolve }), true,
+    )
+    const face = controller.face()
+    face.edit('smtpHost', 'landed.example.com')
+    face.save()
+    face.resetField('smtpHost')
+    snapshot.value = { ...snapshot.value, smtp: { host: 'landed.example.com', port: 465, secure: true } }
+    resolveSave?.({ settings: snapshot.value as Record<string, unknown> })
+    await settle(face.hooks.mailCard)
+
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: true, smtpHost: { text: 'smtp.example.com' } })
+  })
+
+  it('retires a reset made during a failed save when the server still equals its baseline', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    let rejectSave: ((reason?: unknown) => void) | undefined
+    const controller = createMailCardController(
+      { getSnapshot: () => snapshot, subscribe: () => () => undefined },
+      { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } },
+      async () => await new Promise((_resolve, reject) => { rejectSave = reject }), true,
+    )
+    const face = controller.face()
+    face.edit('smtpHost', 'rejected.example.com')
+    face.save()
+    face.resetField('smtpHost')
+    rejectSave?.(new Error('rejected'))
+    await settle(face.hooks.mailCard)
+
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: false, failed: true, smtpHost: { text: 'smtp.example.com' } })
+  })
+
+  it('makes a normal reset clean when the confirmed value already matches', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    const controller = createMailCardController(
+      { getSnapshot: () => snapshot, subscribe: () => () => undefined },
+      { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } },
+      async settings => ({ settings }), true,
+    )
+    const face = controller.face()
+    face.edit('smtpHost', 'temporary.example.com')
+    face.resetField('smtpHost')
+
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: false, smtpHost: { text: 'smtp.example.com' } })
+  })
+
+  it('retires settings after a credential failure and retries only the password', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    let settingWrites = 0
+    let credentialWrites = 0
+    const controller = createMailCardController(
+      { getSnapshot: () => snapshot, subscribe: () => () => undefined },
+      { credentials: {
+        describe: async () => ({ result: { ok: true, value: { credentials: {} } } }),
+        set: async () => { credentialWrites += 1; return credentialWrites === 1 ? { result: { ok: false } } : { result: { ok: true } } },
+      } },
+      async settings => { settingWrites += 1; snapshot.value = settings; return { settings } }, true,
+    )
+    const face = controller.face()
+    face.edit('smtpHost', 'saved.example.com')
+    face.edit('password', 'retry-me')
+    face.save()
+    await settle(face.hooks.mailCard)
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: true, failed: true, smtpHost: { text: 'saved.example.com' }, password: { text: 'retry-me' } })
+
+    face.save()
+    await settle(face.hooks.mailCard)
+    expect({ settingWrites, credentialWrites }).toEqual({ settingWrites: 1, credentialWrites: 2 })
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: false, failed: false })
+  })
+
+  it('does not write the credential when the settings stage fails', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    let credentialWrites = 0
+    const controller = createMailCardController(
+      { getSnapshot: () => snapshot, subscribe: () => () => undefined },
+      { credentials: {
+        describe: async () => ({ result: { ok: true, value: { credentials: {} } } }),
+        set: async () => { credentialWrites += 1; return { result: { ok: true } } },
+      } },
+      async () => { throw new Error('settings rejected') }, true,
+    )
+    const face = controller.face()
+    face.edit('smtpHost', 'rejected.example.com')
+    face.edit('password', 'must-not-write')
+    face.save()
+    await settle(face.hooks.mailCard)
+
+    expect(credentialWrites).toBe(0)
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: true, failed: true })
+  })
+
+  it('applies only the latest credential describe and ignores results after disposal', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    const resolvers: Array<(value: unknown) => void> = []
+    const controller = createMailCardController(
+      { getSnapshot: () => snapshot, subscribe: () => () => undefined },
+      { credentials: { describe: async () => await new Promise(resolve => { resolvers.push(resolve) }) } },
+      async settings => ({ settings }), true,
+    )
+    const face = controller.face()
+    controller.refreshCredential()
+    resolvers[1]?.({ result: { ok: true, value: { credentials: { MAIL_APP_PASSWORD: { configured: true, writable: false } } } } })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    resolvers[0]?.({ result: { ok: true, value: { credentials: { MAIL_APP_PASSWORD: { configured: false, writable: true } } } } })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ passwordConfigured: true, passwordWritable: false })
+
+    controller.refreshCredential()
+    controller.dispose()
+    resolvers[2]?.({ result: { ok: true, value: { credentials: { MAIL_APP_PASSWORD: { configured: false, writable: true } } } } })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ passwordConfigured: true, passwordWritable: false })
+  })
+
+  it('does not let initial or invalidation reads overwrite the post-write credential state', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    const describeResolvers: Array<(value: unknown) => void> = []
+    let resolveSet: ((value: unknown) => void) | undefined
+    const controller = createMailCardController(
+      { getSnapshot: () => snapshot, subscribe: () => () => undefined },
+      { credentials: {
+        describe: async () => await new Promise(resolve => { describeResolvers.push(resolve) }),
+        set: async () => await new Promise(resolve => { resolveSet = resolve }),
+      } },
+      async settings => ({ settings }), true,
+    )
+    const face = controller.face()
+    controller.refreshCredential()
+    face.edit('password', 'new-password')
+    face.save()
+    resolveSet?.({ result: { ok: true } })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    describeResolvers[2]?.({ result: { ok: true, value: { credentials: { MAIL_APP_PASSWORD: { configured: true, writable: true } } } } })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    describeResolvers[0]?.({ result: { ok: true, value: { credentials: { MAIL_APP_PASSWORD: { configured: false, writable: false } } } } })
+    describeResolvers[1]?.({ result: { ok: true, value: { credentials: { MAIL_APP_PASSWORD: { configured: false, writable: false } } } } })
+    await settle(face.hooks.mailCard)
+
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: false, failed: false, passwordConfigured: true, passwordWritable: true })
   })
 })

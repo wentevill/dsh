@@ -5486,22 +5486,27 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			};
 			let saving = false;
 			let failed = false;
-			const valueOf = (snap, field) => {
-				const d = drafts.get(field);
-				if (d !== void 0) return d;
+			let mutationGeneration = 0;
+			let credentialReadGeneration = 0;
+			let disposed = false;
+			const confirmedValueOf = (snap, field) => {
 				const raw = field === "imapHost" ? nested(snap, "imap", "host") : field === "imapPort" ? nested(snap, "imap", "port") : field === "imapSecure" ? nested(snap, "imap", "secure") : field === "smtpHost" ? nested(snap, "smtp", "host") : field === "smtpPort" ? nested(snap, "smtp", "port") : field === "smtpSecure" ? nested(snap, "smtp", "secure") : scalar(snap, field);
 				if (PORT_FIELDS.has(field)) return typeof raw === "number" ? String(raw) : "";
 				if (BOOLEAN_FIELDS.has(field)) return raw === true ? "true" : "false";
 				return typeof raw === "string" ? raw : "";
 			};
+			const valueOf = (snap, field) => {
+				return drafts.get(field)?.text ?? confirmedValueOf(snap, field);
+			};
 			const fieldState = (snap, field) => {
 				const staged = drafts.get(field);
 				if (staged !== void 0) {
-					const invalid = PORT_FIELDS.has(field) ? !isValidPort(staged) : false;
-					const w = staged.trim();
+					const invalid = PORT_FIELDS.has(field) ? !isValidPort(staged.text) : false;
+					const w = staged.text.trim();
+					const sets = BOOLEAN_FIELDS.has(field) ? w === "true" || w === "false" : w !== "" && !invalid;
 					return {
-						text: staged,
-						overridden: BOOLEAN_FIELDS.has(field) ? w === "true" || w === "false" : w !== "" && !invalid,
+						text: staged.text,
+						overridden: sets,
 						invalid
 					};
 				}
@@ -5512,7 +5517,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					invalid: false
 				};
 			};
-			const hasInvalidPortDraft = () => [...PORT_FIELDS].some((field) => drafts.has(field) && !isValidPort(drafts.get(field)));
+			const hasInvalidPortDraft = () => [...PORT_FIELDS].some((field) => drafts.has(field) && !isValidPort(drafts.get(field)?.text ?? ""));
+			const retireSatisfiedResets = () => {
+				if (saving) return;
+				const snap = scope.getSnapshot();
+				for (const [field, draft] of drafts) if (draft.reset && confirmedValueOf(snap, field) === draft.text) drafts.delete(field);
+			};
 			const project = () => {
 				const snap = scope.getSnapshot();
 				const planInvalid = hasInvalidPortDraft();
@@ -5558,7 +5568,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					smtpPort: fieldState(snap, "smtpPort"),
 					smtpSecure: fieldState(snap, "smtpSecure"),
 					password: {
-						text: drafts.get("password") ?? "",
+						text: drafts.get("password")?.text ?? "",
 						overridden: false,
 						invalid: false
 					},
@@ -5570,10 +5580,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			const publish = () => {
 				store.set(project());
 			};
-			scope.subscribe(publish);
+			const unsubscribe = scope.subscribe(() => {
+				retireSatisfiedResets();
+				publish();
+			});
 			async function readCredential() {
+				const generation = ++credentialReadGeneration;
 				try {
 					const response = await api.credentials.describe({ refs: [PASSWORD_REF] });
+					if (disposed || generation !== credentialReadGeneration) return;
 					if (!response.result.ok) return;
 					const view = response.result.value.credentials[PASSWORD_REF];
 					const next = {
@@ -5591,19 +5606,21 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				saving = true;
 				failed = false;
 				publish();
-				let landed = true;
 				const submittedDrafts = new Map(drafts);
-				try {
+				const submittedSettings = new Map([...submittedDrafts].filter(([field]) => field !== "password"));
+				let settingsLanded = true;
+				let credentialLanded = true;
+				if (submittedSettings.size > 0) try {
 					const snap = scope.getSnapshot();
 					const str = (field, fallback) => {
 						const d = submittedDrafts.get(field);
-						return d !== void 0 ? d.trim() : fallback;
+						return d !== void 0 ? d.text.trim() : fallback;
 					};
 					const portNum = (field) => {
 						const fallback = field === "imapPort" ? 993 : 465;
 						const d = submittedDrafts.get(field);
 						if (d !== void 0) {
-							const text = d.trim();
+							const text = d.text.trim();
 							if (text === "") return fallback;
 							const n = Number(text);
 							return Number.isInteger(n) && isValidPort(text) ? n : 0;
@@ -5613,12 +5630,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					};
 					const booleanOf = (field) => {
 						const d = submittedDrafts.get(field);
-						if (d !== void 0) return d === "true";
+						if (d !== void 0) return d.text === "true";
 						return (field === "allowDelete" ? scalar(snap, "allowDelete") : field === "imapSecure" ? nested(snap, "imap", "secure") : nested(snap, "smtp", "secure")) === true;
 					};
 					const hostOf = (field) => {
 						const d = submittedDrafts.get(field);
-						if (d !== void 0) return d.trim();
+						if (d !== void 0) return d.text.trim();
 						const v = field === "imapHost" ? nested(snap, "imap", "host") : nested(snap, "smtp", "host");
 						return typeof v === "string" ? v : "";
 					};
@@ -5639,35 +5656,53 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 							secure: booleanOf("smtpSecure")
 						}
 					});
-					const pw = submittedDrafts.get("password")?.trim();
-					if (pw) {
+					for (const [field, submitted] of submittedSettings) if (drafts.get(field)?.generation === submitted.generation) drafts.delete(field);
+				} catch {
+					settingsLanded = false;
+				}
+				if (settingsLanded) {
+					const passwordDraft = submittedDrafts.get("password");
+					const pw = passwordDraft?.text.trim();
+					if (pw) try {
 						const result = await api.credentials.set({
 							ref: PASSWORD_REF,
 							value: pw
 						});
 						if (result.ok === false || result.result?.ok === false) throw new Error("credential write was rejected");
+						if (drafts.get("password")?.generation === passwordDraft?.generation) drafts.delete("password");
+						await readCredential();
+					} catch {
+						credentialLanded = false;
 					}
-					await readCredential();
-				} catch {
-					landed = false;
-				}
-				if (landed) {
-					for (const [field, submitted] of submittedDrafts) if (drafts.get(field) === submitted) drafts.delete(field);
 				}
 				saving = false;
-				failed = !landed;
+				retireSatisfiedResets();
+				failed = !settingsLanded || !credentialLanded;
 				publish();
 			}
 			const actions = {
 				edit: (field, text) => {
 					if (!isFlat(field)) return;
-					drafts.set(field, text);
+					drafts.set(field, {
+						text,
+						generation: ++mutationGeneration,
+						reset: false
+					});
 					failed = false;
 					publish();
 				},
 				resetField: (field) => {
 					if (!isFlat(field)) return;
-					drafts.delete(field);
+					const flat = field;
+					if (saving && flat !== "password") drafts.set(flat, {
+						text: confirmedValueOf(scope.getSnapshot(), flat),
+						generation: ++mutationGeneration,
+						reset: true
+					});
+					else {
+						mutationGeneration += 1;
+						drafts.delete(flat);
+					}
 					failed = false;
 					publish();
 				},
@@ -5688,11 +5723,18 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			const refreshCredential = () => {
 				readCredential();
 			};
+			const dispose = () => {
+				if (disposed) return;
+				disposed = true;
+				credentialReadGeneration += 1;
+				unsubscribe();
+			};
 			readCredential();
 			return {
 				store,
 				face,
-				refreshCredential
+				refreshCredential,
+				dispose
 			};
 		}
 		//#endregion
@@ -5848,6 +5890,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				mirror.accept(saved.settings);
 				return saved;
 			}, true);
+			ctx.effect(() => controller.dispose, "mail-client: settings controller");
 			ctx.effect(() => ctx.remote.$on("credentials/updated", () => {
 				controller.refreshCredential();
 			}), "mail-client: credential invalidations");
