@@ -1,6 +1,6 @@
 {
   "name": "dsh-wecom",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Enterprise WeCom API plugin for DeepSeek Harness",
   "type": "module",
   "packageManager": "pnpm@11.7.0",
