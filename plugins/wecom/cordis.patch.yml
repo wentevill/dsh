@@ -1,5 +1,6 @@
 - insert:
     - id: wecom
       name: dsh-wecom
+      inject: [agents, sessions, credentials, storageDomain, sessionPersistence, agentDefaultModel, attachments]
       config:
         profile: web
