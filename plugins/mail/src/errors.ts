@@ -42,6 +42,26 @@ export type MailErrorCode =
 const TRUSTED_MAIL_ERROR = Symbol('dsh-mail.trusted-error')
 const trustedMailErrors = new WeakSet<MailError>()
 
+type HarnessErrorConstructor = new (message: string, code: string, options?: ErrorOptions) => HarnessErrorType
+
+function resolveHostHarnessError(): HarnessErrorConstructor {
+  const anchors = [
+    process.argv[1],
+    resolve(dirname(process.execPath), '../../app/package.json'),
+    import.meta.url,
+  ].filter((value): value is string => typeof value === 'string' && value.length > 0)
+  for (const anchor of anchors) {
+    try {
+      return createRequire(anchor)('@deepseek-ai/dsh-llm').HarnessError as HarnessErrorConstructor
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'MODULE_NOT_FOUND') throw error
+    }
+  }
+  throw new Error('dsh-mail: Host @deepseek-ai/dsh-llm is unavailable')
+}
+
+const HarnessError = resolveHostHarnessError()
+
 export class MailError extends HarnessError {
 
   constructor(message: string, code: MailErrorCode, trust?: symbol) {
@@ -76,4 +96,6 @@ export function assertMailUid(value: unknown): string {
   }
   return value
 }
-import { HarnessError } from '@deepseek-ai/dsh-llm'
+import { createRequire } from 'node:module'
+import { dirname, resolve } from 'node:path'
+import type { HarnessError as HarnessErrorType } from '@deepseek-ai/dsh-llm'

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 import { ToolRegistry } from '@deepseek-ai/dsh-tools'
-import type { MailSettings } from '../src/mail-settings.ts'
+import { MailSettingsValidationError, type MailSettings } from '../src/mail-settings.ts'
 import type { MailTransport, ResolvedConfig } from '../src/index.ts'
 import { createMailApprovalPolicy } from '../src/approval.ts'
 import { MailError, mailError } from '../src/errors.ts'
@@ -407,6 +407,7 @@ describe('mail capability tools', () => {
     for (const spoofed of [
       new HarnessError(`provider ${secret}`, 'MAIL_UID_INVALID'),
       new MailError(`provider ${secret}`, 'MAIL_ARCHIVE_MAILBOX_UNAVAILABLE'),
+      new MailSettingsValidationError(`provider ${secret}`, 'MAIL_INPUT_INVALID'),
     ]) {
       const failing = transport({ list: vi.fn(async () => { throw spoofed }) })
       const next = managerFor(imapOnly, { mailTransport: failing })

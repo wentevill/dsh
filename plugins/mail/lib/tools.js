@@ -91,9 +91,12 @@ function attachmentFingerprint(attachments) {
 function providerFailure(error) {
     if (isTrustedMailError(error))
         throw error;
+    throw mailProviderFailure(error);
+}
+function configFailure(error) {
     if (error instanceof MailSettingsValidationError)
         throw mailError(error.message, error.code);
-    throw mailProviderFailure(error);
+    return providerFailure(error);
 }
 /** Owns the live Mail tool catalog and binds destructive approvals to authoritative settings snapshots. */
 export class MailCapabilityManager {
@@ -229,7 +232,7 @@ export class MailCapabilityManager {
             config = this.options.resolveConfig(settings);
         }
         catch (error) {
-            return providerFailure(error);
+            return configFailure(error);
         }
         if (config.username.trim() === '' || /[\r\n]/u.test(config.username)) {
             throw mailError('mail username is unavailable', 'MAIL_USERNAME_UNAVAILABLE');

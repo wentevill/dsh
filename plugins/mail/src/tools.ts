@@ -131,8 +131,12 @@ function attachmentFingerprint(attachments: readonly { filename: string; content
 
 function providerFailure(error: unknown): never {
   if (isTrustedMailError(error)) throw error
-  if (error instanceof MailSettingsValidationError) throw mailError(error.message, error.code)
   throw mailProviderFailure(error)
+}
+
+function configFailure(error: unknown): never {
+  if (error instanceof MailSettingsValidationError) throw mailError(error.message, error.code)
+  return providerFailure(error)
 }
 
 /** Owns the live Mail tool catalog and binds destructive approvals to authoritative settings snapshots. */
@@ -276,7 +280,7 @@ export class MailCapabilityManager implements MailApprovalPreparer {
     try {
       config = this.options.resolveConfig(settings)
     } catch (error) {
-      return providerFailure(error)
+      return configFailure(error)
     }
     if (config.username.trim() === '' || /[\r\n]/u.test(config.username)) {
       throw mailError('mail username is unavailable', 'MAIL_USERNAME_UNAVAILABLE')
