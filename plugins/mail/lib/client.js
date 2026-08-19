@@ -5512,9 +5512,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					invalid: false
 				};
 			};
+			const hasInvalidPortDraft = () => [...PORT_FIELDS].some((field) => drafts.has(field) && !isValidPort(drafts.get(field)));
 			const project = () => {
 				const snap = scope.getSnapshot();
-				const planInvalid = [...PORT_FIELDS].some((f) => drafts.has(f) && !isValidPort(drafts.get(f)));
+				const planInvalid = hasInvalidPortDraft();
 				const capabilities = mailCapabilities({
 					username: "",
 					passwordEnv: PASSWORD_REF,
@@ -5586,7 +5587,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				} catch {}
 			}
 			async function save() {
-				if (saving) return;
+				if (saving || hasInvalidPortDraft()) return;
 				saving = true;
 				failed = false;
 				publish();
@@ -5598,13 +5599,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 						return d !== void 0 ? d.trim() : fallback;
 					};
 					const portNum = (field) => {
+						const fallback = field === "imapPort" ? 993 : 465;
 						const d = drafts.get(field);
 						if (d !== void 0) {
-							const n = Number(d.trim());
-							return Number.isInteger(n) && isValidPort(d.trim()) ? n : 0;
+							const text = d.trim();
+							if (text === "") return fallback;
+							const n = Number(text);
+							return Number.isInteger(n) && isValidPort(text) ? n : 0;
 						}
 						const v = field === "imapPort" ? nested(snap, "imap", "port") : nested(snap, "smtp", "port");
-						return typeof v === "number" ? v : 0;
+						return typeof v === "number" && isValidPort(String(v)) ? v : fallback;
 					};
 					const booleanOf = (field) => {
 						const d = drafts.get(field);
@@ -5620,8 +5624,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					await saveSettings({
 						username: str("username", typeof scalar(snap, "username") === "string" ? scalar(snap, "username") : ""),
 						passwordEnv: typeof scalar(snap, "passwordEnv") === "string" ? scalar(snap, "passwordEnv") : PASSWORD_REF,
-						mailbox: str("mailbox", "INBOX") || "INBOX",
-						archiveMailbox: str("archiveMailbox", "Archive") || "Archive",
+						mailbox: str("mailbox", typeof scalar(snap, "mailbox") === "string" ? scalar(snap, "mailbox") : "INBOX") || "INBOX",
+						archiveMailbox: str("archiveMailbox", typeof scalar(snap, "archiveMailbox") === "string" ? scalar(snap, "archiveMailbox") : "Archive") || "Archive",
 						allowDelete: booleanOf("allowDelete"),
 						imap: {
 							host: hostOf("imapHost"),
@@ -5717,7 +5721,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			mailArchiveMailbox: "Archive mailbox",
 			mailArchiveMailboxHint: "IMAP folder where archived messages are moved.",
 			mailAllowDelete: "Allow permanent deletion",
-			mailAllowDeleteHint: "Enable the permanently delete action for this account.",
+			mailAllowDeleteHint: "Allow a permanent, irreversible delete of messages from this account.",
 			mailImapHost: "IMAP server",
 			mailImapHostHint: "The IMAP receive server.",
 			mailImapPort: "IMAP port",
@@ -5762,7 +5766,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			mailArchiveMailbox: "归档邮箱",
 			mailArchiveMailboxHint: "归档邮件要移动到的 IMAP 文件夹。",
 			mailAllowDelete: "允许永久删除",
-			mailAllowDeleteHint: "为此账号启用永久删除操作。",
+			mailAllowDeleteHint: "允许永久、不可恢复地删除此账号中的邮件。",
 			mailImapHost: "IMAP 服务器",
 			mailImapHostHint: "接收邮件的 IMAP 服务器。",
 			mailImapPort: "IMAP 端口",

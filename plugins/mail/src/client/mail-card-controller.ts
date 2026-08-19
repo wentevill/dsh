@@ -153,9 +153,12 @@ export function createMailCardController(
     return { text: valueOf(snap, field), overridden: stored, invalid: false }
   }
 
+  const hasInvalidPortDraft = (): boolean =>
+    [...PORT_FIELDS].some(field => drafts.has(field) && !isValidPort(drafts.get(field) as string))
+
   const project = (): MailCardState => {
     const snap = scope.getSnapshot()
-    const planInvalid = [...PORT_FIELDS].some(f => drafts.has(f) && !isValidPort(drafts.get(f) as string))
+    const planInvalid = hasInvalidPortDraft()
     const capabilities = mailCapabilities({
       username: '',
       passwordEnv: PASSWORD_REF,
@@ -213,7 +216,7 @@ export function createMailCardController(
   }
 
   async function save(): Promise<void> {
-    if (saving) return
+    if (saving || hasInvalidPortDraft()) return
     saving = true
     failed = false
     publish()
@@ -225,10 +228,16 @@ export function createMailCardController(
         return d !== undefined ? d.trim() : fallback
       }
       const portNum = (field: FlatField): number => {
+        const fallback = field === 'imapPort' ? 993 : 465
         const d = drafts.get(field)
-        if (d !== undefined) { const n = Number(d.trim()); return Number.isInteger(n) && isValidPort(d.trim()) ? n : 0 }
+        if (d !== undefined) {
+          const text = d.trim()
+          if (text === '') return fallback
+          const n = Number(text)
+          return Number.isInteger(n) && isValidPort(text) ? n : 0
+        }
         const v = (field === 'imapPort' ? nested(snap, 'imap', 'port') : nested(snap, 'smtp', 'port'))
-        return typeof v === 'number' ? v : 0
+        return typeof v === 'number' && isValidPort(String(v)) ? v : fallback
       }
       const booleanOf = (field: FlatField): boolean => {
         const d = drafts.get(field)
@@ -248,8 +257,8 @@ export function createMailCardController(
       await saveSettings({
         username: str('username', typeof scalar(snap, 'username') === 'string' ? scalar(snap, 'username') as string : ''),
         passwordEnv: typeof scalar(snap, 'passwordEnv') === 'string' ? scalar(snap, 'passwordEnv') as string : PASSWORD_REF,
-        mailbox: str('mailbox', 'INBOX') || 'INBOX',
-        archiveMailbox: str('archiveMailbox', 'Archive') || 'Archive',
+        mailbox: str('mailbox', typeof scalar(snap, 'mailbox') === 'string' ? scalar(snap, 'mailbox') as string : 'INBOX') || 'INBOX',
+        archiveMailbox: str('archiveMailbox', typeof scalar(snap, 'archiveMailbox') === 'string' ? scalar(snap, 'archiveMailbox') as string : 'Archive') || 'Archive',
         allowDelete: booleanOf('allowDelete'),
         imap: { host: hostOf('imapHost'), port: portNum('imapPort'), secure: booleanOf('imapSecure') },
         smtp: { host: hostOf('smtpHost'), port: portNum('smtpPort'), secure: booleanOf('smtpSecure') },

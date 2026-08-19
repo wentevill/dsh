@@ -30,7 +30,7 @@ export const en = {
   mailArchiveMailbox: 'Archive mailbox',
   mailArchiveMailboxHint: 'IMAP folder where archived messages are moved.',
   mailAllowDelete: 'Allow permanent deletion',
-  mailAllowDeleteHint: 'Enable the permanently delete action for this account.',
+  mailAllowDeleteHint: 'Allow a permanent, irreversible delete of messages from this account.',
   // receive endpoint
   mailImapHost: 'IMAP server',
   mailImapHostHint: 'The IMAP receive server.',
@@ -79,7 +79,7 @@ export const zh = {
   mailArchiveMailbox: '归档邮箱',
   mailArchiveMailboxHint: '归档邮件要移动到的 IMAP 文件夹。',
   mailAllowDelete: '允许永久删除',
-  mailAllowDeleteHint: '为此账号启用永久删除操作。',
+  mailAllowDeleteHint: '允许永久、不可恢复地删除此账号中的邮件。',
   mailImapHost: 'IMAP 服务器',
   mailImapHostHint: '接收邮件的 IMAP 服务器。',
   mailImapPort: 'IMAP 端口',
