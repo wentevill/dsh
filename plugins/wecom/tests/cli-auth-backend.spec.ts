@@ -40,13 +40,21 @@ describe('wecom-cli authorization backend', () => {
   })
 
   it('reports a CLI exit that happens before QR creation', async () => {
+    let qrWaitAborted = false
     const backend = createCliAuthBackend({
       executable: 'wecom-cli', configDir: '/config', tempDir: '/tmp/wecom',
       execute: async () => ({ code: 7, stdout: '', stderr: 'failed' }),
-      readQr: () => new Promise(() => {}), deleteOwned: async () => {},
+      readQr: (_path, signal) => new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => {
+          qrWaitAborted = true
+          reject(Object.assign(new Error('cancelled'), { name: 'AbortError' }))
+        }, { once: true })
+      }),
+      deleteOwned: async () => {},
     })
     await expect(backend.connect({ signal: new AbortController().signal, onQr: () => {} }))
       .rejects.toThrow('before producing a QR (7)')
+    expect(qrWaitAborted).toBe(true)
   })
 
   it('delegates deletion to the fixed owned-file operation', async () => {

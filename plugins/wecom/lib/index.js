@@ -173,9 +173,9 @@ export async function apply(ctx, config) {
         installTools,
     });
     new WeComAuthRemote(ctx, host.auth);
-    ctx.inject(['settings'], (settingsCtx) => settingsCtx.settings.register(WECOM_SETTINGS_NAMESPACE, z.object({}), {
-        applies: 'live', base: {},
-    }));
+    ctx.inject(['settings'], (settingsCtx) => {
+        settingsCtx.settings.register(WECOM_SETTINGS_NAMESPACE, z.object({}), { applies: 'live', base: {} });
+    });
     ctx.on('tools/pre-execute', async (execution, next) => {
         const runtime = runtimeTools.get(execution.name);
         if (runtime === undefined)

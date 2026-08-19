@@ -129,9 +129,9 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   })
 
   new WeComAuthRemote(ctx, host.auth)
-  ctx.inject(['settings'], (settingsCtx: Context) => settingsCtx.settings.register(WECOM_SETTINGS_NAMESPACE, z.object({}), {
-    applies: 'live', base: {},
-  }))
+  ctx.inject(['settings'], (settingsCtx: Context) => {
+    settingsCtx.settings.register(WECOM_SETTINGS_NAMESPACE, z.object({}), { applies: 'live', base: {} })
+  })
   ctx.on('tools/pre-execute', async (execution, next): Promise<PreToolDecision> => {
     const runtime = runtimeTools.get(execution.name)
     if (runtime === undefined) return next()

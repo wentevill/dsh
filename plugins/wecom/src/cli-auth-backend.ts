@@ -40,12 +40,14 @@ export function createCliAuthBackend(options: CliAuthBackendOptions): AuthBacken
       const filename = `qr-${randomUUID()}.png`
       const path = join(options.tempDir, filename)
       await rm(path, { force: true })
+      const waiter = new AbortController()
+      const waitSignal = AbortSignal.any([signal, waiter.signal])
       const pending = options.execute(invocation(options, [
         'auth', 'init', '--noninteractive', '--no-browser', '--output-qrcode', filename,
       ], signal))
       try {
         const first = await Promise.race([
-          options.readQr(path, signal).then(qr => ({ kind: 'qr' as const, qr })),
+          options.readQr(path, waitSignal).then(qr => ({ kind: 'qr' as const, qr })),
           pending.then(result => ({ kind: 'exit' as const, result })),
         ])
         if (first.kind === 'exit') throw new Error(`wecom-cli authorization exited before producing a QR (${first.result.code})`)
@@ -53,6 +55,7 @@ export function createCliAuthBackend(options: CliAuthBackendOptions): AuthBacken
         const result = await pending
         if (result.code !== 0) throw new Error(`wecom-cli authorization failed (${result.code})`)
       } finally {
+        waiter.abort()
         await rm(path, { force: true })
       }
     },

@@ -28,12 +28,14 @@ export function createCliAuthBackend(options) {
             const filename = `qr-${randomUUID()}.png`;
             const path = join(options.tempDir, filename);
             await rm(path, { force: true });
+            const waiter = new AbortController();
+            const waitSignal = AbortSignal.any([signal, waiter.signal]);
             const pending = options.execute(invocation(options, [
                 'auth', 'init', '--noninteractive', '--no-browser', '--output-qrcode', filename,
             ], signal));
             try {
                 const first = await Promise.race([
-                    options.readQr(path, signal).then(qr => ({ kind: 'qr', qr })),
+                    options.readQr(path, waitSignal).then(qr => ({ kind: 'qr', qr })),
                     pending.then(result => ({ kind: 'exit', result })),
                 ]);
                 if (first.kind === 'exit')
@@ -44,6 +46,7 @@ export function createCliAuthBackend(options) {
                     throw new Error(`wecom-cli authorization failed (${result.code})`);
             }
             finally {
+                waiter.abort();
                 await rm(path, { force: true });
             }
         },
