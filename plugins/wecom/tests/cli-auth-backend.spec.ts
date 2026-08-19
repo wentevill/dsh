@@ -21,11 +21,12 @@ describe('wecom-cli authorization backend', () => {
     const backend = createCliAuthBackend({
       executable: '/plugin/wecom-cli', configDir: '/config', tempDir: '/tmp/wecom',
       execute: invocation => {
-        expect(invocation.args).toEqual(['auth', 'init', '--noninteractive', '--no-browser', '--output-qrcode', 'qr.png'])
+        expect(invocation.args.slice(0, 5)).toEqual(['auth', 'init', '--noninteractive', '--no-browser', '--output-qrcode'])
+        expect(invocation.args[5]).toMatch(/^qr-[\w-]+\.png$/u)
         return new Promise(resolve => { finish = resolve })
       },
       readQr: async path => {
-        expect(path).toBe('/tmp/wecom/qr.png')
+        expect(path).toMatch(/^\/tmp\/wecom\/qr-[\w-]+\.png$/u)
         return new Uint8Array([113, 114])
       },
       deleteOwned: async () => {},
@@ -36,6 +37,16 @@ describe('wecom-cli authorization backend', () => {
     })
     await pending
     expect(qrStates).toEqual(['data:image/png;base64,cXI='])
+  })
+
+  it('reports a CLI exit that happens before QR creation', async () => {
+    const backend = createCliAuthBackend({
+      executable: 'wecom-cli', configDir: '/config', tempDir: '/tmp/wecom',
+      execute: async () => ({ code: 7, stdout: '', stderr: 'failed' }),
+      readQr: () => new Promise(() => {}), deleteOwned: async () => {},
+    })
+    await expect(backend.connect({ signal: new AbortController().signal, onQr: () => {} }))
+      .rejects.toThrow('before producing a QR (7)')
   })
 
   it('delegates deletion to the fixed owned-file operation', async () => {

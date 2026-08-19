@@ -4284,7 +4284,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 44,
+						"line": 49,
 						"column": 21
 					}
 				},
@@ -4302,7 +4302,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 43,
+						"line": 48,
 						"column": 22
 					}
 				},
@@ -4329,7 +4329,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 46,
+						"line": 51,
 						"column": 34
 					}
 				},
@@ -4347,7 +4347,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 45,
+						"line": 50,
 						"column": 22
 					}
 				},
@@ -4365,7 +4365,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 42,
+						"line": 47,
 						"column": 21
 					}
 				}
@@ -4482,7 +4482,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				child.slots.inject("settings.plugin.item", function* () {
 					yield child.slots.register({
 						name: "settings.plugin.item",
-						id: "wecom",
+						key: "wecom",
 						order: 35,
 						locale: "settings.plugins.wecom"
 					}, () => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(WeComCard, { api: child.remote.wecomAuth }));

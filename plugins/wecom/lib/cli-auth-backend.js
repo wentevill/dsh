@@ -1,4 +1,6 @@
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { rm } from 'node:fs/promises';
 function invocation(options, args, signal) {
     return {
         executable: options.executable,
@@ -23,14 +25,27 @@ export function createCliAuthBackend(options) {
             return { authorized: result.stdout.trim() === 'authorized' };
         },
         async connect({ signal, onQr }) {
+            const filename = `qr-${randomUUID()}.png`;
+            const path = join(options.tempDir, filename);
+            await rm(path, { force: true });
             const pending = options.execute(invocation(options, [
-                'auth', 'init', '--noninteractive', '--no-browser', '--output-qrcode', 'qr.png',
+                'auth', 'init', '--noninteractive', '--no-browser', '--output-qrcode', filename,
             ], signal));
-            const qr = await options.readQr(join(options.tempDir, 'qr.png'), signal);
-            onQr(`data:image/png;base64,${Buffer.from(qr).toString('base64')}`);
-            const result = await pending;
-            if (result.code !== 0)
-                throw new Error(`wecom-cli authorization failed (${result.code})`);
+            try {
+                const first = await Promise.race([
+                    options.readQr(path, signal).then(qr => ({ kind: 'qr', qr })),
+                    pending.then(result => ({ kind: 'exit', result })),
+                ]);
+                if (first.kind === 'exit')
+                    throw new Error(`wecom-cli authorization exited before producing a QR (${first.result.code})`);
+                onQr(`data:image/png;base64,${Buffer.from(first.qr).toString('base64')}`);
+                const result = await pending;
+                if (result.code !== 0)
+                    throw new Error(`wecom-cli authorization failed (${result.code})`);
+            }
+            finally {
+                await rm(path, { force: true });
+            }
         },
         deleteOwnedAuthorization: options.deleteOwned,
     };

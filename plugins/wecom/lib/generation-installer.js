@@ -4,35 +4,36 @@ export function createGenerationInstaller(hooks) {
     let entries = new Map();
     return items => {
         const nextGeneration = generation + 1;
-        const names = new Set(items.map(hooks.name));
-        const added = new Map();
+        const previous = entries;
+        for (const entry of [...previous.values()].reverse())
+            entry.dispose();
+        const candidate = new Map();
         try {
             for (const item of items) {
                 const name = hooks.name(item);
-                if (!entries.has(name))
-                    added.set(name, hooks.register(item));
+                candidate.set(name, { item, dispose: hooks.register(item) });
             }
         }
         catch (error) {
-            for (const dispose of [...added.values()].reverse())
-                dispose();
+            for (const entry of [...candidate.values()].reverse())
+                entry.dispose();
+            const restored = new Map();
+            for (const [name, entry] of previous)
+                restored.set(name, { item: entry.item, dispose: hooks.register(entry.item) });
+            entries = restored;
+            for (const entry of restored.values())
+                hooks.activate(entry.item);
             throw error;
         }
-        for (const [name, dispose] of entries) {
-            if (!names.has(name))
-                dispose();
-        }
-        entries = new Map([...entries].filter(([name]) => names.has(name)));
-        for (const [name, dispose] of added)
-            entries.set(name, dispose);
+        entries = candidate;
         for (const item of items)
             hooks.activate(item);
         generation = nextGeneration;
         return () => {
             if (generation !== nextGeneration)
                 return;
-            for (const dispose of [...entries.values()].reverse())
-                dispose();
+            for (const entry of [...entries.values()].reverse())
+                entry.dispose();
             entries.clear();
             generation += 1;
         };

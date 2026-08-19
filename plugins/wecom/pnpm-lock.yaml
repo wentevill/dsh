@@ -39,6 +39,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-settings-plugins':
         specifier: 0.1.0-rc.7
         version: 0.1.0-rc.7(adcacde2ab0d38cfdff7d9e35848aa88)
+      '@deepseek-ai/dsh-settings':
+        specifier: 0.1.0-rc.7
+        version: 0.1.0-rc.7(@deepseek-ai/cordis@4.0.1)(@deepseek-ai/dsh-brand@0.1.0-rc.7(@deepseek-ai/cordis@4.0.1))(@deepseek-ai/schemastery@3.18.1)
       '@deepseek-ai/dsh-tools':
         specifier: 0.0.1-rc.1
         version: 0.0.1-rc.1(6fc53205a40852299554570d5ab71674)

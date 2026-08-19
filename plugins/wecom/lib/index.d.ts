@@ -5,6 +5,7 @@ import { type AuthRemoteController } from './auth-remote.ts';
 import type { WeComAuthSnapshot } from './remote-types.ts';
 export interface Config {
     readonly configDir?: string;
+    readonly profile?: string;
     readonly timeoutMs?: number;
     readonly maxOutputBytes?: number;
 }
@@ -21,5 +22,5 @@ export declare class WeComAuthRemote extends TypertRemoteService {
     deleteAuthorization(confirmed: boolean): Promise<WeComAuthSnapshot>;
 }
 /** Standard Cordis Host entry. Dynamic tools exist only while authorization is valid. */
-export declare function apply(ctx: Context, config: Config): void;
+export declare function apply(ctx: Context, config: Config): Promise<void>;
 export type { WeComAuthSnapshot } from './remote-types.ts';

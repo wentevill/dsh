@@ -2,4 +2,4 @@
     - id: wecom
       name: dsh-wecom
       config:
-        configDir: .dsh/wecom
+        profile: web

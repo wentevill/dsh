@@ -33,8 +33,10 @@ var __esDecorate = (this && this.__esDecorate) || function (ctor, descriptorIn, 
     done = true;
 };
 import { createRequire } from 'node:module';
+import { arch, platform } from 'node:os';
 import { mkdir, rm } from 'node:fs/promises';
-import { dirname, isAbsolute, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { settingsNamespace } from '@deepseek-ai/dsh-settings';
 import z from '@deepseek-ai/schemastery';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
@@ -47,12 +49,14 @@ import { createGenerationInstaller } from "./generation-installer.js";
 import { createNodeProcessExecutor, createWeComProcessRunner } from "./transport.js";
 import { waitForFile } from "./qr-file.js";
 export const Config = z.object({
-    configDir: z.string().default('.dsh/wecom'),
+    configDir: z.string(),
+    profile: z.string().default('web'),
     timeoutMs: z.number().step(1).min(1_000).default(300_000),
     maxOutputBytes: z.number().step(1).min(1_024).default(1_048_576),
 });
 export const name = 'wecom';
 export const inject = ['tools'];
+const WECOM_SETTINGS_NAMESPACE = settingsNamespace('wecom');
 let WeComAuthRemote = (() => {
     let _classSuper = TypertRemoteService;
     let _instanceExtraInitializers = [];
@@ -91,21 +95,42 @@ let WeComAuthRemote = (() => {
 export { WeComAuthRemote };
 function cliExecutable() {
     const require = createRequire(import.meta.url);
-    return resolve(dirname(require.resolve('@wecom/cli/package.json')), 'bin/wecom.js');
+    const key = `${platform()}-${arch()}`;
+    const packages = {
+        'darwin-arm64': '@wecom/cli-darwin-arm64', 'darwin-x64': '@wecom/cli-darwin-x64',
+        'linux-arm64': '@wecom/cli-linux-arm64', 'linux-x64': '@wecom/cli-linux-x64',
+        'win32-x64': '@wecom/cli-win32-x64',
+    };
+    const packageName = packages[key];
+    if (packageName === undefined)
+        throw new Error(`unsupported wecom-cli platform: ${key}`);
+    const packagePath = require.resolve(`${packageName}/package.json`);
+    return join(dirname(packagePath), 'bin', platform() === 'win32' ? 'wecom-cli.exe' : 'wecom-cli');
 }
-function profilePath(value) {
-    const path = isAbsolute(value) ? resolve(value) : resolve(process.cwd(), value);
-    if (path === resolve(path, '/'))
-        throw new Error('unsafe WeCom configuration directory');
-    return path;
+function profilePath(ctx, config) {
+    if (config.configDir !== undefined) {
+        if (!isAbsolute(config.configDir))
+            throw new Error('WeCom configDir must be absolute');
+        const path = resolve(config.configDir);
+        if (path === resolve(path, '/'))
+            throw new Error('unsafe WeCom configuration directory');
+        return path;
+    }
+    const profile = config.profile ?? 'web';
+    if (!/^[a-zA-Z0-9_-]+$/u.test(profile))
+        throw new Error('invalid WeCom profile name');
+    const resolver = ctx.dshHomePath;
+    if (resolver === undefined)
+        throw new Error('WeCom requires an absolute configDir outside a profile launch');
+    return resolver('profiles', profile, 'plugins', 'wecom');
 }
 /** Standard Cordis Host entry. Dynamic tools exist only while authorization is valid. */
-export function apply(ctx, config) {
-    const configDir = profilePath(config.configDir ?? '.dsh/wecom');
+export async function apply(ctx, config) {
+    const configDir = profilePath(ctx, config);
     const tempDir = resolve(configDir, 'tmp');
     const execute = createNodeProcessExecutor();
     const executable = cliExecutable();
-    void mkdir(tempDir, { recursive: true });
+    await mkdir(tempDir, { recursive: true });
     const runner = createWeComProcessRunner({
         executable, configDir, tempDir, execute,
         timeoutMs: config.timeoutMs ?? 300_000,
@@ -148,11 +173,14 @@ export function apply(ctx, config) {
         installTools,
     });
     new WeComAuthRemote(ctx, host.auth);
+    ctx.inject(['settings'], (settingsCtx) => settingsCtx.settings.register(WECOM_SETTINGS_NAMESPACE, z.object({}), {
+        applies: 'live', base: {},
+    }));
     ctx.on('tools/pre-execute', async (execution, next) => {
         const runtime = runtimeTools.get(execution.name);
         if (runtime === undefined)
             return next();
         return runtime.preDecision(execution.arguments);
     });
-    void host.initialize();
+    await host.initialize();
 }

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createGenerationInstaller } from '../src/generation-installer.ts'
 
 describe('generation installer', () => {
-  it('updates overlapping tools, adds new tools, and ignores stale disposal', () => {
+  it('re-registers overlapping tools so refreshed schemas take effect and ignores stale disposal', () => {
     const active = new Map<string, number>()
     const disposed: string[] = []
     const install = createGenerationInstaller<{ name: string; value: number }>({
@@ -14,10 +14,10 @@ describe('generation installer', () => {
     const currentDispose = install([{ name: 'a', value: 2 }, { name: 'b', value: 3 }])
     oldDispose()
     expect(active).toEqual(new Map([['a', 2], ['b', 3]]))
-    expect(disposed).toEqual([])
+    expect(disposed).toEqual(['a'])
     currentDispose()
     expect(active.size).toBe(0)
-    expect(disposed.sort()).toEqual(['a', 'b'])
+    expect(disposed.sort()).toEqual(['a', 'a', 'b'])
   })
 
   it('rolls back newly registered names when candidate installation fails', () => {

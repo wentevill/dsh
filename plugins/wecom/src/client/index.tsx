@@ -63,7 +63,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const disposeRemote = await ctx.remote.$mount(remote)
   const feature = ctx.plugin(Object.assign(async (child: ClientContext) => {
     child.slots.inject('settings.plugin.item', function* () {
-      yield child.slots.register({ name: 'settings.plugin.item', id: 'wecom', order: 35, locale: 'settings.plugins.wecom' },
+      yield child.slots.register({ name: 'settings.plugin.item', key: 'wecom', order: 35, locale: 'settings.plugins.wecom' },
         () => <WeComCard api={child.remote.wecomAuth} />)
     })
   }, { inject: ['slots', 'remote', 'remote.wecomAuth'] }))
