@@ -4,6 +4,8 @@ import type { MailAddress } from './mail-types.ts'
 export interface MailSendApprovalMetadata {
   readonly to: readonly MailAddress[]
   readonly cc: readonly MailAddress[]
+  readonly bccCount: number
+  readonly subject: string
   readonly formats: readonly ('text' | 'html')[]
   readonly attachments: readonly string[]
   readonly attachmentBytes: number
@@ -29,10 +31,10 @@ function formatAddresses(values: readonly MailAddress[]): string {
 }
 
 function sendReason(metadata: MailSendApprovalMetadata): string {
-  const total = metadata.to.length + metadata.cc.length
+  const total = metadata.to.length + metadata.cc.length + metadata.bccCount
   const formats = metadata.formats.length === 0 ? '(none)' : metadata.formats.join(', ')
   const attachments = metadata.attachments.length === 0 ? '(none)' : metadata.attachments.join(', ')
-  return `Send email? To (${metadata.to.length}): ${formatAddresses(metadata.to)}; Cc (${metadata.cc.length}): ${formatAddresses(metadata.cc)}; recipients: ${total} total; formats: ${formats}; attachments: ${attachments}; attachment bytes: ${metadata.attachmentBytes} bytes.`
+  return `Send email? To (${metadata.to.length}): ${formatAddresses(metadata.to)}; Cc (${metadata.cc.length}): ${formatAddresses(metadata.cc)}; recipients: ${total} total; subject: ${JSON.stringify(metadata.subject)}; formats: ${formats}; attachments: ${attachments}; attachment bytes: ${metadata.attachmentBytes} bytes.`
 }
 
 function deleteReason(metadata: MailDeleteApprovalMetadata): string {

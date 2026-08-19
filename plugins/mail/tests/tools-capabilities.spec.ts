@@ -4,6 +4,13 @@ import type { MailTransport, ResolvedConfig } from '../src/index.ts'
 import { createMailApprovalPolicy } from '../src/approval.ts'
 import { MailCapabilityManager } from '../src/tools.ts'
 
+vi.mock('@deepseek-ai/dsh-mail', () => ({
+  MailError: class MailError extends Error {
+    constructor(message: string, readonly code?: string) { super(message) }
+    static providerFailure(_error: unknown) { return new Error('MAIL_PROVIDER_FAILURE: mail provider operation failed') }
+  },
+}))
+
 const disabled: MailSettings = {
   username: 'user@example.com', passwordEnv: 'MAIL_PASSWORD', mailbox: 'INBOX', archiveMailbox: 'Archive', allowDelete: false,
   imap: { host: '', port: 993, secure: true }, smtp: { host: '', port: 465, secure: true },
@@ -24,6 +31,8 @@ class FakeSettingsScope {
     this.value = next
     for (const watcher of [...this.watchers]) await watcher(next, prev)
   }
+  setAuthoritative(next: MailSettings): void { this.value = next }
+  callbacks(): Array<(next: MailSettings, prev: MailSettings) => void | Promise<void>> { return [...this.watchers] }
 }
 
 class FakeTools {
@@ -150,7 +159,7 @@ describe('mail capability tools', () => {
 
     expect(await policy(exec as never, vi.fn())).toMatchObject({ kind: 'ask' })
     await scope.set({ ...imapOnly, allowDelete: false })
-    await expect(deleteTool.execute(args, exec)).rejects.toThrow(/disabled|unavailable/u)
+    await expect(deleteTool.execute(args, exec)).rejects.toThrow(/disabled|unavailable|settings changed|fresh/u)
     expect(mailTransport.delete).not.toHaveBeenCalled()
     await manager.dispose()
   })
@@ -165,7 +174,7 @@ describe('mail capability tools', () => {
 
     expect(await policy(exec as never, vi.fn())).toMatchObject({ kind: 'ask' })
     await scope.set(disabled)
-    await expect(sendTool.execute(args, exec)).rejects.toThrow(/disabled|unavailable/u)
+    await expect(sendTool.execute(args, exec)).rejects.toThrow(/disabled|unavailable|settings changed|fresh/u)
     expect(mailTransport.send).not.toHaveBeenCalled()
     await manager.dispose()
   })
@@ -183,6 +192,9 @@ describe('mail capability tools', () => {
 
     expect(loadAttachments).toHaveBeenCalledWith(args.attachments, '/workspace/session', expect.anything(), exec.signal)
     expect(decision.kind === 'ask' ? decision.reason : '').toContain('report.pdf')
+    expect(manager.approvalBindingCountForTests()).toBe(1)
+    manager.releaseApproval(exec as never)
+    expect(manager.approvalBindingCountForTests()).toBe(0)
     await manager.dispose()
   })
 
@@ -229,5 +241,160 @@ describe('mail capability tools', () => {
       expect.anything(),
     )
     await manager.dispose()
+  })
+
+  it('rejects deletion when authoritative account changes before its watcher runs', async () => {
+    const mailTransport = transport()
+    const { manager, scope, tools } = managerFor({ ...imapOnly, allowDelete: true }, { mailTransport })
+    const args = { id: '42' }
+    const exec = execution('mail_delete', args)
+    const deleteTool = tools.definitions.get('mail_delete')!
+    expect(await createMailApprovalPolicy(manager)(exec as never, vi.fn())).toMatchObject({ kind: 'ask' })
+
+    scope.setAuthoritative({ ...imapOnly, username: 'other@example.com', mailbox: 'Other', allowDelete: true })
+    await expect(deleteTool.execute(args, exec)).rejects.toThrow(/settings changed|fresh/u)
+    expect(mailTransport.delete).not.toHaveBeenCalled()
+    expect(manager.approvalBindingCountForTests()).toBe(0)
+    await manager.dispose()
+  })
+
+  it('invalidates disable and re-enable even when the final values match', async () => {
+    const original = { ...imapOnly, allowDelete: true }
+    const { manager, scope, tools, mailTransport } = managerFor(original)
+    const args = { id: '42' }
+    const exec = execution('mail_delete', args)
+    const deleteTool = tools.definitions.get('mail_delete')!
+    await createMailApprovalPolicy(manager)(exec as never, vi.fn())
+    scope.setAuthoritative({ ...original, imap: { ...original.imap } })
+
+    await expect(deleteTool.execute(args, exec)).rejects.toThrow(/settings changed|fresh/u)
+    expect(mailTransport.delete).not.toHaveBeenCalled()
+    await manager.dispose()
+  })
+
+  it('invalidates approval when a settings provider mutates its snapshot in place', async () => {
+    const original = { ...imapOnly, allowDelete: true }
+    const { manager, tools, mailTransport } = managerFor(original)
+    const args = { id: '42' }
+    const exec = execution('mail_delete', args)
+    const deleteTool = tools.definitions.get('mail_delete')!
+    await createMailApprovalPolicy(manager)(exec as never, vi.fn())
+    original.username = 'mutated@example.com'
+
+    await expect(deleteTool.execute(args, exec)).rejects.toThrow(/settings changed|fresh/u)
+    expect(mailTransport.delete).not.toHaveBeenCalled()
+    await manager.dispose()
+  })
+
+  it('reloads attachments after approval and rejects changed metadata without retaining buffers', async () => {
+    const loadAttachments = vi.fn()
+      .mockResolvedValueOnce([{ filename: 'report.pdf', contentType: 'application/pdf', content: Buffer.from('one'), size: 3 }])
+      .mockResolvedValueOnce([{ filename: 'report.pdf', contentType: 'application/pdf', content: Buffer.from('changed'), size: 7 }])
+    const { manager, tools, mailTransport } = managerFor(smtpOnly, { loadAttachments })
+    const args = { to: ['to@example.com'], subject: 'Hello', text: 'SECRET BODY', bcc: ['hidden@example.com'], attachments: [{ path: 'report.pdf' }] }
+    const exec = execution('mail_send', args, '/workspace/session')
+    const sendTool = tools.definitions.get('mail_send')!
+    const decision = await createMailApprovalPolicy(manager)(exec as never, vi.fn())
+    const reason = decision.kind === 'ask' ? decision.reason ?? '' : ''
+    expect(reason).not.toContain('SECRET BODY')
+    expect(reason).not.toContain('hidden@example.com')
+    expect(reason).toContain('2 total')
+
+    await expect(sendTool.execute(args, exec)).rejects.toThrow(/attachments changed/u)
+    expect(mailTransport.send).not.toHaveBeenCalled()
+    expect(manager.approvalBindingCountForTests()).toBe(0)
+    await manager.dispose()
+  })
+
+  it('cannot reinstall a tool from a watcher callback that completes after disposal', async () => {
+    const scope = new FakeSettingsScope(disabled)
+    const tools = new FakeTools()
+    const manager = managerFor(disabled).manager
+    await manager.dispose()
+
+    const isolated = new MailCapabilityManager(fakeContext(tools) as never, scope as never, {
+      credentials: { resolve: vi.fn() } as never, resolveConfig, imap: transport(), smtp: transport(),
+      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 20, maxBodyChars: 100_000,
+    })
+    const callbacks = scope.callbacks()
+    await isolated.dispose()
+    scope.setAuthoritative(smtpOnly)
+    await callbacks[0]?.(smtpOnly, disabled)
+    expect(tools.definitions.size).toBe(0)
+  })
+
+  it('fails approval closed while tool teardown is still in flight', async () => {
+    const scope = new FakeSettingsScope(smtpOnly)
+    const tools = new FakeTools()
+    let release!: () => void
+    const blocked = new Promise<void>(resolve => { release = resolve })
+    const context = {
+      tools,
+      effect(execute: () => Iterable<() => unknown>) {
+        const disposers = [...execute()]
+        return async () => {
+          await blocked
+          for (const dispose of disposers.reverse()) await dispose()
+        }
+      },
+    }
+    const manager = new MailCapabilityManager(context as never, scope as never, {
+      credentials: { resolve: vi.fn(async () => ({ value: 'password' })) } as never,
+      resolveConfig, imap: transport(), smtp: transport(),
+      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 20, maxBodyChars: 100_000,
+    })
+    const disposing = manager.dispose()
+    expect(tools.definitions.has('mail_send')).toBe(true)
+    await expect(createMailApprovalPolicy(manager)(execution('mail_send', {
+      to: ['to@example.com'], subject: 'Hello', text: 'Body',
+    }) as never, vi.fn(async () => ({ kind: 'allow' as const })))).rejects.toThrow(/unavailable/u)
+    release()
+    await disposing
+    expect(tools.definitions.size).toBe(0)
+  })
+
+  it('sanitizes credential and transport provider failures', async () => {
+    const secret = 'sentinel-password'
+    const scope = new FakeSettingsScope(imapOnly)
+    const tools = new FakeTools()
+    const manager = new MailCapabilityManager(fakeContext(tools) as never, scope as never, {
+      credentials: { resolve: vi.fn(async () => { throw new Error(`credential ${secret}`) }) } as never,
+      resolveConfig, imap: transport(), smtp: transport(),
+      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 20, maxBodyChars: 100_000,
+    })
+    const listTool = tools.definitions.get('mail_list')!
+    const credentialError = await listTool.execute({ limit: 1 }, execution('mail_list', { limit: 1 })).catch(error => error as Error)
+    expect(credentialError.message).toContain('MAIL_PROVIDER_FAILURE')
+    expect(credentialError.message).not.toContain(secret)
+    await manager.dispose()
+
+    const failing = transport({ list: vi.fn(async () => { throw new Error(`provider ${secret}`) }) })
+    const next = managerFor(imapOnly, { mailTransport: failing })
+    const providerError = await next.tools.definitions.get('mail_list')!.execute(
+      { limit: 1 }, execution('mail_list', { limit: 1 }),
+    ).catch(error => error as Error)
+    expect(providerError.message).toContain('MAIL_PROVIDER_FAILURE')
+    expect(providerError.message).not.toContain(secret)
+    await next.manager.dispose()
+  })
+
+  it('does not call transport when disposal wins during credential resolution', async () => {
+    let release!: () => void
+    const blocked = new Promise<void>(resolve => { release = resolve })
+    const scope = new FakeSettingsScope(imapOnly)
+    const tools = new FakeTools()
+    const list = vi.fn(async () => ({ messages: [], nextCursor: null, truncated: false }))
+    const mailTransport = transport({ list })
+    const manager = new MailCapabilityManager(fakeContext(tools) as never, scope as never, {
+      credentials: { resolve: vi.fn(async () => { await blocked; return { value: 'password' } }) } as never,
+      resolveConfig, imap: mailTransport, smtp: mailTransport,
+      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 20, maxBodyChars: 100_000,
+    })
+    const running = tools.definitions.get('mail_list')!.execute({ limit: 1 }, execution('mail_list', { limit: 1 }))
+    const disposing = manager.dispose()
+    release()
+    await expect(running).rejects.toThrow(/unavailable/u)
+    await disposing
+    expect(list).not.toHaveBeenCalled()
   })
 })

@@ -1,4 +1,6 @@
+import { MailError } from '@deepseek-ai/dsh-mail';
 import { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from "./attachment-loader.js";
+import { mailCapabilities } from "./mail-settings.js";
 const textOutput = {
     schema: { type: 'string' },
     render: (_args, value) => [{ type: 'text', text: value }],
@@ -62,41 +64,73 @@ function attachmentRequests(value) {
 function cwd(exec) {
     return exec.agent?.session?.header?.cwd;
 }
+function endpoint(value) {
+    return [value.host.trim(), value.port, value.secure];
+}
+function fingerprint(settings, kind) {
+    return JSON.stringify(kind === 'delete'
+        ? [settings.username, settings.passwordEnv, settings.mailbox, settings.allowDelete, endpoint(settings.imap)]
+        : [settings.username, settings.passwordEnv, endpoint(settings.smtp)]);
+}
+function operationFingerprint(settings, capability) {
+    return capability === 'smtp'
+        ? fingerprint(settings, 'send')
+        : JSON.stringify([settings.username, settings.passwordEnv, settings.mailbox, endpoint(settings.imap)]);
+}
+function attachmentFingerprint(attachments) {
+    return JSON.stringify(attachments.map(value => [value.filename, value.contentType, value.size]));
+}
+function providerFailure(error) {
+    if (error instanceof MailError)
+        throw error;
+    throw MailError.providerFailure(error);
+}
+/** Owns the live Mail tool catalog and binds destructive approvals to authoritative settings snapshots. */
 export class MailCapabilityManager {
     ctx;
     scope;
     options;
-    settings;
-    revision = 0;
-    preparedSends = new Map();
+    bindings = new Map();
     groupDisposers = new Map();
     unwatch;
+    disposed = false;
+    generation = 0;
+    disposePromise;
     constructor(ctx, scope, options) {
         this.ctx = ctx;
         this.scope = scope;
         this.options = options;
-        this.settings = scope.get();
-        if (this.imapEnabled())
-            this.install('imap', this.imapTools());
-        if (this.deleteEnabled())
-            this.install('delete', [this.deleteTool()]);
-        if (this.smtpEnabled())
-            this.install('smtp', [this.sendTool()]);
-        this.unwatch = scope.watch(async (next, previous) => {
-            this.settings = next;
-            this.revision += 1;
-            await this.reconcile(previous, next);
+        this.installCatalog(scope.get());
+        this.unwatch = scope.watch(async () => {
+            const generation = this.generation;
+            if (this.disposed)
+                return;
+            await this.reconcile(scope.get(), generation);
         });
     }
-    async dispose() {
+    dispose() {
+        if (this.disposePromise !== undefined)
+            return this.disposePromise;
+        this.disposed = true;
+        this.generation += 1;
         this.unwatch();
-        for (const group of ['imap', 'delete', 'smtp'])
-            await this.remove(group);
-        this.preparedSends.clear();
+        this.bindings.clear();
+        this.disposePromise = (async () => {
+            for (const group of ['imap', 'delete', 'smtp'])
+                await this.remove(group);
+        })();
+        return this.disposePromise;
     }
+    /** Clear approval state on every tools/result outcome, including denial/cancellation. */
+    releaseApproval(exec) {
+        this.bindings.delete(exec.token);
+    }
+    /** @internal Test-only diagnostic; bindings contain sanitized fingerprints only. */
+    approvalBindingCountForTests() { return this.bindings.size; }
     async prepareSend(exec) {
-        if (!this.smtpEnabled())
-            throw new Error('SMTP is disabled or unavailable');
+        this.assertActive();
+        const settings = this.authoritative('smtp');
+        const settingsFingerprint = fingerprint(settings, 'send');
         const args = exec.arguments;
         const to = addresses(args.to, 'to', true);
         const cc = addresses(args.cc, 'cc', false);
@@ -112,47 +146,85 @@ export class MailCapabilityManager {
         if (requests.length > 0 && workspace === undefined)
             throw new Error('attachment workspace cwd is unavailable');
         const attachments = requests.length === 0 ? [] : await (this.options.loadAttachments ?? loadAttachments)(requests, workspace, DEFAULT_ATTACHMENT_LIMITS, exec.signal);
-        const request = {
-            to,
-            ...(cc.length === 0 ? {} : { cc }),
-            ...(bcc.length === 0 ? {} : { bcc }),
-            subject: subject(args.subject),
-            ...(text === undefined ? {} : { text }),
-            ...(html === undefined ? {} : { html }),
-            ...(attachments.length === 0 ? {} : { attachments }),
-        };
+        this.requireSameSettings(settings, 'send', settingsFingerprint);
         const metadata = {
-            to, cc,
+            to, cc, bccCount: bcc.length, subject: subject(args.subject),
             formats: [...(text === undefined ? [] : ['text']), ...(html === undefined ? [] : ['html'])],
             attachments: attachments.map(item => item.filename),
             attachmentBytes: attachments.reduce((total, item) => total + item.size, 0),
         };
-        this.preparedSends.set(exec.token, { request, metadata });
+        this.bind(exec, { kind: 'send', settings, fingerprint: settingsFingerprint, attachments: attachmentFingerprint(attachments) });
         return metadata;
     }
     async prepareDelete(exec) {
-        if (!this.deleteEnabled())
-            throw new Error('mail deletion is disabled or unavailable');
+        this.assertActive();
+        const settings = this.authoritative('delete');
+        const settingsFingerprint = fingerprint(settings, 'delete');
         const uid = id(exec.arguments.id);
-        const message = await this.withConfig('imap', (config, password) => this.options.imap.read(config, password, { id: uid, maxChars: 1 }, exec.signal));
+        const message = await this.withSnapshot(settings, 'imap', operationFingerprint(settings, 'imap'), (config, password) => this.options.imap.read(config, password, { id: uid, maxChars: 1 }, exec.signal));
+        this.requireSameSettings(settings, 'delete', settingsFingerprint);
+        this.bind(exec, { kind: 'delete', settings, fingerprint: settingsFingerprint, uid });
         return { id: uid, subject: message.subject, from: message.from };
     }
-    imapEnabled(settings = this.settings) { return settings.imap.host.length > 0; }
-    smtpEnabled(settings = this.settings) { return settings.smtp.host.length > 0; }
-    deleteEnabled(settings = this.settings) { return this.imapEnabled(settings) && settings.allowDelete; }
-    async withConfig(capability, operation) {
+    bind(exec, binding) {
+        this.bindings.set(exec.token, binding);
+        exec.signal.addEventListener('abort', () => this.bindings.delete(exec.token), { once: true });
+    }
+    assertActive() {
+        if (this.disposed)
+            throw new Error('mail tools are unavailable');
+    }
+    authoritative(capability) {
+        this.assertActive();
+        const settings = this.scope.get();
+        const capabilities = mailCapabilities(settings);
+        if (!capabilities[capability])
+            throw new Error(`${capability.toUpperCase()} is disabled or unavailable`);
+        return settings;
+    }
+    requireSameSettings(settings, kind, expectedFingerprint) {
+        this.assertActive();
+        const current = this.scope.get();
+        const capability = kind === 'delete' ? 'delete' : 'smtp';
+        if (current !== settings || !mailCapabilities(current)[capability] || fingerprint(current, kind) !== expectedFingerprint) {
+            throw new Error('mail settings changed after approval preparation; submit a fresh tool call for approval');
+        }
+    }
+    async withSnapshot(settings, capability, expectedFingerprint, operation) {
+        const config = this.options.resolveConfig(settings);
+        let credential;
+        try {
+            credential = await this.options.credentials.resolve(config.passwordRef);
+        }
+        catch (error) {
+            return providerFailure(error);
+        }
+        if (credential === undefined)
+            throw new MailError('mail application password is not configured', 'MAIL_CREDENTIAL_UNAVAILABLE');
+        this.assertActive();
+        if (this.scope.get() !== settings || !mailCapabilities(settings)[capability] || operationFingerprint(settings, capability) !== expectedFingerprint) {
+            throw new Error('mail settings changed during operation; retry');
+        }
+        try {
+            this.assertActive();
+            return await operation(config, credential.value);
+        }
+        catch (error) {
+            return providerFailure(error);
+        }
+    }
+    async withCurrent(capability, operation) {
         for (;;) {
-            const revision = this.revision;
-            const settings = this.settings;
-            if (capability === 'imap' ? !this.imapEnabled(settings) : !this.smtpEnabled(settings))
-                throw new Error(`${capability.toUpperCase()} is disabled or unavailable`);
-            const config = this.options.resolveConfig(settings);
-            const credential = await this.options.credentials.resolve(config.passwordRef);
-            if (revision !== this.revision)
-                continue;
-            if (credential === undefined)
-                throw new Error('MAIL_CREDENTIAL_UNAVAILABLE: mail application password is not configured');
-            return operation(config, credential.value);
+            const settings = this.authoritative(capability);
+            const expectedFingerprint = operationFingerprint(settings, capability);
+            try {
+                return await this.withSnapshot(settings, capability, expectedFingerprint, operation);
+            }
+            catch (error) {
+                if (error instanceof Error && error.message === 'mail settings changed during operation; retry')
+                    continue;
+                throw error;
+            }
         }
     }
     async remove(group) {
@@ -163,28 +235,44 @@ export class MailCapabilityManager {
         await dispose();
     }
     install(group, definitions) {
+        if (this.disposed)
+            return;
         const dispose = this.ctx.effect(() => definitions.map(definition => this.ctx.tools.register(definition)));
-        this.groupDisposers.set(group, dispose);
+        if (this.disposed)
+            void dispose();
+        else
+            this.groupDisposers.set(group, dispose);
     }
-    async reconcile(previous, next) {
-        const changes = [
-            ['imap', previous === undefined || this.imapEnabled(previous) !== this.imapEnabled(next)],
-            ['delete', previous === undefined || this.deleteEnabled(previous) !== this.deleteEnabled(next)],
-            ['smtp', previous === undefined || this.smtpEnabled(previous) !== this.smtpEnabled(next)],
-        ];
-        for (const [group, changed] of changes)
-            if (changed)
+    installCatalog(settings) {
+        const capabilities = mailCapabilities(settings);
+        if (capabilities.imap)
+            this.install('imap', this.imapTools());
+        if (capabilities.delete)
+            this.install('delete', [this.deleteTool()]);
+        if (capabilities.smtp)
+            this.install('smtp', [this.sendTool()]);
+    }
+    async reconcile(settings, generation) {
+        const capabilities = mailCapabilities(settings);
+        const desired = { imap: capabilities.imap, delete: capabilities.delete, smtp: capabilities.smtp };
+        for (const group of ['imap', 'delete', 'smtp']) {
+            if (this.disposed || generation !== this.generation)
+                return;
+            if (this.groupDisposers.has(group) && !desired[group])
                 await this.remove(group);
-        for (const [group, changed] of changes) {
-            if (!changed)
-                continue;
-            if (group === 'imap' && this.imapEnabled(next))
-                this.install('imap', this.imapTools());
-            if (group === 'delete' && this.deleteEnabled(next))
-                this.install('delete', [this.deleteTool()]);
-            if (group === 'smtp' && this.smtpEnabled(next))
-                this.install('smtp', [this.sendTool()]);
         }
+        if (this.disposed || generation !== this.generation)
+            return;
+        if (desired.imap && !this.groupDisposers.has('imap'))
+            this.install('imap', this.imapTools());
+        if (this.disposed || generation !== this.generation)
+            return;
+        if (desired.delete && !this.groupDisposers.has('delete'))
+            this.install('delete', [this.deleteTool()]);
+        if (this.disposed || generation !== this.generation)
+            return;
+        if (desired.smtp && !this.groupDisposers.has('smtp'))
+            this.install('smtp', [this.sendTool()]);
     }
     imapTools() {
         return [{
@@ -192,7 +280,7 @@ export class MailCapabilityManager {
                 parameters: { limit: { type: 'integer' }, cursor: { type: 'string' } }, output: textOutput, isConcurrencySafe: () => true,
                 execute: async (args, exec) => {
                     const input = args;
-                    const result = await this.withConfig('imap', (config, password) => this.options.imap.list(config, password, {
+                    const result = await this.withCurrent('imap', (config, password) => this.options.imap.list(config, password, {
                         limit: positiveInteger(input.limit, Math.min(10, this.options.listMaxResults), this.options.listMaxResults, 'limit'),
                         ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
                     }, exec.signal));
@@ -201,11 +289,11 @@ export class MailCapabilityManager {
             }, {
                 name: 'mail_read', description: 'Read one message from the configured IMAP mailbox.',
                 parameters: { id: { type: 'string', required: true } }, output: textOutput, isConcurrencySafe: () => true,
-                execute: async (args, exec) => `${UNTRUSTED}\n\n${JSON.stringify(await this.withConfig('imap', (config, password) => this.options.imap.read(config, password, { id: id(args.id), maxChars: this.options.readMaxChars }, exec.signal)), null, 2)}`,
+                execute: async (args, exec) => `${UNTRUSTED}\n\n${JSON.stringify(await this.withCurrent('imap', (config, password) => this.options.imap.read(config, password, { id: id(args.id), maxChars: this.options.readMaxChars }, exec.signal)), null, 2)}`,
             }, {
                 name: 'mail_archive', description: 'Move one message to the configured archive mailbox.',
                 parameters: { id: { type: 'string', required: true } }, output: textOutput,
-                execute: async (args, exec) => JSON.stringify(await this.withConfig('imap', (config, password) => this.options.imap.archive(config, password, { id: id(args.id) }, exec.signal))),
+                execute: async (args, exec) => JSON.stringify(await this.withCurrent('imap', (config, password) => this.options.imap.archive(config, password, { id: id(args.id) }, exec.signal))),
             }];
     }
     deleteTool() {
@@ -213,14 +301,21 @@ export class MailCapabilityManager {
             name: 'mail_delete', description: 'Permanently delete one message after fresh human approval.',
             parameters: { id: { type: 'string', required: true } }, output: textOutput,
             execute: async (args, exec) => {
-                if (!this.deleteEnabled())
-                    throw new Error('mail deletion is disabled or unavailable');
-                const result = await this.withConfig('imap', async (config, password) => {
-                    if (!this.deleteEnabled() || !config.allowDelete)
-                        throw new Error('mail deletion is disabled or unavailable');
-                    return this.options.imap.delete(config, password, { id: id(args.id) }, exec.signal);
-                });
-                return JSON.stringify(result);
+                const binding = this.bindings.get(exec.token);
+                this.bindings.delete(exec.token);
+                if (binding?.kind !== 'delete' || binding.uid !== id(args.id))
+                    throw new Error('fresh mail deletion approval is required');
+                this.requireSameSettings(binding.settings, 'delete', binding.fingerprint);
+                try {
+                    const result = await this.withSnapshot(binding.settings, 'imap', operationFingerprint(binding.settings, 'imap'), (config, password) => {
+                        this.requireSameSettings(binding.settings, 'delete', binding.fingerprint);
+                        return this.options.imap.delete(config, password, { id: binding.uid }, exec.signal);
+                    });
+                    return JSON.stringify(result);
+                }
+                finally {
+                    this.bindings.delete(exec.token);
+                }
             },
         };
     }
@@ -235,13 +330,45 @@ export class MailCapabilityManager {
                             path: { type: 'string' }, filename: { type: 'string' }, contentType: { type: 'string' },
                         }, required: ['path'], additionalProperties: false } },
             }, output: textOutput,
-            execute: async (_args, exec) => {
-                const prepared = this.preparedSends.get(exec.token);
-                this.preparedSends.delete(exec.token);
-                if (prepared === undefined)
-                    throw new Error('mail send approval metadata is unavailable');
-                const result = await this.withConfig('smtp', (config, password) => this.options.smtp.send(config, password, prepared.request, exec.signal));
-                return `Email sent. Server message id: ${result.messageId}`;
+            execute: async (args, exec) => {
+                const binding = this.bindings.get(exec.token);
+                this.bindings.delete(exec.token);
+                if (binding?.kind !== 'send')
+                    throw new Error('fresh mail send approval is required');
+                this.requireSameSettings(binding.settings, 'send', binding.fingerprint);
+                try {
+                    const input = args;
+                    const to = addresses(input.to, 'to', true);
+                    const cc = addresses(input.cc, 'cc', false);
+                    const bcc = addresses(input.bcc, 'bcc', false);
+                    if (to.length + cc.length + bcc.length > this.options.maxRecipients)
+                        throw new Error(`recipient count exceeds ${this.options.maxRecipients}`);
+                    const text = body(input.text, 'text', this.options.maxBodyChars);
+                    const html = body(input.html, 'html', this.options.maxBodyChars);
+                    if (text === undefined && html === undefined)
+                        throw new Error('text or html body is required');
+                    const requests = attachmentRequests(input.attachments);
+                    const workspace = cwd(exec);
+                    if (requests.length > 0 && workspace === undefined)
+                        throw new Error('attachment workspace cwd is unavailable');
+                    const attachments = requests.length === 0 ? [] : await (this.options.loadAttachments ?? loadAttachments)(requests, workspace, DEFAULT_ATTACHMENT_LIMITS, exec.signal);
+                    if (attachmentFingerprint(attachments) !== binding.attachments)
+                        throw new Error('mail attachments changed after approval; submit a fresh tool call for approval');
+                    this.requireSameSettings(binding.settings, 'send', binding.fingerprint);
+                    const request = {
+                        to, ...(cc.length === 0 ? {} : { cc }), ...(bcc.length === 0 ? {} : { bcc }), subject: subject(input.subject),
+                        ...(text === undefined ? {} : { text }), ...(html === undefined ? {} : { html }),
+                        ...(attachments.length === 0 ? {} : { attachments }),
+                    };
+                    const result = await this.withSnapshot(binding.settings, 'smtp', binding.fingerprint, (config, password) => {
+                        this.requireSameSettings(binding.settings, 'send', binding.fingerprint);
+                        return this.options.smtp.send(config, password, request, exec.signal);
+                    });
+                    return `Email sent. Server message id: ${result.messageId}`;
+                }
+                finally {
+                    this.bindings.delete(exec.token);
+                }
             },
         };
     }

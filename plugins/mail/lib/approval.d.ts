@@ -3,6 +3,8 @@ import type { MailAddress } from './mail-types.ts';
 export interface MailSendApprovalMetadata {
     readonly to: readonly MailAddress[];
     readonly cc: readonly MailAddress[];
+    readonly bccCount: number;
+    readonly subject: string;
     readonly formats: readonly ('text' | 'html')[];
     readonly attachments: readonly string[];
     readonly attachmentBytes: number;

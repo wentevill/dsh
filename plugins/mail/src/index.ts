@@ -194,10 +194,10 @@ export function apply(ctx: Context, config: Config): void {
       maxBodyChars,
     })
     manager = attachedManager
-    settingsCtx.effect(() => () => {
+    settingsCtx.effect(() => async () => {
+      await attachedManager.dispose()
       if (manager === attachedManager) manager = undefined
       if (settingsScope === attachedScope) settingsScope = undefined
-      return attachedManager.dispose()
     }, 'mail.capability-manager')
   })
 
@@ -210,4 +210,5 @@ export function apply(ctx: Context, config: Config): void {
   ctx.on('tools/pre-execute', (exec, next) => manager === undefined
     ? next()
     : createMailApprovalPolicy(manager)(exec, next))
+  ctx.on('tools/result', (exec) => { manager?.releaseApproval(exec) })
 }

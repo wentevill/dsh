@@ -185,12 +185,12 @@ export function apply(ctx, config) {
             maxBodyChars,
         });
         manager = attachedManager;
-        settingsCtx.effect(() => () => {
+        settingsCtx.effect(() => async () => {
+            await attachedManager.dispose();
             if (manager === attachedManager)
                 manager = undefined;
             if (settingsScope === attachedScope)
                 settingsScope = undefined;
-            return attachedManager.dispose();
         }, 'mail.capability-manager');
     });
     ctx.systemPrompt.section({
@@ -201,4 +201,5 @@ export function apply(ctx, config) {
     ctx.on('tools/pre-execute', (exec, next) => manager === undefined
         ? next()
         : createMailApprovalPolicy(manager)(exec, next));
+    ctx.on('tools/result', (exec) => { manager?.releaseApproval(exec); });
 }

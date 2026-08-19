@@ -16,7 +16,7 @@ describe('mail approval policy', () => {
   it('asks freshly for every send and delete invocation', async () => {
     const prepareSend = vi.fn(async () => ({
       to: [{ address: 'to@example.com' }], cc: [], formats: ['text'] as const,
-      attachments: [], attachmentBytes: 0,
+      bccCount: 0, subject: 'Hello', attachments: [], attachmentBytes: 0,
     }))
     const prepareDelete = vi.fn(async () => ({
       id: '42', subject: 'Quarterly report', from: [{ address: 'sender@example.com' }],
@@ -50,7 +50,7 @@ describe('mail approval policy', () => {
     const policy = createMailApprovalPolicy({
       prepareSend: async () => ({
         to: [{ address: 'to@example.com' }, { name: 'Team', address: 'team@example.com' }],
-        cc: [{ address: 'copy@example.com' }],
+        cc: [{ address: 'copy@example.com' }], bccCount: 1, subject: 'Public subject',
         formats: ['text', 'html'],
         attachments: ['report.pdf', 'data.csv'],
         attachmentBytes: 12_345,
@@ -68,7 +68,8 @@ describe('mail approval policy', () => {
     const reason = decision.kind === 'ask' ? decision.reason ?? '' : ''
     expect(reason).toContain('To (2)')
     expect(reason).toContain('Cc (1)')
-    expect(reason).toContain('3 total')
+    expect(reason).toContain('4 total')
+    expect(reason).toContain('Public subject')
     expect(reason).toContain('text, html')
     expect(reason).toContain('report.pdf, data.csv')
     expect(reason).toContain('12345 bytes')
