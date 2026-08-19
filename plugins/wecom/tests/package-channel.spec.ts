@@ -20,6 +20,7 @@ describe('WebSocket channel package contract', () => {
       '@deepseek-ai/dsh-credentials',
       '@deepseek-ai/dsh-storage-domain',
       '@deepseek-ai/dsh-session-persistence',
+      '@deepseek-ai/dsh-storage',
       '@deepseek-ai/dsh-agent-default-model',
       '@deepseek-ai/dsh-agent-presets',
       '@deepseek-ai/dsh-attachment',
