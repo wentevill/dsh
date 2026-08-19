@@ -10,5 +10,5 @@
     "rewriteRelativeImportExtensions": true,
     "allowImportingTsExtensions": false
   },
-  "include": ["src/index.ts", "src/auth.ts", "src/auth-files.ts", "src/auth-remote.ts", "src/capabilities.ts", "src/catalog.ts", "src/channel-types.ts", "src/cli-auth-backend.ts", "src/discovery.ts", "src/generation-installer.ts", "src/host.ts", "src/policy.ts", "src/qr-file.ts", "src/remote-types.ts", "src/schema-adapter.ts", "src/tool-adapter.ts", "src/transport.ts"]
+  "include": ["src/index.ts", "src/auth.ts", "src/auth-files.ts", "src/auth-remote.ts", "src/capabilities.ts", "src/catalog.ts", "src/channel-state-machine.ts", "src/channel-types.ts", "src/cli-auth-backend.ts", "src/discovery.ts", "src/generation-installer.ts", "src/host.ts", "src/policy.ts", "src/qr-file.ts", "src/remote-types.ts", "src/schema-adapter.ts", "src/sdk-adapter.ts", "src/tool-adapter.ts", "src/transport.ts"]
 }
