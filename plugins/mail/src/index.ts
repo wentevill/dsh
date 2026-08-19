@@ -11,6 +11,7 @@ import type { MailSettingsSaveRequest, MailSettingsSaveResult } from './remote-t
 import { loadMailSettings, saveMailSettings } from './remote-settings.ts'
 import { createMailApprovalPolicy } from './approval.ts'
 import { MailCapabilityManager } from './tools.ts'
+import { MailError } from './errors.ts'
 
 export { NodeMailTransport } from './transport.ts'
 export { MailImapTransport } from './imap-transport.ts'
@@ -20,6 +21,8 @@ export { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from './attachment-loader.
 export type * from './mail-types.ts'
 export { createMailApprovalPolicy } from './approval.ts'
 export { MailCapabilityManager } from './tools.ts'
+export { MailError } from './errors.ts'
+export type { MailErrorCode } from './errors.ts'
 
 /** SMTP/IMAP endpoint: host + port + whether to connect securely (implicit TLS). */
 export interface EndpointConfig {
@@ -40,7 +43,10 @@ export interface Config {
   readonly listMaxResults?: number
   readonly readMaxChars?: number
   readonly maxRecipients?: number
+  /** Legacy shared body limit; prefer maxTextChars and maxHtmlChars. */
   readonly maxBodyChars?: number
+  readonly maxTextChars?: number
+  readonly maxHtmlChars?: number
 }
 
 /** Config after defaults/validation, holding a credential *reference* — never the password value. */
@@ -64,7 +70,7 @@ export class MailSettingsRemote extends TypertRemoteService {
   @Remote('load')
   load(): MailSettingsSaveResult {
     const scope = this.scope()
-    if (scope === undefined) throw new Error('mail settings are unavailable')
+    if (scope === undefined) throw new MailError('mail settings are unavailable', 'MAIL_UNAVAILABLE')
     return loadMailSettings(scope)
   }
 
@@ -72,7 +78,7 @@ export class MailSettingsRemote extends TypertRemoteService {
   @Remote('save')
   async save(request: MailSettingsSaveRequest): Promise<MailSettingsSaveResult> {
     const scope = this.scope()
-    if (scope === undefined) throw new Error('mail settings are unavailable')
+    if (scope === undefined) throw new MailError('mail settings are unavailable', 'MAIL_UNAVAILABLE')
     return saveMailSettings(scope, request)
   }
 }
@@ -102,12 +108,17 @@ export const Config: z<Config> = z.object({
   smtp: endpoint.required(),
   listMaxResults: z.number().step(1).min(1).default(20),
   readMaxChars: z.number().step(1).min(1).default(50_000),
-  maxRecipients: z.number().step(1).min(1).default(20),
-  maxBodyChars: z.number().step(1).min(1).default(100_000),
+  maxRecipients: z.number().step(1).min(1).default(100),
+  maxBodyChars: z.number().step(1).min(1),
+  maxTextChars: z.number().step(1).min(1).default(500_000),
+  maxHtmlChars: z.number().step(1).min(1).default(1_000_000),
 })
 
 function assertSingleLine(label: string, value: string): void {
-  if (value.length === 0 || /[\r\n]/u.test(value)) throw new Error(`mail-plugin: ${label} must be a non-empty single line`)
+  if (value.length === 0 || /[\r\n]/u.test(value)) {
+    const code = label === 'username' ? 'MAIL_USERNAME_UNAVAILABLE' : 'MAIL_HEADER_INVALID'
+    throw new MailError(`mail-plugin: ${label} must be a non-empty single line`, code)
+  }
 }
 
 function resolveConfig(config: Config): ResolvedConfig {
@@ -128,6 +139,8 @@ function resolveConfig(config: Config): ResolvedConfig {
 /** Prefer the complete Mail settings section whenever the Host settings seam is available. */
 export function resolveEffectiveConfig(bootstrap: ResolvedConfig, settings?: MailSettings): ResolvedConfig {
   if (settings === undefined) return bootstrap
+  assertSingleLine('username', settings.username)
+  assertSingleLine('mailbox', settings.mailbox)
   assertMailSettingsEndpoints(settings)
   return {
     username: settings.username,
@@ -146,7 +159,9 @@ export const inject = ['credentials', 'tools', 'systemPrompt']
 
 function positiveInteger(value: number | undefined, fallback: number, max: number, label: string): number {
   const resolved = value ?? fallback
-  if (!Number.isSafeInteger(resolved) || resolved < 1 || resolved > max) throw new Error(`${label} must be an integer between 1 and ${max}`)
+  if (!Number.isSafeInteger(resolved) || resolved < 1 || resolved > max) {
+    throw new MailError(`${label} must be an integer between 1 and ${max}`, 'MAIL_INPUT_INVALID')
+  }
   return resolved
 }
 
@@ -163,8 +178,9 @@ export function apply(ctx: Context, config: Config): void {
 
   const listMaxResults = positiveInteger(config.listMaxResults, 20, 100, 'listMaxResults')
   const readMaxChars = positiveInteger(config.readMaxChars, 50_000, 200_000, 'readMaxChars')
-  const maxRecipients = positiveInteger(config.maxRecipients, 20, 100, 'maxRecipients')
-  const maxBodyChars = positiveInteger(config.maxBodyChars, 100_000, 500_000, 'maxBodyChars')
+  const maxRecipients = positiveInteger(config.maxRecipients, 100, 100, 'maxRecipients')
+  const maxTextChars = positiveInteger(config.maxBodyChars ?? config.maxTextChars, 500_000, 500_000, 'maxTextChars')
+  const maxHtmlChars = positiveInteger(config.maxBodyChars ?? config.maxHtmlChars, 1_000_000, 1_000_000, 'maxHtmlChars')
 
   // Register the account form (SMTP/IMAP) into the user-settings document when
   // the settings seam is composed. Changes apply live because the account reads
@@ -191,7 +207,8 @@ export function apply(ctx: Context, config: Config): void {
       listMaxResults,
       readMaxChars,
       maxRecipients,
-      maxBodyChars,
+      maxTextChars,
+      maxHtmlChars,
     })
     manager = attachedManager
     settingsCtx.effect(() => async () => {

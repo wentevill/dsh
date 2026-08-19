@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { MailSettings } from '../src/mail-settings.ts'
 import type { MailTransport, ResolvedConfig } from '../src/index.ts'
 import { createMailApprovalPolicy } from '../src/approval.ts'
+import { MailError } from '../src/errors.ts'
 import { MailCapabilityManager } from '../src/tools.ts'
 
 vi.mock('@deepseek-ai/dsh-mail', () => ({
@@ -113,8 +114,9 @@ function managerFor(settings: MailSettings, options: { mailTransport?: MailTrans
     ...(options.loadAttachments === undefined ? {} : { loadAttachments: options.loadAttachments as never }),
     listMaxResults: 20,
     readMaxChars: 50_000,
-    maxRecipients: 20,
-    maxBodyChars: 100_000,
+    maxRecipients: 100,
+    maxTextChars: 500_000,
+    maxHtmlChars: 1_000_000,
   })
   return { manager, scope, tools, credentials, mailTransport }
 }
@@ -228,7 +230,7 @@ describe('mail capability tools', () => {
     const mailTransport = transport({ list })
     const manager = new MailCapabilityManager(fakeContext(tools) as never, scope as never, {
       credentials: credentials as never, resolveConfig, imap: mailTransport, smtp: mailTransport,
-      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 20, maxBodyChars: 100_000,
+      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 100, maxTextChars: 500_000, maxHtmlChars: 1_000_000,
     })
     const listTool = tools.definitions.get('mail_list')!
     const running = listTool.execute({ limit: 1 }, execution('mail_list', { limit: 1 }))
@@ -345,7 +347,7 @@ describe('mail capability tools', () => {
 
     const isolated = new MailCapabilityManager(fakeContext(tools) as never, scope as never, {
       credentials: { resolve: vi.fn() } as never, resolveConfig, imap: transport(), smtp: transport(),
-      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 20, maxBodyChars: 100_000,
+      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 100, maxTextChars: 500_000, maxHtmlChars: 1_000_000,
     })
     const callbacks = scope.callbacks()
     await isolated.dispose()
@@ -372,7 +374,7 @@ describe('mail capability tools', () => {
     const manager = new MailCapabilityManager(context as never, scope as never, {
       credentials: { resolve: vi.fn(async () => ({ value: 'password' })) } as never,
       resolveConfig, imap: transport(), smtp: transport(),
-      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 20, maxBodyChars: 100_000,
+      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 100, maxTextChars: 500_000, maxHtmlChars: 1_000_000,
     })
     const disposing = manager.dispose()
     expect(tools.definitions.has('mail_send')).toBe(true)
@@ -391,22 +393,68 @@ describe('mail capability tools', () => {
     const manager = new MailCapabilityManager(fakeContext(tools) as never, scope as never, {
       credentials: { resolve: vi.fn(async () => { throw new Error(`credential ${secret}`) }) } as never,
       resolveConfig, imap: transport(), smtp: transport(),
-      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 20, maxBodyChars: 100_000,
+      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 100, maxTextChars: 500_000, maxHtmlChars: 1_000_000,
     })
     const listTool = tools.definitions.get('mail_list')!
     const credentialError = await listTool.execute({ limit: 1 }, execution('mail_list', { limit: 1 })).catch(error => error as Error)
-    expect(credentialError.message).toContain('MAIL_PROVIDER_FAILURE')
+    expect(credentialError).toMatchObject({ code: 'MAIL_PROVIDER_FAILURE' })
     expect(credentialError.message).not.toContain(secret)
     await manager.dispose()
 
-    const failing = transport({ list: vi.fn(async () => { throw new Error(`provider ${secret}`) }) })
+    const spoofed = Object.assign(new Error(`provider ${secret}`), { code: 'MAIL_UID_INVALID' })
+    const failing = transport({ list: vi.fn(async () => { throw spoofed }) })
     const next = managerFor(imapOnly, { mailTransport: failing })
     const providerError = await next.tools.definitions.get('mail_list')!.execute(
       { limit: 1 }, execution('mail_list', { limit: 1 }),
     ).catch(error => error as Error)
-    expect(providerError.message).toContain('MAIL_PROVIDER_FAILURE')
+    expect(providerError).toMatchObject({ code: 'MAIL_PROVIDER_FAILURE' })
     expect(providerError.message).not.toContain(secret)
     await next.manager.dispose()
+  })
+
+  it('preserves only Mail-owned safe validation and transport codes at the manager boundary', async () => {
+    const trusted = transport({
+      archive: vi.fn(async () => { throw new MailError('archive mailbox is unavailable', 'MAIL_ARCHIVE_MAILBOX_UNAVAILABLE') }),
+    })
+    const first = managerFor(imapOnly, { mailTransport: trusted })
+    await expect(first.tools.definitions.get('mail_archive')!.execute(
+      { id: '42' }, execution('mail_archive', { id: '42' }),
+    )).rejects.toMatchObject({ code: 'MAIL_ARCHIVE_MAILBOX_UNAVAILABLE' })
+    await expect(first.tools.definitions.get('mail_read')!.execute(
+      { id: '1:*' }, execution('mail_read', { id: '1:*' }),
+    )).rejects.toMatchObject({ code: 'MAIL_UID_INVALID' })
+    await first.manager.dispose()
+
+    const missingUsername = managerFor({ ...imapOnly, username: '' })
+    await expect(missingUsername.tools.definitions.get('mail_list')!.execute(
+      { limit: 1 }, execution('mail_list', { limit: 1 }),
+    )).rejects.toMatchObject({ code: 'MAIL_USERNAME_UNAVAILABLE' })
+    await missingUsername.manager.dispose()
+
+    const unavailable = managerFor(disabled)
+    await expect(unavailable.manager.prepareSend(execution('mail_send', {
+      to: ['to@example.com'], subject: 'subject', text: 'body',
+    }) as never)).rejects.toMatchObject({ code: 'MAIL_SMTP_DISABLED' })
+    await unavailable.manager.dispose()
+  })
+
+  it('allows exact default recipient and split body limits and rejects boundary plus one', async () => {
+    const { manager } = managerFor(smtpOnly)
+    const base = { to: Array.from({ length: 100 }, (_, index) => `recipient-${index}@example.com`), subject: 'Limits' }
+    const exact = execution('mail_send', { ...base, text: 't'.repeat(500_000), html: 'h'.repeat(1_000_000) })
+    await expect(manager.prepareSend(exact as never)).resolves.toMatchObject({ formats: ['text', 'html'] })
+    manager.releaseApproval(exact as never)
+
+    await expect(manager.prepareSend(execution('mail_send', {
+      ...base, text: 't'.repeat(500_001),
+    }) as never)).rejects.toMatchObject({ code: 'MAIL_BODY_TOO_LARGE' })
+    await expect(manager.prepareSend(execution('mail_send', {
+      ...base, html: 'h'.repeat(1_000_001),
+    }) as never)).rejects.toMatchObject({ code: 'MAIL_BODY_TOO_LARGE' })
+    await expect(manager.prepareSend(execution('mail_send', {
+      ...base, to: [...base.to, 'overflow@example.com'], text: 'body',
+    }) as never)).rejects.toMatchObject({ code: 'MAIL_RECIPIENT_LIMIT_EXCEEDED' })
+    await manager.dispose()
   })
 
   it('does not call transport when disposal wins during credential resolution', async () => {
@@ -419,7 +467,7 @@ describe('mail capability tools', () => {
     const manager = new MailCapabilityManager(fakeContext(tools) as never, scope as never, {
       credentials: { resolve: vi.fn(async () => { await blocked; return { value: 'password' } }) } as never,
       resolveConfig, imap: mailTransport, smtp: mailTransport,
-      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 20, maxBodyChars: 100_000,
+      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 100, maxTextChars: 500_000, maxHtmlChars: 1_000_000,
     })
     const running = tools.definitions.get('mail_list')!.execute({ limit: 1 }, execution('mail_list', { limit: 1 }))
     const disposing = manager.dispose()

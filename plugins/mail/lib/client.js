@@ -4071,7 +4071,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				},
 				sourceLocation: {
 					"file": "packages/mail/src/index.ts",
-					"line": 65,
+					"line": 71,
 					"column": 3
 				}
 			}, {
@@ -4097,7 +4097,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				},
 				sourceLocation: {
 					"file": "packages/mail/src/index.ts",
-					"line": 73,
+					"line": 79,
 					"column": 9
 				}
 			}]

@@ -3,6 +3,7 @@ import { open, realpath, stat } from 'node:fs/promises';
 import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 import { lookup } from 'mime-types';
+import { MailError } from "./errors.js";
 const MEBIBYTE = 1024 * 1024;
 const TEST_HOOKS_KEY = Symbol.for('dsh-mail.attachment-loader.test-hooks');
 const execFileAsync = promisify(execFile);
@@ -12,16 +13,8 @@ export const DEFAULT_ATTACHMENT_LIMITS = Object.freeze({
     maxFileBytes: 10 * MEBIBYTE,
     maxTotalBytes: 25 * MEBIBYTE,
 });
-class MailAttachmentError extends Error {
-    code;
-    constructor(code, message) {
-        super(message);
-        this.code = code;
-        this.name = 'MailAttachmentError';
-    }
-}
 function attachmentError(code, message) {
-    return new MailAttachmentError(code, message);
+    return new MailError(message, code);
 }
 function testHooks() {
     return globalThis[TEST_HOOKS_KEY];
@@ -77,7 +70,7 @@ async function canonicalWorkspace(workspace, signal) {
         return canonical;
     }
     catch (error) {
-        if (error instanceof MailAttachmentError)
+        if (error instanceof MailError)
             throw error;
         throwIfAborted(signal);
         throw attachmentError('MAIL_ATTACHMENT_WORKSPACE_UNAVAILABLE', 'Attachment workspace is unavailable');
@@ -114,7 +107,7 @@ async function canonicalDescriptorPath(handle) {
         return await realpath(await descriptorLinkTarget(handle));
     }
     catch (error) {
-        if (error instanceof MailAttachmentError)
+        if (error instanceof MailError)
             throw error;
         throw attachmentError('MAIL_ATTACHMENT_CHANGED', 'Cannot canonicalize the opened attachment descriptor path');
     }

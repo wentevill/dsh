@@ -34,6 +34,16 @@ async function boot(config: typeof disabledEndpoints): Promise<void> {
 }
 
 describe('mail Host configuration', () => {
+  it('uses exact independent recipient, text, and HTML defaults while retaining the legacy body override', async () => {
+    const mail = await import('../lib/index.js')
+    expect(mail.Config(disabledEndpoints)).toMatchObject({
+      maxRecipients: 100,
+      maxTextChars: 500_000,
+      maxHtmlChars: 1_000_000,
+    })
+    expect(mail.Config({ ...disabledEndpoints, maxBodyChars: 123 } as never)).toMatchObject({ maxBodyChars: 123 })
+  })
+
   it('boots the shipped disabled endpoint defaults', async () => {
     await expect(boot(disabledEndpoints)).resolves.toBeUndefined()
   })

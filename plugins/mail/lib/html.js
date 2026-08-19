@@ -1,11 +1,12 @@
 import { convert } from 'html-to-text';
+import { MailError } from "./errors.js";
 const MAX_TEXT_CHARS = 500_000;
 const MAX_HTML_CHARS = 1_000_000;
 const HTML_TO_TEXT_OPTIONS = {
     selectors: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].map(selector => ({ selector, options: { uppercase: false } })),
 };
 function bodyError(code, message) {
-    return new Error(`${code}: ${message}`);
+    return new MailError(message, code);
 }
 function snapshotBody(value, name, maxChars) {
     if (value === undefined)

@@ -3,6 +3,7 @@ import { open, realpath, stat, type FileHandle } from 'node:fs/promises'
 import { basename, isAbsolute, relative, resolve, sep } from 'node:path'
 import { promisify } from 'node:util'
 import { lookup } from 'mime-types'
+import { MailError, type MailErrorCode } from './errors.ts'
 import type {
   LoadedMailAttachment,
   MailAttachmentLimits,
@@ -20,7 +21,7 @@ export const DEFAULT_ATTACHMENT_LIMITS: MailAttachmentLimits = Object.freeze({
   maxTotalBytes: 25 * MEBIBYTE,
 })
 
-type AttachmentErrorCode =
+type AttachmentErrorCode = Extract<MailErrorCode,
   | 'MAIL_ATTACHMENT_CHANGED'
   | 'MAIL_ATTACHMENT_INVALID_CONTENT_TYPE'
   | 'MAIL_ATTACHMENT_INVALID_FILENAME'
@@ -28,7 +29,7 @@ type AttachmentErrorCode =
   | 'MAIL_ATTACHMENT_NOT_REGULAR'
   | 'MAIL_ATTACHMENT_OUTSIDE_WORKSPACE'
   | 'MAIL_ATTACHMENT_TOO_LARGE'
-  | 'MAIL_ATTACHMENT_WORKSPACE_UNAVAILABLE'
+  | 'MAIL_ATTACHMENT_WORKSPACE_UNAVAILABLE'>
 
 interface AttachmentLoaderHooks {
   beforePathStat?(path: string): Promise<void> | void
@@ -38,13 +39,6 @@ interface AttachmentLoaderHooks {
   afterClose?(path: string): Promise<void> | void
 }
 
-class MailAttachmentError extends Error {
-  constructor(readonly code: AttachmentErrorCode, message: string) {
-    super(message)
-    this.name = 'MailAttachmentError'
-  }
-}
-
 interface ValidatedAttachment {
   handle: FileHandle
   filename: string
@@ -52,8 +46,8 @@ interface ValidatedAttachment {
   size: number
 }
 
-function attachmentError(code: AttachmentErrorCode, message: string): MailAttachmentError {
-  return new MailAttachmentError(code, message)
+function attachmentError(code: AttachmentErrorCode, message: string): MailError {
+  return new MailError(message, code)
 }
 
 function testHooks(): AttachmentLoaderHooks | undefined {
@@ -115,7 +109,7 @@ async function canonicalWorkspace(workspace: string, signal: AbortSignal | undef
     }
     return canonical
   } catch (error) {
-    if (error instanceof MailAttachmentError) throw error
+    if (error instanceof MailError) throw error
     throwIfAborted(signal)
     throw attachmentError('MAIL_ATTACHMENT_WORKSPACE_UNAVAILABLE', 'Attachment workspace is unavailable')
   }
@@ -150,7 +144,7 @@ async function canonicalDescriptorPath(handle: FileHandle): Promise<string> {
   try {
     return await realpath(await descriptorLinkTarget(handle))
   } catch (error) {
-    if (error instanceof MailAttachmentError) throw error
+    if (error instanceof MailError) throw error
     throw attachmentError('MAIL_ATTACHMENT_CHANGED', 'Cannot canonicalize the opened attachment descriptor path')
   }
 }

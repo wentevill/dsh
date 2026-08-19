@@ -40,6 +40,7 @@ import { assertMailSettingsEndpoints, MAIL_SETTINGS_NAMESPACE, MailSettingsSchem
 import { loadMailSettings, saveMailSettings } from "./remote-settings.js";
 import { createMailApprovalPolicy } from "./approval.js";
 import { MailCapabilityManager } from "./tools.js";
+import { MailError } from "./errors.js";
 export { NodeMailTransport } from "./transport.js";
 export { MailImapTransport } from "./imap-transport.js";
 export { normalizeBodies } from "./html.js";
@@ -47,6 +48,7 @@ export { MailSmtpTransport } from "./smtp-transport.js";
 export { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from "./attachment-loader.js";
 export { createMailApprovalPolicy } from "./approval.js";
 export { MailCapabilityManager } from "./tools.js";
+export { MailError } from "./errors.js";
 /** Mail-owned Host/Client boundary; it never accepts an arbitrary namespace or path. */
 let MailSettingsRemote = (() => {
     let _classSuper = TypertRemoteService;
@@ -71,14 +73,14 @@ let MailSettingsRemote = (() => {
         load() {
             const scope = this.scope();
             if (scope === undefined)
-                throw new Error('mail settings are unavailable');
+                throw new MailError('mail settings are unavailable', 'MAIL_UNAVAILABLE');
             return loadMailSettings(scope);
         }
         /** Persist one complete non-secret mail section through the official Settings owner scope. */
         async save(request) {
             const scope = this.scope();
             if (scope === undefined)
-                throw new Error('mail settings are unavailable');
+                throw new MailError('mail settings are unavailable', 'MAIL_UNAVAILABLE');
             return saveMailSettings(scope, request);
         }
     };
@@ -99,12 +101,16 @@ export const Config = z.object({
     smtp: endpoint.required(),
     listMaxResults: z.number().step(1).min(1).default(20),
     readMaxChars: z.number().step(1).min(1).default(50_000),
-    maxRecipients: z.number().step(1).min(1).default(20),
-    maxBodyChars: z.number().step(1).min(1).default(100_000),
+    maxRecipients: z.number().step(1).min(1).default(100),
+    maxBodyChars: z.number().step(1).min(1),
+    maxTextChars: z.number().step(1).min(1).default(500_000),
+    maxHtmlChars: z.number().step(1).min(1).default(1_000_000),
 });
 function assertSingleLine(label, value) {
-    if (value.length === 0 || /[\r\n]/u.test(value))
-        throw new Error(`mail-plugin: ${label} must be a non-empty single line`);
+    if (value.length === 0 || /[\r\n]/u.test(value)) {
+        const code = label === 'username' ? 'MAIL_USERNAME_UNAVAILABLE' : 'MAIL_HEADER_INVALID';
+        throw new MailError(`mail-plugin: ${label} must be a non-empty single line`, code);
+    }
 }
 function resolveConfig(config) {
     assertSingleLine('username', config.username);
@@ -124,6 +130,8 @@ function resolveConfig(config) {
 export function resolveEffectiveConfig(bootstrap, settings) {
     if (settings === undefined)
         return bootstrap;
+    assertSingleLine('username', settings.username);
+    assertSingleLine('mailbox', settings.mailbox);
     assertMailSettingsEndpoints(settings);
     return {
         username: settings.username,
@@ -140,8 +148,9 @@ export const name = 'mail';
 export const inject = ['credentials', 'tools', 'systemPrompt'];
 function positiveInteger(value, fallback, max, label) {
     const resolved = value ?? fallback;
-    if (!Number.isSafeInteger(resolved) || resolved < 1 || resolved > max)
-        throw new Error(`${label} must be an integer between 1 and ${max}`);
+    if (!Number.isSafeInteger(resolved) || resolved < 1 || resolved > max) {
+        throw new MailError(`${label} must be an integer between 1 and ${max}`, 'MAIL_INPUT_INVALID');
+    }
     return resolved;
 }
 export function apply(ctx, config) {
@@ -155,8 +164,9 @@ export function apply(ctx, config) {
     let manager;
     const listMaxResults = positiveInteger(config.listMaxResults, 20, 100, 'listMaxResults');
     const readMaxChars = positiveInteger(config.readMaxChars, 50_000, 200_000, 'readMaxChars');
-    const maxRecipients = positiveInteger(config.maxRecipients, 20, 100, 'maxRecipients');
-    const maxBodyChars = positiveInteger(config.maxBodyChars, 100_000, 500_000, 'maxBodyChars');
+    const maxRecipients = positiveInteger(config.maxRecipients, 100, 100, 'maxRecipients');
+    const maxTextChars = positiveInteger(config.maxBodyChars ?? config.maxTextChars, 500_000, 500_000, 'maxTextChars');
+    const maxHtmlChars = positiveInteger(config.maxBodyChars ?? config.maxHtmlChars, 1_000_000, 1_000_000, 'maxHtmlChars');
     // Register the account form (SMTP/IMAP) into the user-settings document when
     // the settings seam is composed. Changes apply live because the account reads
     // the scope per operation.
@@ -182,7 +192,8 @@ export function apply(ctx, config) {
             listMaxResults,
             readMaxChars,
             maxRecipients,
-            maxBodyChars,
+            maxTextChars,
+            maxHtmlChars,
         });
         manager = attachedManager;
         settingsCtx.effect(() => async () => {

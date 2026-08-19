@@ -112,6 +112,8 @@ describe('published mail plugin', () => {
       'package/package.json',
       'package/lib/index.js',
       'package/lib/index.d.ts',
+      'package/lib/errors.js',
+      'package/lib/errors.d.ts',
       'package/lib/approval.js',
       'package/lib/approval.d.ts',
       'package/lib/tools.js',

@@ -15,7 +15,8 @@ interface ManagerOptions {
     listMaxResults: number;
     readMaxChars: number;
     maxRecipients: number;
-    maxBodyChars: number;
+    maxTextChars: number;
+    maxHtmlChars: number;
 }
 /** Owns the live Mail tool catalog and binds destructive approvals to authoritative settings snapshots. */
 export declare class MailCapabilityManager implements MailApprovalPreparer {

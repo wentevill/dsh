@@ -42,7 +42,7 @@ describe('MailImapTransport mutations', () => {
     const imap = client({ list: vi.fn().mockResolvedValue([]) })
     const transport = new MailImapTransport(() => imap)
 
-    await expect(transport.archive(config, 'app-password', { id: '42' })).rejects.toThrow('IMAP_ARCHIVE_MAILBOX_UNAVAILABLE')
+    await expect(transport.archive(config, 'app-password', { id: '42' })).rejects.toMatchObject({ code: 'MAIL_ARCHIVE_MAILBOX_UNAVAILABLE' })
 
     expect(imap.messageMove).not.toHaveBeenCalled()
   })
@@ -51,7 +51,7 @@ describe('MailImapTransport mutations', () => {
     const imap = client({ capabilities: new Map([['UIDPLUS', true]]) })
     const transport = new MailImapTransport(() => imap)
 
-    await expect(transport.archive(config, 'app-password', { id: '42' })).rejects.toThrow('IMAP_ARCHIVE_UNSUPPORTED')
+    await expect(transport.archive(config, 'app-password', { id: '42' })).rejects.toMatchObject({ code: 'MAIL_ARCHIVE_UNSUPPORTED' })
 
     expect(imap.messageMove).not.toHaveBeenCalled()
   })
@@ -84,7 +84,7 @@ describe('MailImapTransport mutations', () => {
     const createClient = vi.fn(() => imap)
     const transport = new MailImapTransport(createClient)
 
-    await expect(transport.archive(config, 'app-password', { id: '1:*' })).rejects.toThrow('IMAP_UID_INVALID')
+    await expect(transport.archive(config, 'app-password', { id: '1:*' })).rejects.toMatchObject({ code: 'MAIL_UID_INVALID' })
 
     expect(createClient).not.toHaveBeenCalled()
     expect(imap.messageMove).not.toHaveBeenCalled()
@@ -104,7 +104,7 @@ describe('MailImapTransport mutations', () => {
     const createClient = vi.fn(() => imap)
     const transport = new MailImapTransport(createClient)
 
-    await expect(transport.delete(config, 'app-password', { id: '4294967296' })).rejects.toThrow('IMAP_UID_INVALID')
+    await expect(transport.delete(config, 'app-password', { id: '4294967296' })).rejects.toMatchObject({ code: 'MAIL_UID_INVALID' })
 
     expect(createClient).not.toHaveBeenCalled()
     expect(imap.messageDelete).not.toHaveBeenCalled()
@@ -125,9 +125,17 @@ describe('MailImapTransport mutations', () => {
     const imap = Object.assign(client({ capabilities: new Map() }), { expunge })
     const transport = new MailImapTransport(() => imap)
 
-    await expect(transport.delete(config, 'app-password', { id: '42' })).rejects.toThrow('IMAP_UID_DELETE_UNSUPPORTED')
+    await expect(transport.delete(config, 'app-password', { id: '42' })).rejects.toMatchObject({ code: 'MAIL_UID_DELETE_UNSUPPORTED' })
 
     expect(imap.messageDelete).not.toHaveBeenCalled()
     expect(expunge).not.toHaveBeenCalled()
+  })
+
+  it('reports a missing fetched message with a stable Mail-owned code', async () => {
+    const imap = client({ fetchOne: vi.fn().mockResolvedValue(false) })
+    const transport = new MailImapTransport(() => imap)
+
+    await expect(transport.read(config, 'app-password', { id: '42', maxChars: 100 }))
+      .rejects.toMatchObject({ code: 'MAIL_MESSAGE_UNAVAILABLE' })
   })
 })

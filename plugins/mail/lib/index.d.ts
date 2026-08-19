@@ -14,6 +14,8 @@ export { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from './attachment-loader.
 export type * from './mail-types.ts';
 export { createMailApprovalPolicy } from './approval.ts';
 export { MailCapabilityManager } from './tools.ts';
+export { MailError } from './errors.ts';
+export type { MailErrorCode } from './errors.ts';
 /** SMTP/IMAP endpoint: host + port + whether to connect securely (implicit TLS). */
 export interface EndpointConfig {
     readonly host: string;
@@ -32,7 +34,10 @@ export interface Config {
     readonly listMaxResults?: number;
     readonly readMaxChars?: number;
     readonly maxRecipients?: number;
+    /** Legacy shared body limit; prefer maxTextChars and maxHtmlChars. */
     readonly maxBodyChars?: number;
+    readonly maxTextChars?: number;
+    readonly maxHtmlChars?: number;
 }
 /** Config after defaults/validation, holding a credential *reference* — never the password value. */
 export interface ResolvedConfig {

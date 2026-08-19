@@ -51,6 +51,8 @@
   "files": [
     "lib/index.js",
     "lib/index.d.ts",
+    "lib/errors.js",
+    "lib/errors.d.ts",
     "lib/approval.js",
     "lib/approval.d.ts",
     "lib/tools.js",

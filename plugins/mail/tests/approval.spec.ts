@@ -71,7 +71,7 @@ describe('mail approval policy', () => {
     expect(reason).toContain('4 total')
     expect(reason).toContain('Public subject')
     expect(reason).toContain('text, html')
-    expect(reason).toContain('report.pdf, data.csv')
+    expect(reason).toContain('"report.pdf", "data.csv"')
     expect(reason).toContain('12345 bytes')
     expect(reason).not.toContain('TOP SECRET BODY')
     expect(reason).not.toContain('TOP SECRET HTML')
@@ -90,8 +90,32 @@ describe('mail approval policy', () => {
     const decision = await policy(execution('mail_delete', { id: '731' }) as never, vi.fn())
 
     const reason = decision.kind === 'ask' ? decision.reason ?? '' : ''
-    expect(reason).toContain('UID 731')
+    expect(reason).toContain('UID "731"')
     expect(reason).toContain('Message to remove')
-    expect(reason).toContain('Sender <sender@example.com>')
+    expect(reason).toContain('"Sender" <"sender@example.com">')
+  })
+
+  it('quotes and sanitizes control, ANSI, and bidi characters in every untrusted display field', async () => {
+    const poison = '\r\n\u001b[31m\u202E; attachments: injected'
+    const policy = createMailApprovalPolicy({
+      prepareSend: async () => ({
+        to: [{ name: `To${poison}`, address: `to${poison}@example.com` }],
+        cc: [{ address: `cc${poison}@example.com` }], bccCount: 0,
+        subject: `Subject${poison}`, formats: ['text'],
+        attachments: [`report${poison}.txt`], attachmentBytes: 1,
+      }),
+      prepareDelete: async () => ({
+        id: `42${poison}`, subject: `Delete${poison}`,
+        from: [{ name: `Sender${poison}`, address: `sender${poison}@example.com` }],
+      }),
+    })
+
+    for (const [name, args] of [['mail_send', {}], ['mail_delete', { id: '42' }]] as const) {
+      const decision = await policy(execution(name, args) as never, vi.fn())
+      const reason = decision.kind === 'ask' ? decision.reason ?? '' : ''
+      expect(reason).not.toMatch(/[\r\n\u001b\u202A-\u202E\u2066-\u2069]/u)
+      expect(reason).toContain('"')
+      expect(reason).toContain('�')
+    }
   })
 })

@@ -1,4 +1,5 @@
 import { convert } from 'html-to-text'
+import { MailError, type MailErrorCode } from './errors.ts'
 
 const MAX_TEXT_CHARS = 500_000
 const MAX_HTML_CHARS = 1_000_000
@@ -11,8 +12,8 @@ export interface MailBodies {
   readonly html?: string
 }
 
-function bodyError(code: 'MAIL_BODY_REQUIRED' | 'MAIL_BODY_INVALID' | 'MAIL_BODY_TOO_LARGE', message: string): Error {
-  return new Error(`${code}: ${message}`)
+function bodyError(code: Extract<MailErrorCode, 'MAIL_BODY_REQUIRED' | 'MAIL_BODY_INVALID' | 'MAIL_BODY_TOO_LARGE'>, message: string): MailError {
+  return new MailError(message, code)
 }
 
 function snapshotBody(value: unknown, name: 'text' | 'html', maxChars: number): string | undefined {

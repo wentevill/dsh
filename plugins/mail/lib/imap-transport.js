@@ -1,11 +1,8 @@
 import { ImapFlow, } from 'imapflow';
 import { MailParser } from 'mailparser';
+import { assertMailUid, MailError } from "./errors.js";
 /** Safety cap on a single fetched message source, in bytes. */
 const MAX_SOURCE_BYTES = 2_000_000;
-const UID_DELETE_UNSUPPORTED = 'IMAP_UID_DELETE_UNSUPPORTED';
-const ARCHIVE_MAILBOX_UNAVAILABLE = 'IMAP_ARCHIVE_MAILBOX_UNAVAILABLE';
-const ARCHIVE_UNSUPPORTED = 'IMAP_ARCHIVE_UNSUPPORTED';
-const MAX_IMAP_UID = 0xffffffff;
 const REV2_FOLDED_CAPABILITIES = new Set(['MOVE', 'UIDPLUS']);
 function addresses(values) {
     return (values ?? []).flatMap(value => value.address === undefined ? [] : [{
@@ -36,8 +33,7 @@ function assertNotAborted(signal) {
     signal?.throwIfAborted();
 }
 function assertUid(id) {
-    if (!/^[1-9][0-9]*$/u.test(id) || Number(id) > MAX_IMAP_UID)
-        throw new Error('IMAP_UID_INVALID');
+    assertMailUid(id);
 }
 function archiveDestinationId(result, id) {
     if (result === false || result.uidMap === undefined)
@@ -113,7 +109,7 @@ export class MailImapTransport {
             try {
                 const mailbox = client.mailbox;
                 if (mailbox === false)
-                    throw new Error('mailbox unavailable');
+                    throw new MailError('mailbox unavailable', 'MAIL_MAILBOX_UNAVAILABLE');
                 const window = sequenceWindow(mailbox.exists, request);
                 if (window === null)
                     return { messages: [], nextCursor: null, truncated: false };
@@ -139,7 +135,7 @@ export class MailImapTransport {
                     source: { start: 0, maxLength: MAX_SOURCE_BYTES },
                 }, { uid: true });
                 if (message === false || message.source === undefined)
-                    throw new Error('message unavailable');
+                    throw new MailError('message unavailable', 'MAIL_MESSAGE_UNAVAILABLE');
                 const parsed = await parseSource(message.source, request.maxChars);
                 return {
                     ...summary(message),
@@ -159,13 +155,14 @@ export class MailImapTransport {
             const lock = await client.getMailboxLock(config.mailbox, { readOnly: false });
             try {
                 if (!supportsSafeArchive(client))
-                    throw new Error(ARCHIVE_UNSUPPORTED);
+                    throw new MailError('server does not support safe UID archive', 'MAIL_ARCHIVE_UNSUPPORTED');
                 const mailboxes = await client.list();
-                if (!hasArchiveMailbox(mailboxes, config.archiveMailbox))
-                    throw new Error(ARCHIVE_MAILBOX_UNAVAILABLE);
+                if (!hasArchiveMailbox(mailboxes, config.archiveMailbox)) {
+                    throw new MailError('archive mailbox is unavailable', 'MAIL_ARCHIVE_MAILBOX_UNAVAILABLE');
+                }
                 const result = await client.messageMove(request.id, config.archiveMailbox, { uid: true });
                 if (result === false)
-                    throw new Error('IMAP_ARCHIVE_FAILED');
+                    throw new MailError('archive operation failed', 'MAIL_ARCHIVE_FAILED');
                 const destinationId = archiveDestinationId(result, request.id);
                 return {
                     id: request.id,
@@ -184,10 +181,11 @@ export class MailImapTransport {
             const lock = await client.getMailboxLock(config.mailbox, { readOnly: false });
             try {
                 // ImapFlow falls back to mailbox-wide EXPUNGE when UIDPLUS is absent.
-                if (!supportsUidTargetedDelete(client))
-                    throw new Error(UID_DELETE_UNSUPPORTED);
+                if (!supportsUidTargetedDelete(client)) {
+                    throw new MailError('server does not support UID-targeted deletion', 'MAIL_UID_DELETE_UNSUPPORTED');
+                }
                 if (!await client.messageDelete(request.id, { uid: true }))
-                    throw new Error('IMAP_DELETE_FAILED');
+                    throw new MailError('delete operation failed', 'MAIL_DELETE_FAILED');
                 return { id: request.id, deleted: true };
             }
             finally {
@@ -198,7 +196,7 @@ export class MailImapTransport {
     async withImap(config, password, signal, operation) {
         assertNotAborted(signal);
         if (!config.imap.secure)
-            throw new Error('IMAP must use TLS');
+            throw new MailError('IMAP must use TLS', 'MAIL_TLS_REQUIRED');
         const client = this.createClient({
             host: config.imap.host,
             port: config.imap.port,

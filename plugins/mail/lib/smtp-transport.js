@@ -1,7 +1,8 @@
 import nodemailer, {} from 'nodemailer';
+import { MailError } from "./errors.js";
 import { normalizeBodies } from "./html.js";
 function smtpError(code, message) {
-    return new Error(`${code}: ${message}`);
+    return new MailError(message, code);
 }
 function singleLine(value, label, required = true) {
     if (value === undefined && !required)
@@ -73,7 +74,7 @@ export class MailSmtpTransport {
     async send(config, password, request, signal) {
         signal?.throwIfAborted();
         if (!config.smtp.secure)
-            throw new Error('SMTP must use TLS');
+            throw new MailError('SMTP must use TLS', 'MAIL_TLS_REQUIRED');
         const to = snapshotAddresses(request.to, 'to', true);
         const cc = snapshotAddresses(request.cc, 'cc', false);
         const bcc = snapshotAddresses(request.bcc, 'bcc', false);

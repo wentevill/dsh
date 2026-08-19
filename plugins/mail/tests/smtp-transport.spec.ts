@@ -51,12 +51,27 @@ describe('normalizeBodies', () => {
     expect(() => normalizeBodies({ [field]: value })).toThrow('MAIL_BODY_TOO_LARGE')
   })
 
+  it('accepts text and HTML at their independent exact limits', () => {
+    const result = normalizeBodies({ text: 't'.repeat(500_000), html: 'h'.repeat(1_000_000) })
+    expect(result.text).toHaveLength(500_000)
+    expect(result.html).toHaveLength(1_000_000)
+  })
+
   it('rejects HTML whose generated plain-text alternative exceeds the text limit', () => {
     expect(() => normalizeBodies({ html: `<p>${'x'.repeat(500_001)}</p>` })).toThrow('MAIL_BODY_TOO_LARGE')
   })
 })
 
 describe('MailSmtpTransport', () => {
+  it('returns structured Mail-owned TLS failures before opening SMTP', async () => {
+    const createClient = vi.fn(() => client())
+    const transport = new MailSmtpTransport(createClient)
+    await expect(transport.send({ ...config, smtp: { ...config.smtp, secure: false } }, 'app-password', {
+      to: [{ address: 'visible@example.com' }], subject: 'safe', text: 'body',
+    })).rejects.toMatchObject({ code: 'MAIL_TLS_REQUIRED' })
+    expect(createClient).not.toHaveBeenCalled()
+  })
+
   it('sends normalized MIME with Bcc and Buffer-only attachments', async () => {
     const smtp = client()
     const createClient = vi.fn(() => smtp)
