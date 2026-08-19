@@ -12,8 +12,6 @@ export interface ProcessInvocation {
   readonly maxOutputBytes: number
   readonly timeoutMs: number
   readonly signal: AbortSignal | undefined
-  /** Optional secret-bearing stdin; never copied into argv or diagnostics. */
-  readonly input?: string
 }
 
 /** Result captured by the process executor. */
@@ -32,7 +30,7 @@ export function createNodeProcessExecutor(): ProcessExecutor {
     const child = spawn(invocation.executable, invocation.args, {
       cwd: invocation.cwd,
       env: { PATH: process.env.PATH ?? '', ...invocation.env },
-      stdio: [invocation.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
     })
     let stdout = ''
@@ -73,10 +71,6 @@ export function createNodeProcessExecutor(): ProcessExecutor {
     child.once('close', code => {
       finish(undefined, { code: code ?? 1, stdout, stderr })
     })
-    if (invocation.input !== undefined) {
-      child.stdin!.on('error', () => {})
-      child.stdin!.end(invocation.input)
-    }
     if (invocation.signal?.aborted === true) abort()
     else invocation.signal?.addEventListener('abort', abort, { once: true })
   })

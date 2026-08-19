@@ -150,16 +150,6 @@ describe('Node process executor', () => {
     })).resolves.toEqual({ code: 0, stdout: '{"ok":true}', stderr: '' })
   })
 
-  it('writes optional input only through child stdin', async () => {
-    const execute = createNodeProcessExecutor()
-    await expect(execute({
-      executable: process.execPath,
-      args: ['-e', 'process.stdin.pipe(process.stdout)'],
-      cwd: process.cwd(), env: {}, maxOutputBytes: 1024, timeoutMs: 1_000,
-      signal: undefined, input: 'stdin-secret',
-    })).resolves.toEqual({ code: 0, stdout: 'stdin-secret', stderr: '' })
-  })
-
   it('rejects output beyond the configured bound', async () => {
     const execute = createNodeProcessExecutor()
     await expect(execute({

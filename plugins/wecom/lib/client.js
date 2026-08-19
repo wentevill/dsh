@@ -4117,155 +4117,995 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		//#endregion
 		//#region lib/typert.remote-client.js
 		const dsh_wecom_wecomAuth_cancel_result$schema = union([
-			object({ "state": literal("unauthorized").readonly() }),
-			object({ "state": literal("generating_qr").readonly() }),
-			object({
+			intersection(object({ "state": literal("unauthorized").readonly() }), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({ "state": literal("generating_qr").readonly() }), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("awaiting_scan").readonly(),
 				"qrDataUrl": string().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("authorized").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("refreshing_schema").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("ready").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional(),
 				"toolCount": number().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("sync_failed").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional(),
 				"message": string().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("deleting").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			})
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() }))
 		]);
 		const dsh_wecom_wecomAuth_connect_result$schema = union([
-			object({ "state": literal("unauthorized").readonly() }),
-			object({ "state": literal("generating_qr").readonly() }),
-			object({
+			intersection(object({ "state": literal("unauthorized").readonly() }), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({ "state": literal("generating_qr").readonly() }), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("awaiting_scan").readonly(),
 				"qrDataUrl": string().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("authorized").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("refreshing_schema").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("ready").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional(),
 				"toolCount": number().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("sync_failed").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional(),
 				"message": string().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("deleting").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			})
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() }))
 		]);
 		const dsh_wecom_wecomAuth_deleteAuthorization_parameter_0$schema = boolean();
 		const dsh_wecom_wecomAuth_deleteAuthorization_result$schema = union([
-			object({ "state": literal("unauthorized").readonly() }),
-			object({ "state": literal("generating_qr").readonly() }),
-			object({
+			intersection(object({ "state": literal("unauthorized").readonly() }), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({ "state": literal("generating_qr").readonly() }), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("awaiting_scan").readonly(),
 				"qrDataUrl": string().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("authorized").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("refreshing_schema").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("ready").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional(),
 				"toolCount": number().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("sync_failed").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional(),
 				"message": string().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("deleting").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			})
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() }))
 		]);
 		const dsh_wecom_wecomAuth_refresh_result$schema = union([
-			object({ "state": literal("unauthorized").readonly() }),
-			object({ "state": literal("generating_qr").readonly() }),
-			object({
+			intersection(object({ "state": literal("unauthorized").readonly() }), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({ "state": literal("generating_qr").readonly() }), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("awaiting_scan").readonly(),
 				"qrDataUrl": string().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("authorized").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("refreshing_schema").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("ready").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional(),
 				"toolCount": number().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("sync_failed").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional(),
 				"message": string().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("deleting").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			})
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() }))
 		]);
 		const dsh_wecom_wecomAuth_status_result$schema = union([
-			object({ "state": literal("unauthorized").readonly() }),
-			object({ "state": literal("generating_qr").readonly() }),
-			object({
+			intersection(object({ "state": literal("unauthorized").readonly() }), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({ "state": literal("generating_qr").readonly() }), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("awaiting_scan").readonly(),
 				"qrDataUrl": string().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("authorized").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("refreshing_schema").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("ready").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional(),
 				"toolCount": number().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("sync_failed").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional(),
 				"message": string().readonly()
-			}),
-			object({
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() })),
+			intersection(object({
 				"state": literal("deleting").readonly(),
 				"botId": union([_undefined(), string()]).readonly().optional()
-			})
+			}), object({ "channel": union([_undefined(), object({
+				"state": union([
+					literal("stopped"),
+					literal("connecting"),
+					literal("subscribing"),
+					literal("connected"),
+					literal("reconnect_wait"),
+					literal("auth_failed"),
+					literal("failed")
+				]).readonly(),
+				"attempt": number().readonly(),
+				"nextRetryAt": union([_undefined(), number()]).readonly().optional(),
+				"error": union([_undefined(), object({
+					"category": union([
+						literal("auth"),
+						literal("network"),
+						literal("timeout"),
+						literal("permanent")
+					]).readonly(),
+					"message": string().readonly()
+				})]).readonly().optional()
+			})]).readonly().optional() }))
 		]);
 		const TYPERT_REMOTE = {
 			package: "dsh-wecom",
@@ -4284,7 +5124,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 49,
+						"line": 63,
 						"column": 21
 					}
 				},
@@ -4302,7 +5142,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 48,
+						"line": 62,
 						"column": 22
 					}
 				},
@@ -4329,8 +5169,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 51,
-						"column": 34
+						"line": 65,
+						"column": 40
 					}
 				},
 				{
@@ -4347,8 +5187,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 50,
-						"column": 22
+						"line": 64,
+						"column": 28
 					}
 				},
 				{
@@ -4365,7 +5205,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 47,
+						"line": 61,
 						"column": 21
 					}
 				}
@@ -4408,7 +5248,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			deleteConfirm: "Remove WeCom authorization? Its API tools will be removed immediately.",
 			remoteFailed: "The authorization request failed.",
 			toolCount: "{count} APIs",
-			botId: "Bot {id}"
+			botId: "Bot {id}",
+			channel: "Channel",
+			channel_stopped: "Stopped",
+			channel_connecting: "Connecting",
+			channel_subscribing: "Authenticating",
+			channel_connected: "Connected",
+			channel_reconnect_wait: "Reconnecting",
+			channel_auth_failed: "Authentication failed",
+			channel_failed: "Failed"
 		};
 		const zh = {
 			title: "企业微信 AI",
@@ -4429,7 +5277,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			deleteConfirm: "确定删除企业微信授权？删除后相关 API 工具会立即移除。",
 			remoteFailed: "授权请求失败。",
 			toolCount: "{count} 个 API",
-			botId: "机器人 {id}"
+			botId: "机器人 {id}",
+			channel: "消息通道",
+			channel_stopped: "已停止",
+			channel_connecting: "正在连接",
+			channel_subscribing: "正在认证",
+			channel_connected: "已连接",
+			channel_reconnect_wait: "正在重连",
+			channel_auth_failed: "认证失败",
+			channel_failed: "连接失败"
 		};
 		//#endregion
 		//#region src/client/card-css.ts
@@ -4550,6 +5406,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: t(snapshot.state) }),
 							"botId" in snapshot && snapshot.botId ? ` · ${t("botId").replace("{id}", snapshot.botId)}` : "",
 							snapshot.state === "ready" ? ` · ${t("toolCount").replace("{count}", String(snapshot.toolCount))}` : ""
+						]
+					}),
+					snapshot.channel && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("p", {
+						className: css.status,
+						role: "status",
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: t("channel") }),
+							` · ${t(`channel_${snapshot.channel.state}`)}`,
+							snapshot.channel.nextRetryAt ? ` · ${new Date(snapshot.channel.nextRetryAt).toLocaleTimeString()}` : ""
 						]
 					}),
 					snapshot.state === "awaiting_scan" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("img", {
