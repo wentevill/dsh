@@ -158,14 +158,23 @@ describe('MailSmtpTransport', () => {
       content: { enumerable: true, value: Buffer.from('hello') },
       size: { enumerable: true, value: 5 },
     }),
+    Object.defineProperty({ filename: 'safe.txt', contentType: 'text/plain', content: Buffer.from('hello'), size: 5 }, 'path', {
+      value: '/tmp/secret', enumerable: false,
+    }),
+    Object.defineProperty({ filename: 'safe.txt', contentType: 'text/plain', content: Buffer.from('hello'), size: 5 }, 'raw', {
+      value: 'forbidden', enumerable: false,
+    }),
+    { filename: 'safe.txt', contentType: 'text/plain', content: Buffer.from('hello'), size: 5, [Symbol('hidden')]: true },
   ])('rejects a non-exact loaded attachment schema', async attachment => {
-    const createClient = vi.fn(() => client())
+    const smtp = client()
+    const createClient = vi.fn(() => smtp)
     const transport = new MailSmtpTransport(createClient)
 
     await expect(transport.send(config, 'app-password', {
       to: [{ address: 'visible@example.com' }], subject: 'safe', text: 'body', attachments: [attachment] as never,
     })).rejects.toThrow('MAIL_ATTACHMENT_INVALID')
     expect(createClient).not.toHaveBeenCalled()
+    expect(smtp.sendMail).not.toHaveBeenCalled()
   })
 
   it('does not call the provider when already aborted', async () => {

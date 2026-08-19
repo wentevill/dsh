@@ -42,11 +42,12 @@ function snapshotAddresses(input: unknown, label: string, required: boolean): Ma
 function snapshotAttachment(input: unknown): Pick<LoadedMailAttachment, 'filename' | 'contentType' | 'content'> {
   if (input === null || typeof input !== 'object') throw smtpError('MAIL_ATTACHMENT_INVALID', 'attachment must be a loaded Buffer')
   const source = input as Record<string, unknown>
-  const keys = Object.keys(source).sort()
+  const requiredKeys = ['content', 'contentType', 'filename', 'size'] as const
+  const keys = Reflect.ownKeys(source).sort((left, right) => String(left).localeCompare(String(right)))
   if (
     Object.getPrototypeOf(source) !== Object.prototype
     || keys.length !== 4
-    || keys.some((key, index) => key !== ['content', 'contentType', 'filename', 'size'][index])
+    || keys.some((key, index) => typeof key !== 'string' || key !== requiredKeys[index])
   ) {
     throw smtpError('MAIL_ATTACHMENT_INVALID', 'attachment must use the exact loaded Buffer schema')
   }
