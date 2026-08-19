@@ -40,7 +40,7 @@ import { assertMailSettingsEndpoints, MAIL_SETTINGS_NAMESPACE, MailSettingsSchem
 import { loadMailSettings, saveMailSettings } from "./remote-settings.js";
 import { createMailApprovalPolicy } from "./approval.js";
 import { MailCapabilityManager } from "./tools.js";
-import { MailError } from "./errors.js";
+import { mailError } from "./errors.js";
 export { NodeMailTransport } from "./transport.js";
 export { MailImapTransport } from "./imap-transport.js";
 export { normalizeBodies } from "./html.js";
@@ -48,7 +48,6 @@ export { MailSmtpTransport } from "./smtp-transport.js";
 export { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from "./attachment-loader.js";
 export { createMailApprovalPolicy } from "./approval.js";
 export { MailCapabilityManager } from "./tools.js";
-export { MailError } from "./errors.js";
 /** Mail-owned Host/Client boundary; it never accepts an arbitrary namespace or path. */
 let MailSettingsRemote = (() => {
     let _classSuper = TypertRemoteService;
@@ -73,14 +72,14 @@ let MailSettingsRemote = (() => {
         load() {
             const scope = this.scope();
             if (scope === undefined)
-                throw new MailError('mail settings are unavailable', 'MAIL_UNAVAILABLE');
+                throw mailError('mail settings are unavailable', 'MAIL_UNAVAILABLE');
             return loadMailSettings(scope);
         }
         /** Persist one complete non-secret mail section through the official Settings owner scope. */
         async save(request) {
             const scope = this.scope();
             if (scope === undefined)
-                throw new MailError('mail settings are unavailable', 'MAIL_UNAVAILABLE');
+                throw mailError('mail settings are unavailable', 'MAIL_UNAVAILABLE');
             return saveMailSettings(scope, request);
         }
     };
@@ -109,7 +108,7 @@ export const Config = z.object({
 function assertSingleLine(label, value) {
     if (value.length === 0 || /[\r\n]/u.test(value)) {
         const code = label === 'username' ? 'MAIL_USERNAME_UNAVAILABLE' : 'MAIL_HEADER_INVALID';
-        throw new MailError(`mail-plugin: ${label} must be a non-empty single line`, code);
+        throw mailError(`mail-plugin: ${label} must be a non-empty single line`, code);
     }
 }
 function resolveConfig(config) {
@@ -149,7 +148,7 @@ export const inject = ['credentials', 'tools', 'systemPrompt'];
 function positiveInteger(value, fallback, max, label) {
     const resolved = value ?? fallback;
     if (!Number.isSafeInteger(resolved) || resolved < 1 || resolved > max) {
-        throw new MailError(`${label} must be an integer between 1 and ${max}`, 'MAIL_INPUT_INVALID');
+        throw mailError(`${label} must be an integer between 1 and ${max}`, 'MAIL_INPUT_INVALID');
     }
     return resolved;
 }

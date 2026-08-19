@@ -14,8 +14,6 @@ export { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from './attachment-loader.
 export type * from './mail-types.ts';
 export { createMailApprovalPolicy } from './approval.ts';
 export { MailCapabilityManager } from './tools.ts';
-export { MailError } from './errors.ts';
-export type { MailErrorCode } from './errors.ts';
 /** SMTP/IMAP endpoint: host + port + whether to connect securely (implicit TLS). */
 export interface EndpointConfig {
     readonly host: string;

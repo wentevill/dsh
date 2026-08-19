@@ -1,6 +1,6 @@
 import { ImapFlow, } from 'imapflow';
 import { MailParser } from 'mailparser';
-import { assertMailUid, MailError } from "./errors.js";
+import { assertMailUid, mailError } from "./errors.js";
 /** Safety cap on a single fetched message source, in bytes. */
 const MAX_SOURCE_BYTES = 2_000_000;
 const REV2_FOLDED_CAPABILITIES = new Set(['MOVE', 'UIDPLUS']);
@@ -109,7 +109,7 @@ export class MailImapTransport {
             try {
                 const mailbox = client.mailbox;
                 if (mailbox === false)
-                    throw new MailError('mailbox unavailable', 'MAIL_MAILBOX_UNAVAILABLE');
+                    throw mailError('mailbox unavailable', 'MAIL_MAILBOX_UNAVAILABLE');
                 const window = sequenceWindow(mailbox.exists, request);
                 if (window === null)
                     return { messages: [], nextCursor: null, truncated: false };
@@ -135,7 +135,7 @@ export class MailImapTransport {
                     source: { start: 0, maxLength: MAX_SOURCE_BYTES },
                 }, { uid: true });
                 if (message === false || message.source === undefined)
-                    throw new MailError('message unavailable', 'MAIL_MESSAGE_UNAVAILABLE');
+                    throw mailError('message unavailable', 'MAIL_MESSAGE_UNAVAILABLE');
                 const parsed = await parseSource(message.source, request.maxChars);
                 return {
                     ...summary(message),
@@ -155,14 +155,14 @@ export class MailImapTransport {
             const lock = await client.getMailboxLock(config.mailbox, { readOnly: false });
             try {
                 if (!supportsSafeArchive(client))
-                    throw new MailError('server does not support safe UID archive', 'MAIL_ARCHIVE_UNSUPPORTED');
+                    throw mailError('server does not support safe UID archive', 'MAIL_ARCHIVE_UNSUPPORTED');
                 const mailboxes = await client.list();
                 if (!hasArchiveMailbox(mailboxes, config.archiveMailbox)) {
-                    throw new MailError('archive mailbox is unavailable', 'MAIL_ARCHIVE_MAILBOX_UNAVAILABLE');
+                    throw mailError('archive mailbox is unavailable', 'MAIL_ARCHIVE_MAILBOX_UNAVAILABLE');
                 }
                 const result = await client.messageMove(request.id, config.archiveMailbox, { uid: true });
                 if (result === false)
-                    throw new MailError('archive operation failed', 'MAIL_ARCHIVE_FAILED');
+                    throw mailError('archive operation failed', 'MAIL_ARCHIVE_FAILED');
                 const destinationId = archiveDestinationId(result, request.id);
                 return {
                     id: request.id,
@@ -182,10 +182,10 @@ export class MailImapTransport {
             try {
                 // ImapFlow falls back to mailbox-wide EXPUNGE when UIDPLUS is absent.
                 if (!supportsUidTargetedDelete(client)) {
-                    throw new MailError('server does not support UID-targeted deletion', 'MAIL_UID_DELETE_UNSUPPORTED');
+                    throw mailError('server does not support UID-targeted deletion', 'MAIL_UID_DELETE_UNSUPPORTED');
                 }
                 if (!await client.messageDelete(request.id, { uid: true }))
-                    throw new MailError('delete operation failed', 'MAIL_DELETE_FAILED');
+                    throw mailError('delete operation failed', 'MAIL_DELETE_FAILED');
                 return { id: request.id, deleted: true };
             }
             finally {
@@ -196,7 +196,7 @@ export class MailImapTransport {
     async withImap(config, password, signal, operation) {
         assertNotAborted(signal);
         if (!config.imap.secure)
-            throw new MailError('IMAP must use TLS', 'MAIL_TLS_REQUIRED');
+            throw mailError('IMAP must use TLS', 'MAIL_TLS_REQUIRED');
         const client = this.createClient({
             host: config.imap.host,
             port: config.imap.port,

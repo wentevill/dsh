@@ -1,6 +1,6 @@
 import nodemailer, { type SendMailOptions } from 'nodemailer'
 import type SMTPTransport from 'nodemailer/lib/smtp-transport/index.js'
-import { MailError, type MailErrorCode } from './errors.ts'
+import { mailError, type MailError, type MailErrorCode } from './errors.ts'
 import { normalizeBodies } from './html.ts'
 import type { LoadedMailAttachment, MailAddress, MailSendRequest, MailSendResult } from './mail-types.ts'
 import type { ResolvedConfig } from './index.ts'
@@ -13,7 +13,7 @@ export interface SmtpClient {
 export type CreateSmtpClient = (options: SMTPTransport.Options) => SmtpClient
 
 function smtpError(code: Extract<MailErrorCode, 'MAIL_ATTACHMENT_INVALID' | 'MAIL_HEADER_INVALID' | 'MAIL_RECIPIENT_REQUIRED'>, message: string): MailError {
-  return new MailError(message, code)
+  return mailError(message, code)
 }
 
 function singleLine(value: unknown, label: string, required = true): string | undefined {
@@ -85,7 +85,7 @@ export class MailSmtpTransport {
 
   async send(config: ResolvedConfig, password: string, request: MailSendRequest, signal?: AbortSignal): Promise<MailSendResult> {
     signal?.throwIfAborted()
-    if (!config.smtp.secure) throw new MailError('SMTP must use TLS', 'MAIL_TLS_REQUIRED')
+    if (!config.smtp.secure) throw mailError('SMTP must use TLS', 'MAIL_TLS_REQUIRED')
 
     const to = snapshotAddresses(request.to, 'to', true)!
     const cc = snapshotAddresses(request.cc, 'cc', false)

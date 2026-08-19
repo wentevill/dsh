@@ -11,7 +11,14 @@
 
 import z from '@deepseek-ai/schemastery'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
-import { MailError } from './errors.ts'
+
+/** Client-safe settings validation failure; Host boundaries translate its code to MailError. */
+export class MailSettingsValidationError extends Error {
+  constructor(message: string, readonly code: 'MAIL_TLS_REQUIRED' | 'MAIL_INPUT_INVALID') {
+    super(message)
+    this.name = 'MailSettingsValidationError'
+  }
+}
 
 /** The user-settings namespace owning this plugin's account form. */
 export const MAIL_SETTINGS_NAMESPACE = settingsNamespace('mail')
@@ -27,9 +34,9 @@ export interface NetworkEndpoint {
 /** Enforce the transport invariant only for an endpoint that is enabled by host. */
 export function assertConfiguredEndpoint(label: 'IMAP' | 'SMTP', value: Readonly<NetworkEndpoint>): void {
   if (value.host.trim() === '') return
-  if (value.secure !== true) throw new MailError(`mail: ${label} must use TLS`, 'MAIL_TLS_REQUIRED')
+  if (value.secure !== true) throw new MailSettingsValidationError(`mail: ${label} must use TLS`, 'MAIL_TLS_REQUIRED')
   if (!Number.isInteger(value.port) || value.port < 1 || value.port > 65535) {
-    throw new MailError(`mail: ${label} port must be between 1 and 65535`, 'MAIL_INPUT_INVALID')
+    throw new MailSettingsValidationError(`mail: ${label} port must be between 1 and 65535`, 'MAIL_INPUT_INVALID')
   }
 }
 

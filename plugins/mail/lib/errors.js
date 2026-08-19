@@ -2,23 +2,33 @@
  * Only instances of this Mail-owned class may cross the provider boundary
  * without being collapsed to MAIL_PROVIDER_FAILURE.
  */
-export class MailError extends Error {
-    code;
-    constructor(message, code) {
-        super(`${code}: ${message}`);
+const TRUSTED_MAIL_ERROR = Symbol('dsh-mail.trusted-error');
+const trustedMailErrors = new WeakSet();
+export class MailError extends HarnessError {
+    constructor(message, code, trust) {
+        super(`${code}: ${message}`, code);
         this.name = 'MailError';
-        this.code = code;
+        if (trust === TRUSTED_MAIL_ERROR)
+            trustedMailErrors.add(this);
     }
-    static providerFailure(_cause) {
-        return new MailError('mail provider operation failed', 'MAIL_PROVIDER_FAILURE');
-    }
+}
+/** @internal Mail sources use this issuer; the constructor alone is never trusted. */
+export function mailError(message, code) {
+    return new MailError(message, code, TRUSTED_MAIL_ERROR);
+}
+export function isTrustedMailError(error) {
+    return error instanceof MailError && trustedMailErrors.has(error);
+}
+export function mailProviderFailure(_cause) {
+    return mailError('mail provider operation failed', 'MAIL_PROVIDER_FAILURE');
 }
 const MAX_IMAP_UID = 0xffffffff;
 export function assertMailUid(value) {
     if (typeof value !== 'string'
         || !/^[1-9][0-9]*$/u.test(value)
         || Number(value) > MAX_IMAP_UID) {
-        throw new MailError('message UID must be an integer between 1 and 4294967295', 'MAIL_UID_INVALID');
+        throw mailError('message UID must be an integer between 1 and 4294967295', 'MAIL_UID_INVALID');
     }
     return value;
 }
+import { HarnessError } from '@deepseek-ai/dsh-llm';

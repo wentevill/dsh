@@ -96,7 +96,7 @@ describe('mail approval policy', () => {
   })
 
   it('quotes and sanitizes control, ANSI, and bidi characters in every untrusted display field', async () => {
-    const poison = '\r\n\u001b[31m\u202E; attachments: injected'
+    const poison = '\r\n\u001b[31m\u2028\u2029\u202E; attachments: injected'
     const policy = createMailApprovalPolicy({
       prepareSend: async () => ({
         to: [{ name: `To${poison}`, address: `to${poison}@example.com` }],
@@ -113,7 +113,7 @@ describe('mail approval policy', () => {
     for (const [name, args] of [['mail_send', {}], ['mail_delete', { id: '42' }]] as const) {
       const decision = await policy(execution(name, args) as never, vi.fn())
       const reason = decision.kind === 'ask' ? decision.reason ?? '' : ''
-      expect(reason).not.toMatch(/[\r\n\u001b\u202A-\u202E\u2066-\u2069]/u)
+      expect(reason).not.toMatch(/[\r\n\u001b\u2028\u2029\u202A-\u202E\u2066-\u2069]/u)
       expect(reason).toContain('"')
       expect(reason).toContain('�')
     }

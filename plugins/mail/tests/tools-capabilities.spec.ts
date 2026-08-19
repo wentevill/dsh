@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
+import { Context } from '@deepseek-ai/cordis'
+import { HarnessError } from '@deepseek-ai/dsh-llm'
+import { ToolRegistry } from '@deepseek-ai/dsh-tools'
 import type { MailSettings } from '../src/mail-settings.ts'
 import type { MailTransport, ResolvedConfig } from '../src/index.ts'
 import { createMailApprovalPolicy } from '../src/approval.ts'
-import { MailError } from '../src/errors.ts'
+import { MailError, mailError } from '../src/errors.ts'
 import { MailCapabilityManager } from '../src/tools.ts'
 
 vi.mock('@deepseek-ai/dsh-mail', () => ({
@@ -386,12 +389,12 @@ describe('mail capability tools', () => {
     expect(tools.definitions.size).toBe(0)
   })
 
-  it('sanitizes credential and transport provider failures', async () => {
+  it('sanitizes credential and transport provider failures, including structured spoofs', async () => {
     const secret = 'sentinel-password'
     const scope = new FakeSettingsScope(imapOnly)
     const tools = new FakeTools()
     const manager = new MailCapabilityManager(fakeContext(tools) as never, scope as never, {
-      credentials: { resolve: vi.fn(async () => { throw new Error(`credential ${secret}`) }) } as never,
+      credentials: { resolve: vi.fn(async () => { throw mailError(`credential ${secret}`, 'MAIL_UID_INVALID') }) } as never,
       resolveConfig, imap: transport(), smtp: transport(),
       listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 100, maxTextChars: 500_000, maxHtmlChars: 1_000_000,
     })
@@ -401,25 +404,23 @@ describe('mail capability tools', () => {
     expect(credentialError.message).not.toContain(secret)
     await manager.dispose()
 
-    const spoofed = Object.assign(new Error(`provider ${secret}`), { code: 'MAIL_UID_INVALID' })
-    const failing = transport({ list: vi.fn(async () => { throw spoofed }) })
-    const next = managerFor(imapOnly, { mailTransport: failing })
-    const providerError = await next.tools.definitions.get('mail_list')!.execute(
-      { limit: 1 }, execution('mail_list', { limit: 1 }),
-    ).catch(error => error as Error)
-    expect(providerError).toMatchObject({ code: 'MAIL_PROVIDER_FAILURE' })
-    expect(providerError.message).not.toContain(secret)
-    await next.manager.dispose()
+    for (const spoofed of [
+      new HarnessError(`provider ${secret}`, 'MAIL_UID_INVALID'),
+      new MailError(`provider ${secret}`, 'MAIL_ARCHIVE_MAILBOX_UNAVAILABLE'),
+    ]) {
+      const failing = transport({ list: vi.fn(async () => { throw spoofed }) })
+      const next = managerFor(imapOnly, { mailTransport: failing })
+      const providerError = await next.tools.definitions.get('mail_list')!.execute(
+        { limit: 1 }, execution('mail_list', { limit: 1 }),
+      ).catch(error => error as Error)
+      expect(providerError).toMatchObject({ code: 'MAIL_PROVIDER_FAILURE' })
+      expect(providerError.message).not.toContain(secret)
+      await next.manager.dispose()
+    }
   })
 
-  it('preserves only Mail-owned safe validation and transport codes at the manager boundary', async () => {
-    const trusted = transport({
-      archive: vi.fn(async () => { throw new MailError('archive mailbox is unavailable', 'MAIL_ARCHIVE_MAILBOX_UNAVAILABLE') }),
-    })
-    const first = managerFor(imapOnly, { mailTransport: trusted })
-    await expect(first.tools.definitions.get('mail_archive')!.execute(
-      { id: '42' }, execution('mail_archive', { id: '42' }),
-    )).rejects.toMatchObject({ code: 'MAIL_ARCHIVE_MAILBOX_UNAVAILABLE' })
+  it('preserves Mail-owned validation and capability codes outside provider calls', async () => {
+    const first = managerFor(imapOnly)
     await expect(first.tools.definitions.get('mail_read')!.execute(
       { id: '1:*' }, execution('mail_read', { id: '1:*' }),
     )).rejects.toMatchObject({ code: 'MAIL_UID_INVALID' })
@@ -436,6 +437,35 @@ describe('mail capability tools', () => {
       to: ['to@example.com'], subject: 'subject', text: 'body',
     }) as never)).rejects.toMatchObject({ code: 'MAIL_SMTP_DISABLED' })
     await unavailable.manager.dispose()
+  })
+
+  it('surfaces Mail validation codes through an actual ToolRegistry result', async () => {
+    const ctx = new Context()
+    ctx.provide('systemPrompt', { tools: () => () => undefined, section: () => () => undefined } as never)
+    const registry = new ToolRegistry(ctx as never)
+    const scope = new FakeSettingsScope(imapOnly)
+    const manager = new MailCapabilityManager({
+      tools: registry,
+      effect(execute: () => Iterable<() => unknown>) {
+        const disposers = [...execute()]
+        return async () => { for (const dispose of disposers.reverse()) await dispose() }
+      },
+    } as never, scope as never, {
+      credentials: { resolve: vi.fn(async () => ({ value: 'password' })) } as never,
+      resolveConfig, imap: transport(), smtp: transport(),
+      listMaxResults: 20, readMaxChars: 50_000, maxRecipients: 100, maxTextChars: 500_000, maxHtmlChars: 1_000_000,
+    })
+
+    const result = await registry.execute({
+      callId: 'structured-mail-error' as never,
+      name: 'mail_read', arguments: { id: '1:*' }, signal: new AbortController().signal,
+    })
+
+    expect(result).toMatchObject({
+      isError: true,
+      error: { info: { name: 'MailError', code: 'MAIL_UID_INVALID' } },
+    })
+    await manager.dispose()
   })
 
   it('allows exact default recipient and split body limits and rejects boundary plus one', async () => {

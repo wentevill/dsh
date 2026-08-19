@@ -1,7 +1,7 @@
 function quoteUntrusted(value) {
     // C0/C1 controls, ANSI ESC, and Unicode bidi/format controls cannot alter
     // the structure or visual ordering of an approval prompt.
-    return JSON.stringify(value.normalize('NFKC').replace(/[\p{Cc}\p{Cf}]/gu, '\uFFFD'));
+    return JSON.stringify(value.normalize('NFKC').replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, '\uFFFD'));
 }
 function formatAddress(value) {
     return value.name === undefined

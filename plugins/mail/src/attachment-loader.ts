@@ -3,7 +3,7 @@ import { open, realpath, stat, type FileHandle } from 'node:fs/promises'
 import { basename, isAbsolute, relative, resolve, sep } from 'node:path'
 import { promisify } from 'node:util'
 import { lookup } from 'mime-types'
-import { MailError, type MailErrorCode } from './errors.ts'
+import { isTrustedMailError, mailError, type MailError, type MailErrorCode } from './errors.ts'
 import type {
   LoadedMailAttachment,
   MailAttachmentLimits,
@@ -47,7 +47,7 @@ interface ValidatedAttachment {
 }
 
 function attachmentError(code: AttachmentErrorCode, message: string): MailError {
-  return new MailError(message, code)
+  return mailError(message, code)
 }
 
 function testHooks(): AttachmentLoaderHooks | undefined {
@@ -109,7 +109,7 @@ async function canonicalWorkspace(workspace: string, signal: AbortSignal | undef
     }
     return canonical
   } catch (error) {
-    if (error instanceof MailError) throw error
+    if (isTrustedMailError(error)) throw error
     throwIfAborted(signal)
     throw attachmentError('MAIL_ATTACHMENT_WORKSPACE_UNAVAILABLE', 'Attachment workspace is unavailable')
   }
@@ -144,7 +144,7 @@ async function canonicalDescriptorPath(handle: FileHandle): Promise<string> {
   try {
     return await realpath(await descriptorLinkTarget(handle))
   } catch (error) {
-    if (error instanceof MailError) throw error
+    if (isTrustedMailError(error)) throw error
     throw attachmentError('MAIL_ATTACHMENT_CHANGED', 'Cannot canonicalize the opened attachment descriptor path')
   }
 }

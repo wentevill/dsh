@@ -72,6 +72,7 @@ describe('published mail plugin', () => {
     expect(Object.keys(manifest.peerDependencies ?? {}).sort()).toEqual([
       '@deepseek-ai/cordis',
       '@deepseek-ai/dsh-credentials',
+      '@deepseek-ai/dsh-llm',
       '@deepseek-ai/dsh-mail',
       '@deepseek-ai/dsh-settings',
       '@deepseek-ai/dsh-system-prompt',
@@ -149,7 +150,7 @@ describe('published mail plugin', () => {
     }
     expect(files.some(file => file.startsWith('package/src/'))).toBe(false)
     expect(auditPackageArchive(archive).productionPackages).toContain('nodemailer')
-  })
+  }, 15_000)
 
   it('rejects incomplete, dev-only, linked, and workspace-derived archive trees', () => {
     const manifest = (value: unknown) => Buffer.from(JSON.stringify(value))

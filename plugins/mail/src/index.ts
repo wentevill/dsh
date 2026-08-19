@@ -11,7 +11,7 @@ import type { MailSettingsSaveRequest, MailSettingsSaveResult } from './remote-t
 import { loadMailSettings, saveMailSettings } from './remote-settings.ts'
 import { createMailApprovalPolicy } from './approval.ts'
 import { MailCapabilityManager } from './tools.ts'
-import { MailError } from './errors.ts'
+import { mailError } from './errors.ts'
 
 export { NodeMailTransport } from './transport.ts'
 export { MailImapTransport } from './imap-transport.ts'
@@ -21,8 +21,6 @@ export { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from './attachment-loader.
 export type * from './mail-types.ts'
 export { createMailApprovalPolicy } from './approval.ts'
 export { MailCapabilityManager } from './tools.ts'
-export { MailError } from './errors.ts'
-export type { MailErrorCode } from './errors.ts'
 
 /** SMTP/IMAP endpoint: host + port + whether to connect securely (implicit TLS). */
 export interface EndpointConfig {
@@ -70,7 +68,7 @@ export class MailSettingsRemote extends TypertRemoteService {
   @Remote('load')
   load(): MailSettingsSaveResult {
     const scope = this.scope()
-    if (scope === undefined) throw new MailError('mail settings are unavailable', 'MAIL_UNAVAILABLE')
+    if (scope === undefined) throw mailError('mail settings are unavailable', 'MAIL_UNAVAILABLE')
     return loadMailSettings(scope)
   }
 
@@ -78,7 +76,7 @@ export class MailSettingsRemote extends TypertRemoteService {
   @Remote('save')
   async save(request: MailSettingsSaveRequest): Promise<MailSettingsSaveResult> {
     const scope = this.scope()
-    if (scope === undefined) throw new MailError('mail settings are unavailable', 'MAIL_UNAVAILABLE')
+    if (scope === undefined) throw mailError('mail settings are unavailable', 'MAIL_UNAVAILABLE')
     return saveMailSettings(scope, request)
   }
 }
@@ -117,7 +115,7 @@ export const Config: z<Config> = z.object({
 function assertSingleLine(label: string, value: string): void {
   if (value.length === 0 || /[\r\n]/u.test(value)) {
     const code = label === 'username' ? 'MAIL_USERNAME_UNAVAILABLE' : 'MAIL_HEADER_INVALID'
-    throw new MailError(`mail-plugin: ${label} must be a non-empty single line`, code)
+    throw mailError(`mail-plugin: ${label} must be a non-empty single line`, code)
   }
 }
 
@@ -160,7 +158,7 @@ export const inject = ['credentials', 'tools', 'systemPrompt']
 function positiveInteger(value: number | undefined, fallback: number, max: number, label: string): number {
   const resolved = value ?? fallback
   if (!Number.isSafeInteger(resolved) || resolved < 1 || resolved > max) {
-    throw new MailError(`${label} must be an integer between 1 and ${max}`, 'MAIL_INPUT_INVALID')
+    throw mailError(`${label} must be an integer between 1 and ${max}`, 'MAIL_INPUT_INVALID')
   }
   return resolved
 }
