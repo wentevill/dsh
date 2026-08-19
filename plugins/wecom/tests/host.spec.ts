@@ -3,6 +3,7 @@ import { createWeComHost } from '../src/host.ts'
 import type { AuthBackend } from '../src/auth.ts'
 import type { DynamicToolDefinition } from '../src/catalog.ts'
 import type { JsonValue, WeComRunRequest, WeComRunResult } from '../src/transport.ts'
+import { WeComCliError } from '../src/transport.ts'
 
 function runner(values: Record<string, JsonValue>) {
   return {
@@ -45,6 +46,38 @@ describe('WeCom Host orchestration', () => {
       }),
       installTools: definitions => { installed.push([...definitions]); return () => {} },
     })
+    await host.initialize()
+    expect(host.auth.snapshot()).toEqual({ state: 'ready', toolCount: 1 })
+    expect(installed[0]?.map(tool => tool.name)).toEqual(['wecom_todo_list'])
+  })
+
+  it('does not install a chat family proven unavailable for the corporation', async () => {
+    const installed: DynamicToolDefinition[][] = []
+    const values: Record<string, JsonValue> = {
+      'schema list': [
+        { name: 'chat', methods: [{ name: 'groups.list' }] },
+        { name: 'todo', methods: [{ name: 'list' }] },
+      ],
+      'schema get chat.groups.list': {
+        method: 'chat.groups.list', response: { '$ref': 'Res' }, schemas: { Res: { type: 'object' } },
+      },
+      'schema get todo.list': {
+        method: 'todo.list', response: { '$ref': 'Res' }, schemas: { Res: { type: 'object' } },
+      },
+    }
+    const host = createWeComHost({
+      authBackend: { ...unauthorized, status: async () => ({ authorized: true }) },
+      runner: {
+        run: async request => {
+          if (request.path.join('.') === 'chat.groups.list') {
+            throw new WeComCliError('this tool is not available for your corporation', 1, 853006)
+          }
+          return { value: values[request.path.join(' ')] as JsonValue, stderr: '' }
+        },
+      },
+      installTools: definitions => { installed.push([...definitions]); return () => {} },
+    })
+
     await host.initialize()
     expect(host.auth.snapshot()).toEqual({ state: 'ready', toolCount: 1 })
     expect(installed[0]?.map(tool => tool.name)).toEqual(['wecom_todo_list'])

@@ -88,8 +88,14 @@ function parseJsonOutput(stdout) {
 function structuredFailure(stdout, exitCode) {
     try {
         const parsed = JSON.parse(stdout);
-        const message = typeof parsed.error?.message === 'string' ? parsed.error.message : `wecom-cli exited with code ${exitCode}`;
-        const code = typeof parsed.error?.code === 'number' ? parsed.error.code : undefined;
+        const topLevelMessage = typeof parsed.help_message === 'string'
+            ? parsed.help_message
+            : typeof parsed.errmsg === 'string' ? parsed.errmsg : undefined;
+        const message = topLevelMessage
+            ?? (typeof parsed.error?.message === 'string' ? parsed.error.message : `wecom-cli exited with code ${exitCode}`);
+        const code = typeof parsed.errcode === 'number'
+            ? parsed.errcode
+            : typeof parsed.error?.code === 'number' ? parsed.error.code : undefined;
         return new WeComCliError(message, exitCode, code);
     }
     catch {

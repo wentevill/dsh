@@ -83,6 +83,48 @@ describe('WeCom process transport', () => {
     })
   })
 
+  it('preserves top-level WeCom authorization guidance verbatim', async () => {
+    const helpMessage = '授权说明\nhttps://example.test/grant'
+    const fake = executor({
+      code: 1,
+      stdout: JSON.stringify({
+        errcode: 851008,
+        errmsg: 'partial no authorization',
+        help_message: helpMessage,
+      }),
+    })
+    const runner = createWeComProcessRunner({
+      executable: 'wecom-cli', configDir: '/config', tempDir: '/tmp/wecom', execute: fake.execute,
+    })
+
+    await expect(runner.run({ path: ['doc', 'search'] })).rejects.toMatchObject({
+      name: 'WeComCliError',
+      exitCode: 1,
+      code: 851008,
+      message: helpMessage,
+    })
+  })
+
+  it('uses the top-level WeCom error message when no guidance is present', async () => {
+    const fake = executor({
+      code: 1,
+      stdout: JSON.stringify({
+        errcode: 853006,
+        errmsg: 'this tool is not available for your corporation',
+      }),
+    })
+    const runner = createWeComProcessRunner({
+      executable: 'wecom-cli', configDir: '/config', tempDir: '/tmp/wecom', execute: fake.execute,
+    })
+
+    await expect(runner.run({ path: ['chat', 'groups', 'list'] })).rejects.toMatchObject({
+      name: 'WeComCliError',
+      exitCode: 1,
+      code: 853006,
+      message: 'this tool is not available for your corporation',
+    })
+  })
+
   it('rejects empty and malformed successful output', async () => {
     for (const stdout of ['', 'not-json']) {
       const fake = executor({ code: 0, stdout })

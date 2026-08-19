@@ -131,9 +131,20 @@ function parseJsonOutput(stdout: string): JsonValue {
 
 function structuredFailure(stdout: string, exitCode: number): WeComCliError {
   try {
-    const parsed = JSON.parse(stdout) as { error?: { code?: unknown; message?: unknown } }
-    const message = typeof parsed.error?.message === 'string' ? parsed.error.message : `wecom-cli exited with code ${exitCode}`
-    const code = typeof parsed.error?.code === 'number' ? parsed.error.code : undefined
+    const parsed = JSON.parse(stdout) as {
+      errcode?: unknown
+      errmsg?: unknown
+      help_message?: unknown
+      error?: { code?: unknown; message?: unknown }
+    }
+    const topLevelMessage = typeof parsed.help_message === 'string'
+      ? parsed.help_message
+      : typeof parsed.errmsg === 'string' ? parsed.errmsg : undefined
+    const message = topLevelMessage
+      ?? (typeof parsed.error?.message === 'string' ? parsed.error.message : `wecom-cli exited with code ${exitCode}`)
+    const code = typeof parsed.errcode === 'number'
+      ? parsed.errcode
+      : typeof parsed.error?.code === 'number' ? parsed.error.code : undefined
     return new WeComCliError(message, exitCode, code)
   } catch {
     return new WeComCliError(`wecom-cli exited with code ${exitCode}`, exitCode)
