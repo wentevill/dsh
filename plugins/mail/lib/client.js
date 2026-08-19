@@ -5744,6 +5744,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			};
 			const dispose = () => {
 				if (disposed) return;
+				disposed = true;
 				saveGeneration += 1;
 				credentialReadGeneration += 1;
 				activeSettingsBaseline = void 0;
@@ -5751,7 +5752,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				failed = false;
 				drafts.clear();
 				store.set(project());
-				disposed = true;
 				unsubscribe();
 			};
 			readCredential();

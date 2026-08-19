@@ -380,6 +380,7 @@ export function createMailCardController(
   }
   const dispose = (): void => {
     if (disposed) return
+    disposed = true
     saveGeneration += 1
     credentialReadGeneration += 1
     activeSettingsBaseline = undefined
@@ -387,7 +388,6 @@ export function createMailCardController(
     failed = false
     drafts.clear()
     store.set(project())
-    disposed = true
     unsubscribe()
   }
 

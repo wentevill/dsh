@@ -12,6 +12,8 @@ Fix round 3: an active save now retains the confirmed pre-submit baseline for ev
 
 Fix round 4: controller disposal is now a terminal transition. It immediately clears the active settings baseline, invalidates the save and credential-read generations, stops the saving state, clears staged drafts (including secrets), unsubscribes, and blocks subsequent actions/publications. Credential set or post-write describe promises settling after disposal can no longer mutate the controller store.
 
+Fix round 5: disposal now marks the controller disposed before clearing state or synchronously publishing its terminal snapshot. A subscriber that re-enters edit, reset, save, refresh, or dispose during that notification sees a closed controller; no draft or I/O can be resurrected, and the settings subscription is disposed exactly once.
+
 - Added controller coverage for independent receive/send/permanent-delete status from current settings and staged drafts.
 - A complete save projection now preserves unedited `mailbox` and `archiveMailbox` values, keeps `allowDelete`, and defaults omitted or blank port values to IMAP 993 and SMTP 465.
 - Invalid port drafts (`1..65535` integers only) are rejected before any Remote save.
@@ -30,6 +32,8 @@ Verification:
 - Fix round 3 full suite: `corepack pnpm exec vitest run plugins/mail/tests --exclude '.worktrees/**' --exclude '.pnpm-store/**'` — 15 files, 138 tests passed.
 - Fix round 4 focused suite: `corepack pnpm exec vitest run plugins/mail/tests/settings-save.spec.ts` — 3 project-file runs, 29 tests passed.
 - Fix round 4 full suite: `corepack pnpm exec vitest run plugins/mail/tests --exclude '.worktrees/**' --exclude '.pnpm-store/**'` — 15 files, 140 tests passed.
+- Fix round 5 focused suite: `corepack pnpm exec vitest run plugins/mail/tests/settings-save.spec.ts` — 3 project-file runs, 30 tests passed.
+- Fix round 5 full suite: `corepack pnpm exec vitest run plugins/mail/tests --exclude '.worktrees/**' --exclude '.pnpm-store/**'` — 15 files, 141 tests passed.
 - `corepack pnpm exec tsc --noEmit -p plugins/mail/tsconfig.build.json`
 - `corepack pnpm exec tsc --noEmit -p packages/mail/mail/tsconfig.json`
 - `git diff --check`

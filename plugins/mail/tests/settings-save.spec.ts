@@ -13,7 +13,18 @@ async function loadController() {
   const runtime = {
     createSnapshotStore(initial: unknown) {
       let value = initial
-      return { getSnapshot: () => value, set: (next: unknown) => { value = next }, subscribe: () => () => undefined }
+      const listeners = new Set<() => void>()
+      return {
+        getSnapshot: () => value,
+        set: (next: unknown) => {
+          value = next
+          for (const listener of [...listeners]) listener()
+        },
+        subscribe: (listener: () => void) => {
+          listeners.add(listener)
+          return () => { listeners.delete(listener) }
+        },
+      }
     },
   }
   const loader = {
@@ -32,7 +43,7 @@ async function loadController() {
   ;(globalThis as unknown as { window: unknown }).window = { __ModuleLoader__: loader }
   Function(readFileSync(resolve(import.meta.dirname, '../lib/client.js'), 'utf8'))()
   return exports as { createMailCardController: (scope: unknown, api: unknown, saveSettings: (settings: Record<string, unknown>) => Promise<{ settings: Record<string, unknown> }>, available: boolean) => {
-    face(): { hooks: { mailCard: { getSnapshot(): { dirty: boolean; saving: boolean; failed: boolean; status: { receive: boolean; send: boolean; permanentDelete: boolean }; smtpHost: { text: string }; password: { text: string }; passwordConfigured: boolean; passwordWritable: boolean } } }; edit(field: string, value: string): void; resetField(field: string): void; save(): void }
+    face(): { hooks: { mailCard: { getSnapshot(): { dirty: boolean; saving: boolean; failed: boolean; status: { receive: boolean; send: boolean; permanentDelete: boolean }; smtpHost: { text: string }; password: { text: string }; passwordConfigured: boolean; passwordWritable: boolean }; subscribe(listener: () => void): () => void } }; edit(field: string, value: string): void; resetField(field: string): void; save(): void }
     refreshCredential(): void
     dispose(): void
   } }
@@ -500,5 +511,42 @@ describe('mail settings save', () => {
 
     expect(disposedState).toMatchObject({ saving: false, passwordConfigured: false, passwordWritable: true })
     expect(face.hooks.mailCard.getSnapshot()).toEqual(disposedState)
+  })
+
+  it('closes disposal before synchronously notifying terminal-store subscribers', async () => {
+    const { createMailCardController } = await loadController()
+    const snapshot = baseSnapshot()
+    let remoteWrites = 0
+    let credentialWrites = 0
+    let scopeUnsubscribes = 0
+    const controller = createMailCardController(
+      {
+        getSnapshot: () => snapshot,
+        subscribe: () => () => { scopeUnsubscribes += 1 },
+      },
+      { credentials: {
+        describe: async () => ({ result: { ok: true, value: { credentials: {} } } }),
+        set: async () => { credentialWrites += 1; return { result: { ok: true } } },
+      } },
+      async settings => { remoteWrites += 1; return { settings } }, true,
+    )
+    const face = controller.face()
+    let notifications = 0
+    face.hooks.mailCard.subscribe(() => {
+      notifications += 1
+      face.edit('password', 'must-not-resurrect')
+      face.resetField('smtpHost')
+      face.save()
+      controller.dispose()
+    })
+
+    controller.dispose()
+    controller.dispose()
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(notifications).toBe(1)
+    expect(scopeUnsubscribes).toBe(1)
+    expect({ remoteWrites, credentialWrites }).toEqual({ remoteWrites: 0, credentialWrites: 0 })
+    expect(face.hooks.mailCard.getSnapshot()).toMatchObject({ dirty: false, saving: false, failed: false, password: { text: '' } })
   })
 })
