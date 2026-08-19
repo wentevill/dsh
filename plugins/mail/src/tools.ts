@@ -1,4 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
+import { createHash } from 'node:crypto'
 import type { Credentials } from '@deepseek-ai/dsh-credentials'
 import { MailError } from '@deepseek-ai/dsh-mail'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
@@ -29,6 +30,11 @@ interface ApprovalBinding {
   readonly fingerprint: string
   readonly uid?: string
   readonly attachments?: string
+}
+
+interface AbortBinding {
+  readonly signal: AbortSignal
+  readonly listener: () => void
 }
 
 const textOutput = {
@@ -109,8 +115,13 @@ function operationFingerprint(settings: MailSettings, capability: 'imap' | 'smtp
     : JSON.stringify([settings.username, settings.passwordEnv, settings.mailbox, endpoint(settings.imap)])
 }
 
-function attachmentFingerprint(attachments: readonly { filename: string; contentType: string; size: number }[]): string {
-  return JSON.stringify(attachments.map(value => [value.filename, value.contentType, value.size]))
+function attachmentFingerprint(attachments: readonly { filename: string; contentType: string; size: number; content: Buffer }[]): string {
+  return JSON.stringify(attachments.map(value => [
+    value.filename,
+    value.contentType,
+    value.size,
+    createHash('sha256').update(value.content).digest('hex'),
+  ]))
 }
 
 function providerFailure(error: unknown): never {
@@ -121,6 +132,7 @@ function providerFailure(error: unknown): never {
 /** Owns the live Mail tool catalog and binds destructive approvals to authoritative settings snapshots. */
 export class MailCapabilityManager implements MailApprovalPreparer {
   private readonly bindings = new Map<symbol, ApprovalBinding>()
+  private readonly abortBindings = new Map<symbol, AbortBinding>()
   private readonly groupDisposers = new Map<ToolGroup, () => void | Promise<void>>()
   private readonly unwatch: () => void
   private disposed = false
@@ -145,7 +157,7 @@ export class MailCapabilityManager implements MailApprovalPreparer {
     this.disposed = true
     this.generation += 1
     this.unwatch()
-    this.bindings.clear()
+    for (const token of this.bindings.keys()) this.releaseToken(token)
     this.disposePromise = (async () => {
       for (const group of ['imap', 'delete', 'smtp'] as const) await this.remove(group)
     })()
@@ -154,11 +166,14 @@ export class MailCapabilityManager implements MailApprovalPreparer {
 
   /** Clear approval state on every tools/result outcome, including denial/cancellation. */
   releaseApproval(exec: Readonly<ToolExecution>): void {
-    this.bindings.delete(exec.token)
+    this.releaseToken(exec.token)
   }
 
   /** @internal Test-only diagnostic; bindings contain sanitized fingerprints only. */
   approvalBindingCountForTests(): number { return this.bindings.size }
+
+  /** @internal Test-only diagnostic for leak-free abort listener ownership. */
+  approvalListenerCountForTests(): number { return this.abortBindings.size }
 
   async prepareSend(exec: Readonly<ToolExecution>): Promise<MailSendApprovalMetadata> {
     this.assertActive()
@@ -203,8 +218,23 @@ export class MailCapabilityManager implements MailApprovalPreparer {
   }
 
   private bind(exec: Readonly<ToolExecution>, binding: ApprovalBinding): void {
-    this.bindings.set(exec.token, binding)
-    exec.signal.addEventListener('abort', () => this.bindings.delete(exec.token), { once: true })
+    const token = exec.token
+    this.releaseToken(token)
+    const signal = exec.signal
+    const listener = () => this.releaseToken(token)
+    this.bindings.set(token, binding)
+    this.abortBindings.set(token, { signal, listener })
+    signal.addEventListener('abort', listener, { once: true })
+    if (signal.aborted) this.releaseToken(token)
+  }
+
+  private releaseToken(token: symbol): void {
+    const abort = this.abortBindings.get(token)
+    if (abort !== undefined) {
+      abort.signal.removeEventListener('abort', abort.listener)
+      this.abortBindings.delete(token)
+    }
+    this.bindings.delete(token)
   }
 
   private assertActive(): void {
@@ -331,7 +361,7 @@ export class MailCapabilityManager implements MailApprovalPreparer {
       parameters: { id: { type: 'string', required: true } }, output: textOutput,
       execute: async (args: unknown, exec) => {
         const binding = this.bindings.get(exec.token)
-        this.bindings.delete(exec.token)
+        this.releaseToken(exec.token)
         if (binding?.kind !== 'delete' || binding.uid !== id((args as Record<string, unknown>).id)) throw new Error('fresh mail deletion approval is required')
         this.requireSameSettings(binding.settings, 'delete', binding.fingerprint)
         try {
@@ -341,7 +371,7 @@ export class MailCapabilityManager implements MailApprovalPreparer {
           })
           return JSON.stringify(result)
         } finally {
-          this.bindings.delete(exec.token)
+          this.releaseToken(exec.token)
         }
       },
     }
@@ -360,7 +390,7 @@ export class MailCapabilityManager implements MailApprovalPreparer {
       }, output: textOutput,
       execute: async (args: unknown, exec) => {
         const binding = this.bindings.get(exec.token)
-        this.bindings.delete(exec.token)
+        this.releaseToken(exec.token)
         if (binding?.kind !== 'send') throw new Error('fresh mail send approval is required')
         this.requireSameSettings(binding.settings, 'send', binding.fingerprint)
         try {
@@ -389,7 +419,7 @@ export class MailCapabilityManager implements MailApprovalPreparer {
           })
           return `Email sent. Server message id: ${result.messageId}`
         } finally {
-          this.bindings.delete(exec.token)
+          this.releaseToken(exec.token)
         }
       },
     }

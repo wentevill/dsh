@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { MailError } from '@deepseek-ai/dsh-mail';
 import { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from "./attachment-loader.js";
 import { mailCapabilities } from "./mail-settings.js";
@@ -78,7 +79,12 @@ function operationFingerprint(settings, capability) {
         : JSON.stringify([settings.username, settings.passwordEnv, settings.mailbox, endpoint(settings.imap)]);
 }
 function attachmentFingerprint(attachments) {
-    return JSON.stringify(attachments.map(value => [value.filename, value.contentType, value.size]));
+    return JSON.stringify(attachments.map(value => [
+        value.filename,
+        value.contentType,
+        value.size,
+        createHash('sha256').update(value.content).digest('hex'),
+    ]));
 }
 function providerFailure(error) {
     if (error instanceof MailError)
@@ -91,6 +97,7 @@ export class MailCapabilityManager {
     scope;
     options;
     bindings = new Map();
+    abortBindings = new Map();
     groupDisposers = new Map();
     unwatch;
     disposed = false;
@@ -114,7 +121,8 @@ export class MailCapabilityManager {
         this.disposed = true;
         this.generation += 1;
         this.unwatch();
-        this.bindings.clear();
+        for (const token of this.bindings.keys())
+            this.releaseToken(token);
         this.disposePromise = (async () => {
             for (const group of ['imap', 'delete', 'smtp'])
                 await this.remove(group);
@@ -123,10 +131,12 @@ export class MailCapabilityManager {
     }
     /** Clear approval state on every tools/result outcome, including denial/cancellation. */
     releaseApproval(exec) {
-        this.bindings.delete(exec.token);
+        this.releaseToken(exec.token);
     }
     /** @internal Test-only diagnostic; bindings contain sanitized fingerprints only. */
     approvalBindingCountForTests() { return this.bindings.size; }
+    /** @internal Test-only diagnostic for leak-free abort listener ownership. */
+    approvalListenerCountForTests() { return this.abortBindings.size; }
     async prepareSend(exec) {
         this.assertActive();
         const settings = this.authoritative('smtp');
@@ -167,8 +177,23 @@ export class MailCapabilityManager {
         return { id: uid, subject: message.subject, from: message.from };
     }
     bind(exec, binding) {
-        this.bindings.set(exec.token, binding);
-        exec.signal.addEventListener('abort', () => this.bindings.delete(exec.token), { once: true });
+        const token = exec.token;
+        this.releaseToken(token);
+        const signal = exec.signal;
+        const listener = () => this.releaseToken(token);
+        this.bindings.set(token, binding);
+        this.abortBindings.set(token, { signal, listener });
+        signal.addEventListener('abort', listener, { once: true });
+        if (signal.aborted)
+            this.releaseToken(token);
+    }
+    releaseToken(token) {
+        const abort = this.abortBindings.get(token);
+        if (abort !== undefined) {
+            abort.signal.removeEventListener('abort', abort.listener);
+            this.abortBindings.delete(token);
+        }
+        this.bindings.delete(token);
     }
     assertActive() {
         if (this.disposed)
@@ -302,7 +327,7 @@ export class MailCapabilityManager {
             parameters: { id: { type: 'string', required: true } }, output: textOutput,
             execute: async (args, exec) => {
                 const binding = this.bindings.get(exec.token);
-                this.bindings.delete(exec.token);
+                this.releaseToken(exec.token);
                 if (binding?.kind !== 'delete' || binding.uid !== id(args.id))
                     throw new Error('fresh mail deletion approval is required');
                 this.requireSameSettings(binding.settings, 'delete', binding.fingerprint);
@@ -314,7 +339,7 @@ export class MailCapabilityManager {
                     return JSON.stringify(result);
                 }
                 finally {
-                    this.bindings.delete(exec.token);
+                    this.releaseToken(exec.token);
                 }
             },
         };
@@ -332,7 +357,7 @@ export class MailCapabilityManager {
             }, output: textOutput,
             execute: async (args, exec) => {
                 const binding = this.bindings.get(exec.token);
-                this.bindings.delete(exec.token);
+                this.releaseToken(exec.token);
                 if (binding?.kind !== 'send')
                     throw new Error('fresh mail send approval is required');
                 this.requireSameSettings(binding.settings, 'send', binding.fingerprint);
@@ -367,7 +392,7 @@ export class MailCapabilityManager {
                     return `Email sent. Server message id: ${result.messageId}`;
                 }
                 finally {
-                    this.bindings.delete(exec.token);
+                    this.releaseToken(exec.token);
                 }
             },
         };

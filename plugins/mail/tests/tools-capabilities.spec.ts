@@ -193,8 +193,10 @@ describe('mail capability tools', () => {
     expect(loadAttachments).toHaveBeenCalledWith(args.attachments, '/workspace/session', expect.anything(), exec.signal)
     expect(decision.kind === 'ask' ? decision.reason : '').toContain('report.pdf')
     expect(manager.approvalBindingCountForTests()).toBe(1)
+    expect(manager.approvalListenerCountForTests()).toBe(1)
     manager.releaseApproval(exec as never)
     expect(manager.approvalBindingCountForTests()).toBe(0)
+    expect(manager.approvalListenerCountForTests()).toBe(0)
     await manager.dispose()
   })
 
@@ -286,10 +288,10 @@ describe('mail capability tools', () => {
     await manager.dispose()
   })
 
-  it('reloads attachments after approval and rejects changed metadata without retaining buffers', async () => {
+  it('reloads attachments after approval and rejects same-size changed bytes by digest', async () => {
     const loadAttachments = vi.fn()
       .mockResolvedValueOnce([{ filename: 'report.pdf', contentType: 'application/pdf', content: Buffer.from('one'), size: 3 }])
-      .mockResolvedValueOnce([{ filename: 'report.pdf', contentType: 'application/pdf', content: Buffer.from('changed'), size: 7 }])
+      .mockResolvedValueOnce([{ filename: 'report.pdf', contentType: 'application/pdf', content: Buffer.from('two'), size: 3 }])
     const { manager, tools, mailTransport } = managerFor(smtpOnly, { loadAttachments })
     const args = { to: ['to@example.com'], subject: 'Hello', text: 'SECRET BODY', bcc: ['hidden@example.com'], attachments: [{ path: 'report.pdf' }] }
     const exec = execution('mail_send', args, '/workspace/session')
@@ -303,7 +305,36 @@ describe('mail capability tools', () => {
     await expect(sendTool.execute(args, exec)).rejects.toThrow(/attachments changed/u)
     expect(mailTransport.send).not.toHaveBeenCalled()
     expect(manager.approvalBindingCountForTests()).toBe(0)
+    expect(manager.approvalListenerCountForTests()).toBe(0)
     await manager.dispose()
+  })
+
+  it('removes abort listeners after completion, cancellation, and disposal', async () => {
+    const loadAttachments = vi.fn(async () => [{
+      filename: 'report.pdf', contentType: 'application/pdf', content: Buffer.from('same'), size: 4,
+    }])
+    const first = managerFor(smtpOnly, { loadAttachments })
+    const args = { to: ['to@example.com'], subject: 'Hello', text: 'Body', attachments: [{ path: 'report.pdf' }] }
+    const exec = execution('mail_send', args, '/workspace/session')
+    await createMailApprovalPolicy(first.manager)(exec as never, vi.fn())
+    await first.tools.definitions.get('mail_send')!.execute(args, exec)
+    expect(first.manager.approvalListenerCountForTests()).toBe(0)
+    await first.manager.dispose()
+
+    const second = managerFor(smtpOnly)
+    const controller = new AbortController()
+    const cancelled = { ...execution('mail_send', { to: ['to@example.com'], subject: 'Hello', text: 'Body' }), signal: controller.signal }
+    await createMailApprovalPolicy(second.manager)(cancelled as never, vi.fn())
+    expect(second.manager.approvalListenerCountForTests()).toBe(1)
+    controller.abort()
+    expect(second.manager.approvalBindingCountForTests()).toBe(0)
+    expect(second.manager.approvalListenerCountForTests()).toBe(0)
+
+    const pending = execution('mail_send', { to: ['to@example.com'], subject: 'Hello', text: 'Body' })
+    await createMailApprovalPolicy(second.manager)(pending as never, vi.fn())
+    await second.manager.dispose()
+    expect(second.manager.approvalBindingCountForTests()).toBe(0)
+    expect(second.manager.approvalListenerCountForTests()).toBe(0)
   })
 
   it('cannot reinstall a tool from a watcher callback that completes after disposal', async () => {

@@ -23,6 +23,7 @@ export declare class MailCapabilityManager implements MailApprovalPreparer {
     private readonly scope;
     private readonly options;
     private readonly bindings;
+    private readonly abortBindings;
     private readonly groupDisposers;
     private readonly unwatch;
     private disposed;
@@ -34,9 +35,12 @@ export declare class MailCapabilityManager implements MailApprovalPreparer {
     releaseApproval(exec: Readonly<ToolExecution>): void;
     /** @internal Test-only diagnostic; bindings contain sanitized fingerprints only. */
     approvalBindingCountForTests(): number;
+    /** @internal Test-only diagnostic for leak-free abort listener ownership. */
+    approvalListenerCountForTests(): number;
     prepareSend(exec: Readonly<ToolExecution>): Promise<MailSendApprovalMetadata>;
     prepareDelete(exec: Readonly<ToolExecution>): Promise<MailDeleteApprovalMetadata>;
     private bind;
+    private releaseToken;
     private assertActive;
     private authoritative;
     private requireSameSettings;
