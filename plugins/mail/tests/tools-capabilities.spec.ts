@@ -139,6 +139,20 @@ describe('mail capability tools', () => {
     expect(toolNames(smtpOnly)).toEqual(['mail_send'])
   })
 
+  it('publishes the configured list bound and cursor pagination to the model', async () => {
+    const { manager, tools } = managerFor(imapOnly)
+    const list = tools.definitions.get('mail_list') as unknown as {
+      description: string
+      parameters: { limit: { description?: string }; cursor: { description?: string } }
+    }
+
+    expect(list.description).toContain('at most 20')
+    expect(list.description).toContain('nextCursor')
+    expect(list.parameters.limit.description).toContain('integer from 1 to 20')
+    expect(list.parameters.cursor.description).toContain('nextCursor')
+    await manager.dispose()
+  })
+
   it('disposes changed fibers before replacement and leaves unchanged fibers intact', async () => {
     const { manager, scope, tools } = managerFor(imapOnly)
     tools.lifecycle.length = 0

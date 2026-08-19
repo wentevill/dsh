@@ -321,8 +321,12 @@ export class MailCapabilityManager {
     }
     imapTools() {
         return [{
-                name: 'mail_list', description: 'List recent messages from the configured IMAP mailbox.',
-                parameters: { limit: { type: 'integer' }, cursor: { type: 'string' } }, output: textOutput, isConcurrencySafe: () => true,
+                name: 'mail_list',
+                description: `List recent messages from the configured IMAP mailbox, at most ${this.options.listMaxResults} per call. To continue beyond one page, call again with the returned nextCursor.`,
+                parameters: {
+                    limit: { type: 'integer', description: `Page size: an integer from 1 to ${this.options.listMaxResults}; defaults to ${Math.min(10, this.options.listMaxResults)}.` },
+                    cursor: { type: 'string', description: 'Pagination cursor returned as nextCursor by the previous mail_list call.' },
+                }, output: textOutput, isConcurrencySafe: () => true,
                 execute: async (args, exec) => {
                     const input = args;
                     const result = await this.withCurrent('imap', (config, password) => this.options.imap.list(config, password, {
