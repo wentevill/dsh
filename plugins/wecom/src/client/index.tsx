@@ -8,24 +8,22 @@ import remote from '../../lib/typert.remote-client.js'
 import { WECOM_CARD_SLOT_OPTIONS } from './slot-options.ts'
 import { unwrapAuthResult } from './remote-result.ts'
 import type { WeComAuthSnapshot } from '../remote-types.ts'
+import { en, zh, type WeComLocaleKey } from './locales.ts'
+import { css, ensureWeComCardCSS } from './card-css.ts'
 
 type Snapshot = WeComAuthSnapshot
 
-const labels = {
-  title: '企业微信 AI', description: '连接企业微信 AI 开放能力，授权后自动发现并注册 API 工具。',
-  authorize: '授权企业微信', cancel: '取消', refresh: '刷新 API', remove: '删除授权',
-  unauthorized: '未授权', generating_qr: '正在生成二维码…', awaiting_scan: '请使用企业微信扫码授权',
-  authorized: '已授权', refreshing_schema: '正在同步 API…', ready: '已就绪', deleting: '正在删除授权…', sync_failed: '同步失败',
-}
+const NS = 'settings.plugins.wecom'
 
-function WeComCard({ api }: { api: any }) {
+function WeComCard({ api, t }: { api: any; t: (key: WeComLocaleKey) => string }) {
+  ensureWeComCardCSS()
   const [snapshot, setSnapshot] = useState<Snapshot>({ state: 'unauthorized' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
   const refreshStatus = useCallback(async () => {
     try { setSnapshot(unwrapAuthResult(await api.status())); setError(undefined) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Remote request failed') }
-  }, [api])
+    catch (cause) { setError(cause instanceof Error ? cause.message : t('remoteFailed')) }
+  }, [api, t])
   useEffect(() => {
     void refreshStatus()
     const timer = setInterval(() => { void refreshStatus() }, 1_000)
@@ -35,31 +33,31 @@ function WeComCard({ api }: { api: any }) {
     setBusy(true)
     setError(undefined)
     try { setSnapshot(unwrapAuthResult(await operation() as Parameters<typeof unwrapAuthResult>[0])) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Remote request failed') }
+    catch (cause) { setError(cause instanceof Error ? cause.message : t('remoteFailed')) }
     finally { setBusy(false) }
   }
   const authorized = ['authorized', 'refreshing_schema', 'ready', 'sync_failed'].includes(snapshot.state)
-  return <section style={{ border: '1px solid var(--color-border, #ddd)', borderRadius: 12, padding: 16 }}>
-    <h3 style={{ marginTop: 0 }}>{labels.title}</h3>
-    <p>{labels.description}</p>
-    <p role="status"><strong>{labels[snapshot.state]}</strong>
-      {'botId' in snapshot && snapshot.botId ? ` · Bot ${snapshot.botId}` : ''}
-      {snapshot.state === 'ready' ? ` · ${snapshot.toolCount} APIs` : ''}
+  return <li className={css.card}>
+    <div className={css.heading}><h3 className={css.title}>{t('title')}</h3><p className={css.description}>{t('description')}</p></div>
+    <p className={css.status} role="status"><strong>{t(snapshot.state)}</strong>
+      {'botId' in snapshot && snapshot.botId ? ` · ${t('botId').replace('{id}', snapshot.botId)}` : ''}
+      {snapshot.state === 'ready' ? ` · ${t('toolCount').replace('{count}', String(snapshot.toolCount))}` : ''}
     </p>
-    {snapshot.state === 'awaiting_scan' && <img src={snapshot.qrDataUrl} alt="企业微信授权二维码" width={240} height={240} />}
-    {snapshot.state === 'sync_failed' && <p style={{ color: 'var(--color-danger, #c33)' }}>{snapshot.message}</p>}
-    {error && <p role="alert" style={{ color: 'var(--color-danger, #c33)' }}>{error}</p>}
-    {!authorized && snapshot.state !== 'awaiting_scan' && snapshot.state !== 'generating_qr' &&
-      <button disabled={busy} onClick={() => void run(() => api.connect())}>{labels.authorize}</button>}
-    {(snapshot.state === 'awaiting_scan' || snapshot.state === 'generating_qr') &&
-      <button disabled={busy} onClick={() => void run(() => api.cancel())}>{labels.cancel}</button>}
-    {authorized && <div style={{ display: 'flex', gap: 8 }}>
-      <button disabled={busy} onClick={() => void run(() => api.refresh())}>{labels.refresh}</button>
-      <button disabled={busy} onClick={() => {
-        if (globalThis.confirm('确定删除企业微信授权？删除后相关 API 工具会立即移除。')) void run(() => api.deleteAuthorization(true))
-      }}>{labels.remove}</button>
-    </div>}
-  </section>
+    {snapshot.state === 'awaiting_scan' && <img className={css.qr} src={snapshot.qrDataUrl} alt={t('qrAlt')} width={240} height={240} />}
+    {snapshot.state === 'sync_failed' && <p className={css.error}>{snapshot.message}</p>}
+    {error && <p className={css.error} role="alert">{error}</p>}
+    <div className={css.actions}>
+      {!authorized && snapshot.state !== 'awaiting_scan' && snapshot.state !== 'generating_qr' &&
+        <button type="button" className={css.primary} disabled={busy} onClick={() => void run(() => api.connect())}>{t('authorize')}</button>}
+      {(snapshot.state === 'awaiting_scan' || snapshot.state === 'generating_qr') &&
+        <button type="button" className={css.secondary} disabled={busy} onClick={() => void run(() => api.cancel())}>{t('cancel')}</button>}
+      {authorized && <>
+      <button type="button" className={css.primary} disabled={busy} onClick={() => void run(() => api.refresh())}>{t('refresh')}</button>
+      <button type="button" className={css.danger} disabled={busy} onClick={() => {
+        if (globalThis.confirm(t('deleteConfirm'))) void run(() => api.deleteAuthorization(true))
+      }}>{t('remove')}</button></>}
+    </div>
+  </li>
 }
 
 export const name = 'wecom-client'
@@ -68,11 +66,12 @@ export const inject = ['remote']
 export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const disposeRemote = await ctx.remote.$mount(remote)
   const feature = ctx.plugin(Object.assign(async (child: ClientContext) => {
+    child.effect(() => child.locale.register(NS, { zh, en }), 'wecom-client: dictionaries')
     child.slots.inject('settings.plugin.item', function* () {
       yield child.slots.register(WECOM_CARD_SLOT_OPTIONS,
-        () => <WeComCard api={child.remote.wecomAuth} />)
+        (props: { t: (key: WeComLocaleKey) => string }) => <WeComCard api={child.remote.wecomAuth} t={props.t} />)
     })
-  }, { inject: ['slots', 'remote', 'remote.wecomAuth'] }))
+  }, { inject: ['slots', 'locale', 'remote', 'remote.wecomAuth'] }))
   await feature
   return async () => { await feature.dispose(); await disposeRemote() }
 }

@@ -4381,8 +4381,36 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			locale: "settings.plugins.wecom"
 		};
 		//#endregion
-		//#region src/client/index.tsx
-		const labels = {
+		//#region src/client/remote-result.ts
+		/** Convert the generated transport envelope into the card's business state. */
+		function unwrapAuthResult(response) {
+			if (!response.ok) throw new Error(response.error.message);
+			return response.value;
+		}
+		//#endregion
+		//#region src/client/locales.ts
+		const en = {
+			title: "WeCom AI",
+			description: "Connect WeCom AI capabilities and automatically register authorized API tools.",
+			authorize: "Authorize WeCom",
+			cancel: "Cancel",
+			refresh: "Refresh APIs",
+			remove: "Remove authorization",
+			unauthorized: "Not authorized",
+			generating_qr: "Generating QR code…",
+			awaiting_scan: "Scan with WeCom to authorize",
+			authorized: "Authorized",
+			refreshing_schema: "Synchronizing APIs…",
+			ready: "Ready",
+			deleting: "Removing authorization…",
+			sync_failed: "Synchronization failed",
+			qrAlt: "WeCom authorization QR code",
+			deleteConfirm: "Remove WeCom authorization? Its API tools will be removed immediately.",
+			remoteFailed: "The authorization request failed.",
+			toolCount: "{count} APIs",
+			botId: "Bot {id}"
+		};
+		const zh = {
 			title: "企业微信 AI",
 			description: "连接企业微信 AI 开放能力，授权后自动发现并注册 API 工具。",
 			authorize: "授权企业微信",
@@ -4396,12 +4424,71 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			refreshing_schema: "正在同步 API…",
 			ready: "已就绪",
 			deleting: "正在删除授权…",
-			sync_failed: "同步失败"
+			sync_failed: "同步失败",
+			qrAlt: "企业微信授权二维码",
+			deleteConfirm: "确定删除企业微信授权？删除后相关 API 工具会立即移除。",
+			remoteFailed: "授权请求失败。",
+			toolCount: "{count} 个 API",
+			botId: "机器人 {id}"
 		};
-		function WeComCard({ api }) {
+		//#endregion
+		//#region src/client/card-css.ts
+		const P = "dwm";
+		const css = {
+			card: `${P}_card`,
+			heading: `${P}_heading`,
+			title: `${P}_title`,
+			description: `${P}_description`,
+			status: `${P}_status`,
+			qr: `${P}_qr`,
+			actions: `${P}_actions`,
+			error: `${P}_error`,
+			primary: `${P}_primary`,
+			secondary: `${P}_secondary`,
+			danger: `${P}_danger`
+		};
+		const STYLE = `
+.${css.card}{list-style:none;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-layer-3);padding:16px}
+.${css.heading}{display:flex;flex-direction:column;gap:4px;margin:0 0 14px}
+.${css.title}{margin:0;font-size:15px;font-weight:600;line-height:1.4;color:var(--dsw-alias-label-primary)}
+.${css.description}{margin:0;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-tertiary)}
+.${css.status}{margin:0 0 12px;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-secondary)}
+.${css.qr}{display:block;width:240px;height:240px;margin:0 0 14px;border-radius:8px;background:#fff}
+.${css.actions}{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.${css.primary},.${css.secondary},.${css.danger}{appearance:none;border:1px solid transparent;border-radius:8px;padding:7px 14px;font:inherit;font-size:13px;font-weight:500;line-height:1.5;cursor:pointer}
+.${css.primary}{background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-layer-3)}
+.${css.secondary}{border-color:var(--dsw-alias-border-l2);background:transparent;color:var(--dsw-alias-label-primary)}
+.${css.danger}{border-color:var(--dsw-alias-label-error);background:transparent;color:var(--dsw-alias-label-error)}
+.${css.primary}:hover:not(:disabled){opacity:.84}.${css.secondary}:hover:not(:disabled),.${css.danger}:hover:not(:disabled){background:var(--dsw-alias-bg-layer-2)}
+.${css.primary}:disabled,.${css.secondary}:disabled,.${css.danger}:disabled{opacity:.4;cursor:default}
+.${css.primary}:focus-visible,.${css.secondary}:focus-visible,.${css.danger}:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
+.${css.error}{margin:0 0 12px;font-size:12px;line-height:1.5;color:var(--dsw-alias-label-error)}
+`;
+		let injected = false;
+		function ensureWeComCardCSS() {
+			if (injected || typeof document === "undefined") return;
+			injected = true;
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "dsh-wecom";
+			tag.textContent = STYLE;
+			document.head.appendChild(tag);
+		}
+		//#endregion
+		//#region src/client/index.tsx
+		const NS = "settings.plugins.wecom";
+		function WeComCard({ api, t }) {
+			ensureWeComCardCSS();
 			const [snapshot, setSnapshot] = (0, react.useState)({ state: "unauthorized" });
 			const [busy, setBusy] = (0, react.useState)(false);
-			const refreshStatus = (0, react.useCallback)(async () => setSnapshot(await api.status()), [api]);
+			const [error, setError] = (0, react.useState)();
+			const refreshStatus = (0, react.useCallback)(async () => {
+				try {
+					setSnapshot(unwrapAuthResult(await api.status()));
+					setError(void 0);
+				} catch (cause) {
+					setError(cause instanceof Error ? cause.message : t("remoteFailed"));
+				}
+			}, [api, t]);
 			(0, react.useEffect)(() => {
 				refreshStatus();
 				const timer = setInterval(() => {
@@ -4411,8 +4498,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			}, [refreshStatus]);
 			const run = async (operation) => {
 				setBusy(true);
+				setError(void 0);
 				try {
-					setSnapshot(await operation());
+					setSnapshot(unwrapAuthResult(await operation()));
+				} catch (cause) {
+					setError(cause instanceof Error ? cause.message : t("remoteFailed"));
 				} finally {
 					setBusy(false);
 				}
@@ -4423,62 +4513,77 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				"ready",
 				"sync_failed"
 			].includes(snapshot.state);
-			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
-				style: {
-					border: "1px solid var(--color-border, #ddd)",
-					borderRadius: 12,
-					padding: 16
-				},
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
+				className: css.card,
 				children: [
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
-						style: { marginTop: 0 },
-						children: labels.title
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: css.heading,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
+							className: css.title,
+							children: t("title")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: css.description,
+							children: t("description")
+						})]
 					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: labels.description }),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("p", {
+						className: css.status,
 						role: "status",
 						children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: labels[snapshot.state] }),
-							"botId" in snapshot && snapshot.botId ? ` · Bot ${snapshot.botId}` : "",
-							snapshot.state === "ready" ? ` · ${snapshot.toolCount} APIs` : ""
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: t(snapshot.state) }),
+							"botId" in snapshot && snapshot.botId ? ` · ${t("botId").replace("{id}", snapshot.botId)}` : "",
+							snapshot.state === "ready" ? ` · ${t("toolCount").replace("{count}", String(snapshot.toolCount))}` : ""
 						]
 					}),
 					snapshot.state === "awaiting_scan" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("img", {
+						className: css.qr,
 						src: snapshot.qrDataUrl,
-						alt: "企业微信授权二维码",
+						alt: t("qrAlt"),
 						width: 240,
 						height: 240
 					}),
 					snapshot.state === "sync_failed" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-						style: { color: "var(--color-danger, #c33)" },
+						className: css.error,
 						children: snapshot.message
 					}),
-					!authorized && snapshot.state !== "awaiting_scan" && snapshot.state !== "generating_qr" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-						disabled: busy,
-						onClick: () => void run(() => api.connect()),
-						children: labels.authorize
+					error && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: css.error,
+						role: "alert",
+						children: error
 					}),
-					(snapshot.state === "awaiting_scan" || snapshot.state === "generating_qr") && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-						disabled: busy,
-						onClick: () => void run(() => api.cancel()),
-						children: labels.cancel
-					}),
-					authorized && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						style: {
-							display: "flex",
-							gap: 8
-						},
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-							disabled: busy,
-							onClick: () => void run(() => api.refresh()),
-							children: labels.refresh
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-							disabled: busy,
-							onClick: () => {
-								if (globalThis.confirm("确定删除企业微信授权？删除后相关 API 工具会立即移除。")) run(() => api.deleteAuthorization(true));
-							},
-							children: labels.remove
-						})]
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: css.actions,
+						children: [
+							!authorized && snapshot.state !== "awaiting_scan" && snapshot.state !== "generating_qr" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: css.primary,
+								disabled: busy,
+								onClick: () => void run(() => api.connect()),
+								children: t("authorize")
+							}),
+							(snapshot.state === "awaiting_scan" || snapshot.state === "generating_qr") && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: css.secondary,
+								disabled: busy,
+								onClick: () => void run(() => api.cancel()),
+								children: t("cancel")
+							}),
+							authorized && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: css.primary,
+								disabled: busy,
+								onClick: () => void run(() => api.refresh()),
+								children: t("refresh")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: css.danger,
+								disabled: busy,
+								onClick: () => {
+									if (globalThis.confirm(t("deleteConfirm"))) run(() => api.deleteAuthorization(true));
+								},
+								children: t("remove")
+							})] })
+						]
 					})
 				]
 			});
@@ -4488,11 +4593,19 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		async function apply(ctx) {
 			const disposeRemote = await ctx.remote.$mount(TYPERT_REMOTE);
 			const feature = ctx.plugin(Object.assign(async (child) => {
+				child.effect(() => child.locale.register(NS, {
+					zh,
+					en
+				}), "wecom-client: dictionaries");
 				child.slots.inject("settings.plugin.item", function* () {
-					yield child.slots.register(WECOM_CARD_SLOT_OPTIONS, () => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(WeComCard, { api: child.remote.wecomAuth }));
+					yield child.slots.register(WECOM_CARD_SLOT_OPTIONS, (props) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(WeComCard, {
+						api: child.remote.wecomAuth,
+						t: props.t
+					}));
 				});
 			}, { inject: [
 				"slots",
+				"locale",
 				"remote",
 				"remote.wecomAuth"
 			] }));
