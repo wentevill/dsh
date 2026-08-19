@@ -57,7 +57,9 @@ function supportsUidTargetedDelete(client) {
     return hasCapability(client, 'UIDPLUS');
 }
 function supportsSafeArchive(client) {
-    return hasCapability(client, 'MOVE');
+    // ImapFlow falls back from MOVE to UID COPY + UID STORE \\Deleted + UID EXPUNGE.
+    // UIDPLUS is required so the expunge remains scoped to the requested UID.
+    return hasCapability(client, 'MOVE') || hasCapability(client, 'UIDPLUS');
 }
 function sequenceWindow(exists, request) {
     const cursor = request.cursor === undefined ? exists : Number(request.cursor);

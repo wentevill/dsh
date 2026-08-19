@@ -47,8 +47,17 @@ describe('MailImapTransport mutations', () => {
     expect(imap.messageMove).not.toHaveBeenCalled()
   })
 
-  it('rejects a UIDPLUS-only archive provider before its unsafe MOVE fallback', async () => {
+  it('uses ImapFlow safe UID COPY plus UID EXPUNGE fallback on a UIDPLUS-only provider', async () => {
     const imap = client({ capabilities: new Map([['UIDPLUS', true]]) })
+    const transport = new MailImapTransport(() => imap)
+
+    await expect(transport.archive(config, 'app-password', { id: '42' })).resolves.toEqual({ id: '42', mailbox: 'Archive' })
+
+    expect(imap.messageMove).toHaveBeenCalledWith('42', 'Archive', { uid: true })
+  })
+
+  it('rejects archive fallback when UID-targeted expunge is unavailable', async () => {
+    const imap = client({ capabilities: new Map() })
     const transport = new MailImapTransport(() => imap)
 
     await expect(transport.archive(config, 'app-password', { id: '42' })).rejects.toMatchObject({ code: 'MAIL_ARCHIVE_UNSUPPORTED' })
