@@ -29,6 +29,24 @@ describe('published mail plugin', () => {
     expect(result).toBe('DEFAULT_ATTACHMENT_LIMITS,loadAttachments')
   })
 
+  it('exports SMTP sending and body normalization through package subpaths and the root artifact', () => {
+    const consumer = mkdtempSync(resolve(tmpdir(), 'dsh-mail-consumer-'))
+    const modules = resolve(consumer, 'node_modules')
+    mkdirSync(modules)
+    symlinkSync(root, resolve(modules, 'dsh-mail'))
+
+    const result = execFileSync(process.execPath, [
+      '--input-type=module',
+      '--eval',
+      'Promise.all([import("dsh-mail/html"), import("dsh-mail/smtp-transport")]).then(([html, smtp]) => process.stdout.write([typeof html.normalizeBodies, typeof smtp.MailSmtpTransport].join(",")))',
+    ], { cwd: consumer, encoding: 'utf8' })
+
+    expect(result).toBe('function,function')
+    const rootArtifact = readFileSync(resolve(root, 'lib/index.js'), 'utf8')
+    expect(rootArtifact).toContain('export { normalizeBodies } from "./html.js";')
+    expect(rootArtifact).toContain('export { MailSmtpTransport } from "./smtp-transport.js";')
+  })
+
   it('declares plugin libraries as dependencies and DSH capabilities as peers', () => {
     const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
       name: string

@@ -28,5 +28,5 @@ export function normalizeBodies(bodies: MailBodies): { text: string; html?: stri
   const html = snapshotBody(bodies.html, 'html', MAX_HTML_CHARS)
   if (text === undefined && html === undefined) throw bodyError('MAIL_BODY_REQUIRED', 'text or html body is required')
   if (html === undefined) return { text: text! }
-  return { text: text ?? convert(html, HTML_TO_TEXT_OPTIONS), html }
+  return { text: text ?? snapshotBody(convert(html, HTML_TO_TEXT_OPTIONS), 'text', MAX_TEXT_CHARS)!, html }
 }

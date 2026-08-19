@@ -31,13 +31,23 @@ function snapshotAttachment(input) {
     if (input === null || typeof input !== 'object')
         throw smtpError('MAIL_ATTACHMENT_INVALID', 'attachment must be a loaded Buffer');
     const source = input;
-    if ('path' in source || 'href' in source || 'url' in source || 'encoding' in source) {
-        throw smtpError('MAIL_ATTACHMENT_INVALID', 'attachment paths, URLs, and encodings are not allowed');
+    const keys = Object.keys(source).sort();
+    if (Object.getPrototypeOf(source) !== Object.prototype
+        || keys.length !== 4
+        || keys.some((key, index) => key !== ['content', 'contentType', 'filename', 'size'][index])) {
+        throw smtpError('MAIL_ATTACHMENT_INVALID', 'attachment must use the exact loaded Buffer schema');
     }
-    const filename = singleLine(source.filename, 'attachment filename');
-    const contentType = singleLine(source.contentType, 'attachment content type');
-    const content = source.content;
-    const size = source.size;
+    const descriptors = Object.getOwnPropertyDescriptors(source);
+    const values = ['filename', 'contentType', 'content', 'size'].map(key => {
+        const descriptor = descriptors[key];
+        if (descriptor === undefined || !('value' in descriptor)) {
+            throw smtpError('MAIL_ATTACHMENT_INVALID', 'attachment fields must be plain values');
+        }
+        return descriptor.value;
+    });
+    const [filenameValue, contentTypeValue, content, size] = values;
+    const filename = singleLine(filenameValue, 'attachment filename');
+    const contentType = singleLine(contentTypeValue, 'attachment content type');
     if (!Buffer.isBuffer(content) || typeof size !== 'number' || !Number.isSafeInteger(size) || size < 0 || size !== content.length) {
         throw smtpError('MAIL_ATTACHMENT_INVALID', 'attachment must contain an intact loaded Buffer');
     }
@@ -68,9 +78,11 @@ export class MailSmtpTransport {
         const bcc = snapshotAddresses(request.bcc, 'bcc', false);
         const subject = singleLine(request.subject, 'subject');
         const from = singleLine(config.username, 'sender');
+        const text = request.text;
+        const html = request.html;
         const bodies = normalizeBodies({
-            ...(request.text === undefined ? {} : { text: request.text }),
-            ...(request.html === undefined ? {} : { html: request.html }),
+            ...(text === undefined ? {} : { text }),
+            ...(html === undefined ? {} : { html }),
         });
         const attachments = snapshotAttachments(request.attachments);
         const client = this.createClient({
@@ -85,14 +97,6 @@ export class MailSmtpTransport {
             disableUrlAccess: true,
             tls: { rejectUnauthorized: true, servername: config.smtp.host },
         });
-        let closed = false;
-        const close = () => {
-            if (closed)
-                return;
-            closed = true;
-            client.close();
-        };
-        signal?.addEventListener('abort', close, { once: true });
         try {
             signal?.throwIfAborted();
             const result = await client.sendMail({
@@ -106,12 +110,10 @@ export class MailSmtpTransport {
                 disableFileAccess: true,
                 disableUrlAccess: true,
             });
-            signal?.throwIfAborted();
             return { messageId: result.messageId };
         }
         finally {
-            signal?.removeEventListener('abort', close);
-            close();
+            client.close();
         }
     }
 }

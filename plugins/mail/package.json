@@ -26,6 +26,14 @@
       "types": "./lib/attachment-loader.d.ts",
       "default": "./lib/attachment-loader.js"
     },
+    "./html": {
+      "types": "./lib/html.d.ts",
+      "default": "./lib/html.js"
+    },
+    "./smtp-transport": {
+      "types": "./lib/smtp-transport.d.ts",
+      "default": "./lib/smtp-transport.js"
+    },
     "./remote-types": {
       "types": "./lib/remote-types.d.ts",
       "default": "./lib/remote-types.js"

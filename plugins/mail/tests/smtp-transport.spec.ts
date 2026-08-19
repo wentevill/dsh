@@ -50,6 +50,10 @@ describe('normalizeBodies', () => {
   ] as const)('rejects a %s body above its exact limit', (field, value) => {
     expect(() => normalizeBodies({ [field]: value })).toThrow('MAIL_BODY_TOO_LARGE')
   })
+
+  it('rejects HTML whose generated plain-text alternative exceeds the text limit', () => {
+    expect(() => normalizeBodies({ html: `<p>${'x'.repeat(500_001)}</p>` })).toThrow('MAIL_BODY_TOO_LARGE')
+  })
 })
 
 describe('MailSmtpTransport', () => {
@@ -125,5 +129,77 @@ describe('MailSmtpTransport', () => {
       to: [{ address: 'visible@example.com' }], subject: 'safe', text: 'body', attachments: [attachment] as never,
     })).rejects.toThrow('MAIL_ATTACHMENT_INVALID')
     expect(createClient).not.toHaveBeenCalled()
+  })
+
+  it('snapshots text and HTML getters exactly once before normalizing bodies', async () => {
+    const smtp = client()
+    const transport = new MailSmtpTransport(() => smtp)
+    let textReads = 0
+    let htmlReads = 0
+    const request = {
+      to: [{ address: 'visible@example.com' }], subject: 'safe',
+      get text() { textReads += 1; return 'plain' },
+      get html() { htmlReads += 1; return '<p>rich</p>' },
+    }
+
+    await expect(transport.send(config, 'app-password', request)).resolves.toEqual({ messageId: '<provider-message-id>' })
+    expect(textReads).toBe(1)
+    expect(htmlReads).toBe(1)
+  })
+
+  it.each([
+    { filename: 'safe.txt', contentType: 'text/plain', content: Buffer.from('hello'), size: 5, raw: 'forbidden' },
+    { filename: 'safe.txt', contentType: 'text/plain', content: Buffer.from('hello'), size: 5, headers: {} },
+    { filename: 'safe.txt', contentType: 'text/plain', content: Buffer.from('hello'), size: 5, contentDisposition: 'inline' },
+    Object.assign(Object.create({ inherited: true }), { filename: 'safe.txt', contentType: 'text/plain', content: Buffer.from('hello'), size: 5 }),
+    Object.defineProperties({}, {
+      filename: { enumerable: true, get: () => 'safe.txt' },
+      contentType: { enumerable: true, value: 'text/plain' },
+      content: { enumerable: true, value: Buffer.from('hello') },
+      size: { enumerable: true, value: 5 },
+    }),
+  ])('rejects a non-exact loaded attachment schema', async attachment => {
+    const createClient = vi.fn(() => client())
+    const transport = new MailSmtpTransport(createClient)
+
+    await expect(transport.send(config, 'app-password', {
+      to: [{ address: 'visible@example.com' }], subject: 'safe', text: 'body', attachments: [attachment] as never,
+    })).rejects.toThrow('MAIL_ATTACHMENT_INVALID')
+    expect(createClient).not.toHaveBeenCalled()
+  })
+
+  it('does not call the provider when already aborted', async () => {
+    const smtp = client()
+    const createClient = vi.fn(() => smtp)
+    const transport = new MailSmtpTransport(createClient)
+    const controller = new AbortController()
+    controller.abort()
+
+    await expect(transport.send(config, 'app-password', {
+      to: [{ address: 'visible@example.com' }], subject: 'safe', text: 'body',
+    }, controller.signal)).rejects.toMatchObject({ name: 'AbortError' })
+    expect(createClient).not.toHaveBeenCalled()
+    expect(smtp.sendMail).not.toHaveBeenCalled()
+  })
+
+  it('reports the provider result when aborted after send begins', async () => {
+    let resolveSend!: (value: { messageId: string }) => void
+    const smtp: SmtpClient = {
+      close: vi.fn(),
+      sendMail: vi.fn(() => new Promise(resolve => { resolveSend = resolve as (value: { messageId: string }) => void })),
+    }
+    const transport = new MailSmtpTransport(() => smtp)
+    const controller = new AbortController()
+    const sending = transport.send(config, 'app-password', {
+      to: [{ address: 'visible@example.com' }], subject: 'safe', text: 'body',
+    }, controller.signal)
+
+    await vi.waitFor(() => expect(smtp.sendMail).toHaveBeenCalledTimes(1))
+    controller.abort()
+    expect(smtp.close).not.toHaveBeenCalled()
+    resolveSend({ messageId: '<provider-message-id>' })
+
+    await expect(sending).resolves.toEqual({ messageId: '<provider-message-id>' })
+    expect(smtp.close).toHaveBeenCalledTimes(1)
   })
 })

@@ -14,6 +14,8 @@ import { loadMailSettings, saveMailSettings } from './remote-settings.ts'
 
 export { NodeMailTransport } from './transport.ts'
 export { MailImapTransport } from './imap-transport.ts'
+export { normalizeBodies } from './html.ts'
+export { MailSmtpTransport } from './smtp-transport.ts'
 export { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from './attachment-loader.ts'
 export type * from './mail-types.ts'
 
