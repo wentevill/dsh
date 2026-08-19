@@ -6,13 +6,10 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import React, { useCallback, useEffect, useState } from 'react'
 import remote from '../../lib/typert.remote-client.js'
 import { WECOM_CARD_SLOT_OPTIONS } from './slot-options.ts'
+import { unwrapAuthResult } from './remote-result.ts'
+import type { WeComAuthSnapshot } from '../remote-types.ts'
 
-type Snapshot =
-  | { state: 'unauthorized' | 'generating_qr' | 'deleting' }
-  | { state: 'awaiting_scan'; qrDataUrl: string }
-  | { state: 'authorized' | 'refreshing_schema'; botId?: string }
-  | { state: 'ready'; botId?: string; toolCount: number }
-  | { state: 'sync_failed'; botId?: string; message: string }
+type Snapshot = WeComAuthSnapshot
 
 const labels = {
   title: '企业微信 AI', description: '连接企业微信 AI 开放能力，授权后自动发现并注册 API 工具。',
@@ -24,15 +21,22 @@ const labels = {
 function WeComCard({ api }: { api: any }) {
   const [snapshot, setSnapshot] = useState<Snapshot>({ state: 'unauthorized' })
   const [busy, setBusy] = useState(false)
-  const refreshStatus = useCallback(async () => setSnapshot(await api.status()), [api])
+  const [error, setError] = useState<string>()
+  const refreshStatus = useCallback(async () => {
+    try { setSnapshot(unwrapAuthResult(await api.status())); setError(undefined) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Remote request failed') }
+  }, [api])
   useEffect(() => {
     void refreshStatus()
     const timer = setInterval(() => { void refreshStatus() }, 1_000)
     return () => clearInterval(timer)
   }, [refreshStatus])
-  const run = async (operation: () => Promise<Snapshot> | Snapshot) => {
+  const run = async (operation: () => Promise<unknown>) => {
     setBusy(true)
-    try { setSnapshot(await operation()) } finally { setBusy(false) }
+    setError(undefined)
+    try { setSnapshot(unwrapAuthResult(await operation() as Parameters<typeof unwrapAuthResult>[0])) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Remote request failed') }
+    finally { setBusy(false) }
   }
   const authorized = ['authorized', 'refreshing_schema', 'ready', 'sync_failed'].includes(snapshot.state)
   return <section style={{ border: '1px solid var(--color-border, #ddd)', borderRadius: 12, padding: 16 }}>
@@ -44,6 +48,7 @@ function WeComCard({ api }: { api: any }) {
     </p>
     {snapshot.state === 'awaiting_scan' && <img src={snapshot.qrDataUrl} alt="企业微信授权二维码" width={240} height={240} />}
     {snapshot.state === 'sync_failed' && <p style={{ color: 'var(--color-danger, #c33)' }}>{snapshot.message}</p>}
+    {error && <p role="alert" style={{ color: 'var(--color-danger, #c33)' }}>{error}</p>}
     {!authorized && snapshot.state !== 'awaiting_scan' && snapshot.state !== 'generating_qr' &&
       <button disabled={busy} onClick={() => void run(() => api.connect())}>{labels.authorize}</button>}
     {(snapshot.state === 'awaiting_scan' || snapshot.state === 'generating_qr') &&
