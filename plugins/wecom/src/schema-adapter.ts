@@ -19,7 +19,25 @@ export function normalizeToolName(path: readonly string[]): string {
   return `wecom_${segments.join('_')}`
 }
 
-function adaptNode(schema: WeComJsonSchema, required = false): AdaptedParameter {
+function adaptNode(
+  schema: WeComJsonSchema,
+  schemas: Readonly<Record<string, WeComJsonSchema>>,
+  required = false,
+  resolving: ReadonlySet<string> = new Set(),
+): AdaptedParameter {
+  const reference = typeof schema.$ref === 'string' ? schema.$ref : undefined
+  if (reference !== undefined) {
+    if (resolving.has(reference)) throw new Error(`cyclic WeCom schema reference: ${reference}`)
+    const target = schemas[reference]
+    if (target === undefined) throw new Error(`missing WeCom schema reference: ${reference}`)
+    const { '$ref': _reference, ...siblings } = schema
+    return adaptNode(
+      { ...target, ...siblings },
+      schemas,
+      required,
+      new Set([...resolving, reference]),
+    )
+  }
   if ((schema.oneOf?.length ?? 0) > 0) throw new Error('unsupported oneOf in WeCom request schema')
   const rawType = schema.type === 'integer' ? 'number' : schema.type
   if (rawType !== 'string' && rawType !== 'number' && rawType !== 'boolean' && rawType !== 'object' && rawType !== 'array') {
@@ -34,12 +52,15 @@ function adaptNode(schema: WeComJsonSchema, required = false): AdaptedParameter 
   }
   if (type === 'array') {
     if (schema.items === undefined) throw new Error('WeCom array schema requires items')
-    return { ...common, items: adaptNode(schema.items) }
+    return { ...common, items: adaptNode(schema.items, schemas, false, resolving) }
   }
   if (type === 'object') {
     const requiredKeys = new Set(schema.required ?? [])
     const properties = Object.fromEntries(
-      Object.entries(schema.properties ?? {}).map(([name, child]) => [name, adaptNode(child, requiredKeys.has(name))]),
+      Object.entries(schema.properties ?? {}).map(([name, child]) => [
+        name,
+        adaptNode(child, schemas, requiredKeys.has(name), resolving),
+      ]),
     )
     const additionalProperties = typeof schema.additionalProperties === 'boolean' ? schema.additionalProperties : false
     return { ...common, properties, additionalProperties }
@@ -55,7 +76,7 @@ export function adaptRequestSchema(
   if (requestRef === undefined) return {}
   const root = schemas[requestRef]
   if (root === undefined) throw new Error(`missing WeCom request schema: ${requestRef}`)
-  const adapted = adaptNode(root)
+  const adapted = adaptNode(root, schemas)
   if (adapted.type !== 'object') throw new Error('WeCom request root must be an object')
   return adapted.properties ?? {}
 }

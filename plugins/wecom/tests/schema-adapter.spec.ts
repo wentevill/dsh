@@ -26,9 +26,52 @@ describe('WeCom schema adapter', () => {
     })
   })
 
+  it('expands nested schema references used by AI Bot message content', () => {
+    const schemas = {
+      SendAibotMessageReq: {
+        type: 'object',
+        required: ['chat_id', 'msg_type'],
+        properties: {
+          chat_id: { type: 'string' },
+          msg_type: { type: 'string', enum: ['markdown'] },
+          markdown: {
+            type: 'object',
+            '$ref': 'AibotMarkdownContent',
+            description: 'markdown 消息内容',
+          },
+        },
+      },
+      AibotMarkdownContent: {
+        type: 'object',
+        required: ['content'],
+        properties: {
+          content: { type: 'string', description: 'markdown 正文' },
+        },
+      },
+    }
+
+    expect(adaptRequestSchema('SendAibotMessageReq', schemas)).toMatchObject({
+      markdown: {
+        type: 'object',
+        description: 'markdown 消息内容',
+        properties: {
+          content: { type: 'string', required: true, description: 'markdown 正文' },
+        },
+        additionalProperties: false,
+      },
+    })
+  })
+
   it('returns a diagnostic for unsupported unions instead of weakening validation', () => {
     expect(() => adaptRequestSchema('Request', {
       Request: { oneOf: [{ type: 'string' }, { type: 'number' }] },
     })).toThrow('unsupported oneOf')
+  })
+
+  it('rejects cyclic nested schema references', () => {
+    expect(() => adaptRequestSchema('Request', {
+      Request: { type: 'object', properties: { nested: { '$ref': 'Nested' } } },
+      Nested: { type: 'object', properties: { parent: { '$ref': 'Nested' } } },
+    })).toThrow('cyclic WeCom schema reference: Nested')
   })
 })

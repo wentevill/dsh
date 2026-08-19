@@ -8,7 +8,7 @@ DeepSeek Harness 标准企业微信 AI 插件，内置官方 `@wecom/cli`。
 
 ```sh
 corepack pnpm --dir plugins/wecom pack
-dsh plugin --profile web add ./plugins/wecom/dsh-wecom-0.1.4.tgz
+dsh plugin --profile web add ./plugins/wecom/dsh-wecom-0.1.5.tgz
 ```
 
 要求 Node.js 24 或更高版本。
