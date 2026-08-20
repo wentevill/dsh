@@ -54,6 +54,10 @@ function WeComCard({ api, t }: { api: any; t: (key: WeComLocaleKey) => string })
       {'botId' in snapshot && snapshot.botId ? ` · ${t('botId').replace('{id}', snapshot.botId)}` : ''}
       {snapshot.state === 'ready' ? ` · ${t('toolCount').replace('{count}', String(snapshot.toolCount))}` : ''}
     </p>
+    {snapshot.channel && <p className={css.status} role="status">
+      <strong>{t('channel')}</strong>{` · ${t(`channel_${snapshot.channel.state}` as WeComLocaleKey)}`}
+      {snapshot.channel.nextRetryAt ? ` · ${new Date(snapshot.channel.nextRetryAt).toLocaleTimeString()}` : ''}
+    </p>}
     {snapshot.state === 'awaiting_scan' && <img className={css.qr} src={snapshot.qrDataUrl} alt={t('qrAlt')} width={240} height={240} />}
     {snapshot.state === 'sync_failed' && <p className={css.error}>{snapshot.message}</p>}
     {visibleAuthError(errors) && <p className={css.error} role="alert">{visibleAuthError(errors)}</p>}

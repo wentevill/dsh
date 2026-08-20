@@ -7,15 +7,22 @@ import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from '@deepseek-ai/schemastery'
 import { defineTool, type ParameterSchemaSpec, type PreToolDecision } from '@deepseek-ai/dsh-tools'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import QRCode from 'qrcode'
 import { deleteOwnedAuthorization } from './auth-files.ts'
 import { createAuthRemoteApi, type AuthRemoteController } from './auth-remote.ts'
 import { createCliAuthBackend } from './cli-auth-backend.ts'
+import { createWeComChannelHost } from './channel-host.ts'
 import type { DynamicToolDefinition } from './catalog.ts'
 import { createWeComHost } from './host.ts'
 import { createRuntimeTool, type RuntimeTool } from './tool-adapter.ts'
 import { createGenerationInstaller } from './generation-installer.ts'
 import { createNodeProcessExecutor, createWeComProcessRunner, type JsonValue } from './transport.ts'
 import { waitForFile } from './qr-file.ts'
+import { createQrAuthManager } from './qr-auth-manager.ts'
+import {
+  defaultSessionWorkspaceTemplate,
+  sessionWorkspaceTemplateSchema,
+} from './session-workspace.ts'
 import type { WeComAuthSnapshot } from './remote-types.ts'
 
 export interface Config {
@@ -23,6 +30,7 @@ export interface Config {
   readonly profile?: string
   readonly timeoutMs?: number
   readonly maxOutputBytes?: number
+  readonly sessionWorkspaceTemplate?: string
 }
 
 export const Config: z<Config> = z.object({
@@ -30,25 +38,39 @@ export const Config: z<Config> = z.object({
   profile: z.string().default('web'),
   timeoutMs: z.number().step(1).min(1_000).default(300_000),
   maxOutputBytes: z.number().step(1).min(1_024).default(1_048_576),
+  sessionWorkspaceTemplate: sessionWorkspaceTemplateSchema,
 })
 
 export const name = 'wecom'
-export const inject = ['tools']
+export const inject = [
+  'tools', 'agents', 'sessions', 'credentials', 'storageDomain',
+  'sessionPersistence', 'agentDefaultModel', 'attachments',
+]
 const WECOM_SETTINGS_NAMESPACE = settingsNamespace('wecom')
 
 export class WeComAuthRemote extends TypertRemoteService {
   private readonly api
 
-  constructor(ctx: Context, controller: AuthRemoteController) {
+  constructor(
+    ctx: Context,
+    controller: AuthRemoteController,
+    private readonly channelSnapshot: () => WeComAuthSnapshot['channel'],
+  ) {
     super(ctx, 'wecomAuth')
     this.api = createAuthRemoteApi(controller)
   }
 
-  @Remote('status') status(): WeComAuthSnapshot { return this.api.status() }
-  @Remote('connect') connect(): WeComAuthSnapshot { return this.api.connect() }
-  @Remote('cancel') cancel(): WeComAuthSnapshot { return this.api.cancel() }
-  @Remote('refresh') refresh(): Promise<WeComAuthSnapshot> { return this.api.refresh() }
-  @Remote('deleteAuthorization') deleteAuthorization(confirmed: boolean): Promise<WeComAuthSnapshot> { return this.api.deleteAuthorization(confirmed) }
+  private withChannel(snapshot: WeComAuthSnapshot): WeComAuthSnapshot {
+    return { ...snapshot, channel: this.channelSnapshot() }
+  }
+
+  @Remote('status') status(): WeComAuthSnapshot { return this.withChannel(this.api.status()) }
+  @Remote('connect') connect(): WeComAuthSnapshot { return this.withChannel(this.api.connect()) }
+  @Remote('cancel') cancel(): WeComAuthSnapshot { return this.withChannel(this.api.cancel()) }
+  @Remote('refresh') async refresh(): Promise<WeComAuthSnapshot> { return this.withChannel(await this.api.refresh()) }
+  @Remote('deleteAuthorization') async deleteAuthorization(confirmed: boolean): Promise<WeComAuthSnapshot> {
+    return this.withChannel(await this.api.deleteAuthorization(confirmed))
+  }
 }
 
 function cliExecutable(): string {
@@ -82,6 +104,10 @@ function profilePath(ctx: Context, config: Config): string {
 /** Standard Cordis Host entry. Dynamic tools exist only while authorization is valid. */
 export async function apply(ctx: Context, config: Config): Promise<void> {
   const configDir = profilePath(ctx, config)
+  const sessionWorkspaceTemplate = config.sessionWorkspaceTemplate ?? defaultSessionWorkspaceTemplate()
+  if (!isAbsolute(sessionWorkspaceTemplate)) {
+    throw new Error('WeCom sessionWorkspaceTemplate must be absolute')
+  }
   const tempDir = resolve(configDir, 'tmp')
   const execute = createNodeProcessExecutor()
   const executable = cliExecutable()
@@ -115,20 +141,29 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       return () => { dispose(); runtimeTools.delete(definition.name) }
     },
   })
+  const cliAuth = createCliAuthBackend({
+    executable, configDir, tempDir, execute,
+    readQr: waitForFile,
+    deleteOwned: () => deleteOwnedAuthorization(configDir, {
+      removeFile: path => rm(path, { force: true }),
+      removeTree: path => rm(path, { recursive: true, force: true }),
+    }),
+  })
+  const channelHost = await createWeComChannelHost(ctx, {
+    cli: cliAuth,
+    sessionWorkspaceTemplate,
+    qr: createQrAuthManager({
+      toQrDataUrl: value => QRCode.toDataURL(value, { width: 240, margin: 1 }),
+    }),
+  })
+  ctx.effect(() => async () => { await channelHost.dispose() }, 'wecom.channelHost()')
   const host = createWeComHost({
     runner,
-    authBackend: createCliAuthBackend({
-      executable, configDir, tempDir, execute,
-      readQr: waitForFile,
-      deleteOwned: () => deleteOwnedAuthorization(configDir, {
-        removeFile: path => rm(path, { force: true }),
-        removeTree: path => rm(path, { recursive: true, force: true }),
-      }),
-    }),
+    authBackend: channelHost.authBackend,
     installTools,
   })
 
-  new WeComAuthRemote(ctx, host.auth)
+  new WeComAuthRemote(ctx, host.auth, channelHost.snapshot)
   ctx.inject(['settings'], (settingsCtx: Context) => {
     settingsCtx.settings.register(WECOM_SETTINGS_NAMESPACE, z.object({}), { applies: 'live', base: {} })
   })
@@ -137,7 +172,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     if (runtime === undefined) return next()
     return runtime.preDecision(execution.arguments)
   })
-  await host.initialize()
+  await Promise.all([host.initialize(), channelHost.initialize()])
 }
 
 export type { WeComAuthSnapshot } from './remote-types.ts'

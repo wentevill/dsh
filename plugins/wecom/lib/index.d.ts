@@ -8,13 +8,16 @@ export interface Config {
     readonly profile?: string;
     readonly timeoutMs?: number;
     readonly maxOutputBytes?: number;
+    readonly sessionWorkspaceTemplate?: string;
 }
 export declare const Config: z<Config>;
 export declare const name = "wecom";
 export declare const inject: string[];
 export declare class WeComAuthRemote extends TypertRemoteService {
+    private readonly channelSnapshot;
     private readonly api;
-    constructor(ctx: Context, controller: AuthRemoteController);
+    constructor(ctx: Context, controller: AuthRemoteController, channelSnapshot: () => WeComAuthSnapshot['channel']);
+    private withChannel;
     status(): WeComAuthSnapshot;
     connect(): WeComAuthSnapshot;
     cancel(): WeComAuthSnapshot;

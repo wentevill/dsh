@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { createCliAuthBackend } from '../src/cli-auth-backend.ts'
+import { fileURLToPath } from 'node:url'
+import { createCliAuthBackend, type AuthPty } from '../src/cli-auth-backend.ts'
 import type { ProcessInvocation, ProcessResult } from '../src/transport.ts'
 
 describe('wecom-cli authorization backend', () => {
@@ -67,5 +68,66 @@ describe('wecom-cli authorization backend', () => {
     })
     await backend.deleteOwnedAuthorization()
     expect(deleted).toBe(1)
+  })
+
+  it('provisions Bot credentials through a PTY and never argv', async () => {
+    const calls: Array<{ executable: string; args: string[]; writes: string[] }> = []
+    const backend = createCliAuthBackend({
+      executable: 'wecom-cli', configDir: '/config', tempDir: '/tmp/wecom',
+      execute: async () => ({ code: 0, stdout: '', stderr: '' }),
+      readQr: async () => new Uint8Array(), deleteOwned: async () => {},
+      ptySpawn: (executable, args) => {
+        const call = { executable, args, writes: [] as string[] }
+        calls.push(call)
+        let onData = (_data: string) => {}
+        let onExit = (_event: { exitCode: number }) => {}
+        queueMicrotask(() => onData('Bot ID: '))
+        return {
+          onData(listener) { onData = listener; return { dispose() {} } },
+          onExit(listener) { onExit = listener; return { dispose() {} } },
+          write(data) {
+            call.writes.push(data)
+            if (data.includes('bot-id')) queueMicrotask(() => onData('Secret: '))
+            else queueMicrotask(() => onExit({ exitCode: 0 }))
+          },
+          kill() {},
+        } satisfies AuthPty
+      },
+    })
+    await backend.provision('bot-id', 'bot-secret')
+    expect(calls[0]?.args).toEqual(['auth', 'init', '--manual'])
+    expect(calls[0]?.writes).toEqual(['bot-id\r', 'bot-secret\r'])
+    expect(JSON.stringify(calls[0]?.args)).not.toContain('bot-secret')
+  })
+
+  it('kills and joins the PTY when provisioning is aborted', async () => {
+    const abort = new AbortController()
+    let killed = false
+    let exited = (_event: { exitCode: number }) => {}
+    const backend = createCliAuthBackend({
+      executable: 'wecom-cli', configDir: '/config', tempDir: '/tmp/wecom',
+      execute: async () => ({ code: 0, stdout: '', stderr: '' }),
+      readQr: async () => new Uint8Array(), deleteOwned: async () => {},
+      ptySpawn: () => ({
+        onData: () => ({ dispose() {} }),
+        onExit(listener) { exited = listener; return { dispose() {} } },
+        write() {},
+        kill() { killed = true; queueMicrotask(() => exited({ exitCode: 143 })) },
+      }),
+    })
+    const pending = backend.provision('bot', 'secret', abort.signal)
+    abort.abort()
+    await expect(pending).rejects.toThrow('aborted')
+    expect(killed).toBe(true)
+  })
+
+  it.runIf(process.platform === 'darwin' || process.platform === 'linux')('provides a real terminal to the CLI process', async () => {
+    const backend = createCliAuthBackend({
+      executable: fileURLToPath(new URL('./fixtures/pty-auth-fixture.mjs', import.meta.url)),
+      configDir: '/tmp', tempDir: '/tmp',
+      execute: async () => ({ code: 0, stdout: '', stderr: '' }),
+      readQr: async () => new Uint8Array(), deleteOwned: async () => {},
+    })
+    await expect(backend.provision('bot', 'secret')).resolves.toBeUndefined()
   })
 })

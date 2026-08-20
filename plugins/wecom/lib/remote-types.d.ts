@@ -1,5 +1,6 @@
+import type { WeComChannelSnapshot } from './channel-types.js';
 /** Non-secret authorization state projected to Plugin configuration. */
-export type WeComAuthSnapshot = {
+type WeComApiAuthSnapshot = {
     readonly state: 'unauthorized';
 } | {
     readonly state: 'generating_qr';
@@ -24,3 +25,7 @@ export type WeComAuthSnapshot = {
     readonly state: 'deleting';
     readonly botId?: string;
 };
+export type WeComAuthSnapshot = WeComApiAuthSnapshot & {
+    readonly channel?: WeComChannelSnapshot;
+};
+export {};

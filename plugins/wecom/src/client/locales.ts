@@ -6,6 +6,8 @@ export const en = {
   authorized: 'Authorized', refreshing_schema: 'Synchronizing APIs…', ready: 'Ready', deleting: 'Removing authorization…', sync_failed: 'Synchronization failed',
   qrAlt: 'WeCom authorization QR code', deleteConfirm: 'Remove WeCom authorization? Its API tools will be removed immediately.',
   remoteFailed: 'The authorization request failed.', toolCount: '{count} APIs', botId: 'Bot {id}',
+  channel: 'Channel', channel_stopped: 'Stopped', channel_connecting: 'Connecting', channel_subscribing: 'Authenticating',
+  channel_connected: 'Connected', channel_reconnect_wait: 'Reconnecting', channel_auth_failed: 'Authentication failed', channel_failed: 'Failed',
 }
 
 export const zh = {
@@ -16,6 +18,8 @@ export const zh = {
   authorized: '已授权', refreshing_schema: '正在同步 API…', ready: '已就绪', deleting: '正在删除授权…', sync_failed: '同步失败',
   qrAlt: '企业微信授权二维码', deleteConfirm: '确定删除企业微信授权？删除后相关 API 工具会立即移除。',
   remoteFailed: '授权请求失败。', toolCount: '{count} 个 API', botId: '机器人 {id}',
+  channel: '消息通道', channel_stopped: '已停止', channel_connecting: '正在连接', channel_subscribing: '正在认证',
+  channel_connected: '已连接', channel_reconnect_wait: '正在重连', channel_auth_failed: '认证失败', channel_failed: '连接失败',
 }
 
 export type WeComLocaleKey = keyof typeof en

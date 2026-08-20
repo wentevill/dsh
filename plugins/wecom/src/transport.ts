@@ -65,8 +65,8 @@ export function createNodeProcessExecutor(): ProcessExecutor {
       finish(new Error(`wecom-cli timed out after ${invocation.timeoutMs}ms`))
     }, invocation.timeoutMs)
 
-    child.stdout.on('data', (chunk: Buffer) => { append('stdout', chunk) })
-    child.stderr.on('data', (chunk: Buffer) => { append('stderr', chunk) })
+    child.stdout!.on('data', (chunk: Buffer) => { append('stdout', chunk) })
+    child.stderr!.on('data', (chunk: Buffer) => { append('stderr', chunk) })
     child.once('error', error => { finish(error) })
     child.once('close', code => {
       finish(undefined, { code: code ?? 1, stdout, stderr })

@@ -40,22 +40,30 @@ import { settingsNamespace } from '@deepseek-ai/dsh-settings';
 import z from '@deepseek-ai/schemastery';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
+import QRCode from 'qrcode';
 import { deleteOwnedAuthorization } from "./auth-files.js";
 import { createAuthRemoteApi } from "./auth-remote.js";
 import { createCliAuthBackend } from "./cli-auth-backend.js";
+import { createWeComChannelHost } from "./channel-host.js";
 import { createWeComHost } from "./host.js";
 import { createRuntimeTool } from "./tool-adapter.js";
 import { createGenerationInstaller } from "./generation-installer.js";
 import { createNodeProcessExecutor, createWeComProcessRunner } from "./transport.js";
 import { waitForFile } from "./qr-file.js";
+import { createQrAuthManager } from "./qr-auth-manager.js";
+import { defaultSessionWorkspaceTemplate, sessionWorkspaceTemplateSchema, } from "./session-workspace.js";
 export const Config = z.object({
     configDir: z.string(),
     profile: z.string().default('web'),
     timeoutMs: z.number().step(1).min(1_000).default(300_000),
     maxOutputBytes: z.number().step(1).min(1_024).default(1_048_576),
+    sessionWorkspaceTemplate: sessionWorkspaceTemplateSchema,
 });
 export const name = 'wecom';
-export const inject = ['tools'];
+export const inject = [
+    'tools', 'agents', 'sessions', 'credentials', 'storageDomain',
+    'sessionPersistence', 'agentDefaultModel', 'attachments',
+];
 const WECOM_SETTINGS_NAMESPACE = settingsNamespace('wecom');
 let WeComAuthRemote = (() => {
     let _classSuper = TypertRemoteService;
@@ -80,16 +88,23 @@ let WeComAuthRemote = (() => {
             __esDecorate(this, null, _deleteAuthorization_decorators, { kind: "method", name: "deleteAuthorization", static: false, private: false, access: { has: obj => "deleteAuthorization" in obj, get: obj => obj.deleteAuthorization }, metadata: _metadata }, null, _instanceExtraInitializers);
             if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
         }
-        api = __runInitializers(this, _instanceExtraInitializers);
-        constructor(ctx, controller) {
+        channelSnapshot = __runInitializers(this, _instanceExtraInitializers);
+        api;
+        constructor(ctx, controller, channelSnapshot) {
             super(ctx, 'wecomAuth');
+            this.channelSnapshot = channelSnapshot;
             this.api = createAuthRemoteApi(controller);
         }
-        status() { return this.api.status(); }
-        connect() { return this.api.connect(); }
-        cancel() { return this.api.cancel(); }
-        refresh() { return this.api.refresh(); }
-        deleteAuthorization(confirmed) { return this.api.deleteAuthorization(confirmed); }
+        withChannel(snapshot) {
+            return { ...snapshot, channel: this.channelSnapshot() };
+        }
+        status() { return this.withChannel(this.api.status()); }
+        connect() { return this.withChannel(this.api.connect()); }
+        cancel() { return this.withChannel(this.api.cancel()); }
+        async refresh() { return this.withChannel(await this.api.refresh()); }
+        async deleteAuthorization(confirmed) {
+            return this.withChannel(await this.api.deleteAuthorization(confirmed));
+        }
     };
 })();
 export { WeComAuthRemote };
@@ -127,6 +142,10 @@ function profilePath(ctx, config) {
 /** Standard Cordis Host entry. Dynamic tools exist only while authorization is valid. */
 export async function apply(ctx, config) {
     const configDir = profilePath(ctx, config);
+    const sessionWorkspaceTemplate = config.sessionWorkspaceTemplate ?? defaultSessionWorkspaceTemplate();
+    if (!isAbsolute(sessionWorkspaceTemplate)) {
+        throw new Error('WeCom sessionWorkspaceTemplate must be absolute');
+    }
     const tempDir = resolve(configDir, 'tmp');
     const execute = createNodeProcessExecutor();
     const executable = cliExecutable();
@@ -160,19 +179,28 @@ export async function apply(ctx, config) {
             return () => { dispose(); runtimeTools.delete(definition.name); };
         },
     });
+    const cliAuth = createCliAuthBackend({
+        executable, configDir, tempDir, execute,
+        readQr: waitForFile,
+        deleteOwned: () => deleteOwnedAuthorization(configDir, {
+            removeFile: path => rm(path, { force: true }),
+            removeTree: path => rm(path, { recursive: true, force: true }),
+        }),
+    });
+    const channelHost = await createWeComChannelHost(ctx, {
+        cli: cliAuth,
+        sessionWorkspaceTemplate,
+        qr: createQrAuthManager({
+            toQrDataUrl: value => QRCode.toDataURL(value, { width: 240, margin: 1 }),
+        }),
+    });
+    ctx.effect(() => async () => { await channelHost.dispose(); }, 'wecom.channelHost()');
     const host = createWeComHost({
         runner,
-        authBackend: createCliAuthBackend({
-            executable, configDir, tempDir, execute,
-            readQr: waitForFile,
-            deleteOwned: () => deleteOwnedAuthorization(configDir, {
-                removeFile: path => rm(path, { force: true }),
-                removeTree: path => rm(path, { recursive: true, force: true }),
-            }),
-        }),
+        authBackend: channelHost.authBackend,
         installTools,
     });
-    new WeComAuthRemote(ctx, host.auth);
+    new WeComAuthRemote(ctx, host.auth, channelHost.snapshot);
     ctx.inject(['settings'], (settingsCtx) => {
         settingsCtx.settings.register(WECOM_SETTINGS_NAMESPACE, z.object({}), { applies: 'live', base: {} });
     });
@@ -182,5 +210,5 @@ export async function apply(ctx, config) {
             return next();
         return runtime.preDecision(execution.arguments);
     });
-    await host.initialize();
+    await Promise.all([host.initialize(), channelHost.initialize()]);
 }
