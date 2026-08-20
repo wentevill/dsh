@@ -8,9 +8,11 @@ DeepSeek Harness 标准企业微信 AI 插件，内置官方 `@wecom/cli` 与 `@
 
 CLI 授权数据默认保存在 `$DSH_HOME/profiles/<profile>/plugins/wecom`，Bot 凭据由 Harness credentials 组件保存，房间映射由 `storageDomain` 保存；消息内容只存在 Harness session 中。非 `web` profile 请修改插件的 `profile`；也可以用绝对路径 `configDir` 覆盖。删除授权会停止通道并删除 Bot/CLI 授权，但保留房间到 session 的映射。
 
+新建 WeCom session 的工作目录由 `sessionWorkspaceTemplate` 配置，默认是系统临时目录下的 `deepseek-harness-wecom/{{session}}`。模板中的每个 `{{session}}` 会替换为 Harness Session ID；不包含该占位符时所有新会话共用同一绝对目录。已有房间映射和缺少 `cwd` 的旧 Session 不会迁移或替换。
+
 ```sh
 corepack pnpm --dir plugins/wecom pack
-dsh plugin --profile web add ./plugins/wecom/dsh-wecom-0.2.0.tgz
+dsh plugin --profile web add ./plugins/wecom/dsh-wecom-0.2.3.tgz
 ```
 
 要求 Node.js 24 或更高版本。

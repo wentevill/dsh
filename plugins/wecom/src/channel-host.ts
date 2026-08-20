@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto'
+import { mkdir } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -14,6 +15,7 @@ import { RoomScheduler } from './room-scheduler.js'
 import { wecomRoomSessionsSpec } from './room-session-domain.js'
 import { RoomSessionStore } from './room-session-store.js'
 import { createSdkClientFactory } from './sdk-adapter.js'
+import { defaultSessionWorkspaceTemplate, resolveSessionWorkspace } from './session-workspace.js'
 
 export const WECOM_BOT_ID = credentialRef('WECOM_BOT_ID')
 export const WECOM_BOT_SECRET = credentialRef('WECOM_BOT_SECRET')
@@ -32,6 +34,7 @@ export async function createWeComChannelHost(
     readonly cli: CliAuthBackend
     readonly qr: QrAuthManager
     readonly createController?: typeof createChannelController
+    readonly sessionWorkspaceTemplate?: string
   },
 ): Promise<WeComChannelHost> {
   const domain = await ctx.storageDomain.open(wecomRoomSessionsSpec)
@@ -51,10 +54,14 @@ export async function createWeComChannelHost(
   })
   const scheduler = new RoomScheduler({ concurrency: 4, perRoomCapacity: 8 })
   let controller!: ChannelController
+  const sessionWorkspaceTemplate = options.sessionWorkspaceTemplate ?? defaultSessionWorkspaceTemplate()
   const bridge = new HarnessBridge({
     scheduler,
     roomSessions,
-    runtime: createHarnessBridgeRuntime(ctx),
+    runtime: createHarnessBridgeRuntime(ctx, {
+      workspaceFor: sessionId => resolveSessionWorkspace(sessionWorkspaceTemplate, sessionId),
+      ensureWorkspace: async path => { await mkdir(path, { recursive: true }) },
+    }),
     createStreamId: () => randomUUID(),
     reply: async (context, streamId, content, finish) => {
       const owned = context as { readonly frame: unknown; readonly client: SdkClient }

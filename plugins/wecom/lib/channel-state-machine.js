@@ -8,7 +8,12 @@ export function createChannelController(options) {
     let active;
     let current = { state: 'stopped', attempt: 0 };
     function publish(state, patch = {}) {
-        current = { state, attempt: active?.attempt ?? 0, ...patch };
+        const next = { state, attempt: active?.attempt ?? 0, ...patch };
+        if (next.nextRetryAt === undefined)
+            delete next.nextRetryAt;
+        if (next.error === undefined)
+            delete next.error;
+        current = next;
         for (const listener of listeners)
             listener(current);
     }
@@ -84,10 +89,19 @@ export function createChannelController(options) {
                 generation.attempt = 0;
                 publish('connected');
             }, stableAfterMs);
-        }), client.on('disconnected', () => {
+        }), client.on('disconnected', reason => {
             queueMicrotask(() => {
-                if (isActive(generation) && generation.client === client)
-                    scheduleRetry(generation);
+                if (!isActive(generation) || generation.client !== client)
+                    return;
+                if (isConnectionConflict(reason)) {
+                    releaseTransport(generation);
+                    clearStable(generation);
+                    publish('failed', {
+                        error: { category: 'permanent', message: 'Another WeCom Bot connection is active' },
+                    });
+                    return;
+                }
+                scheduleRetry(generation);
             });
         }), client.on('error', error => {
             if (!isActive(generation) || generation.client !== client)
@@ -150,4 +164,7 @@ export function createChannelController(options) {
             return () => listeners.delete(listener);
         },
     };
+}
+function isConnectionConflict(reason) {
+    return /new connection (?:has been )?established|another .*connection/i.test(reason);
 }

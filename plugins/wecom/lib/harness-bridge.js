@@ -10,7 +10,7 @@ export class HarnessBridgeError extends Error {
     }
 }
 /** Build the production bridge boundary from Harness services. */
-export function createHarnessBridgeRuntime(ctx) {
+export function createHarnessBridgeRuntime(ctx, options) {
     const pending = new Map();
     const setupFor = async (presetId) => {
         const selection = ctx.agentDefaultModel.currentSelection();
@@ -35,6 +35,8 @@ export function createHarnessBridgeRuntime(ctx) {
         const header = headers.find(candidate => candidate.id === sessionId);
         if (header) {
             const inspected = await ctx.sessionPersistence.inspect(sessionId);
+            if (inspected.meta.cwd !== undefined)
+                await options.ensureWorkspace(inspected.meta.cwd);
             const composition = await setupFor(recordedPreset(inspected.meta, inspected.events));
             const handle = await ctx.agents.resume({
                 resumeSessionId: sessionId,
@@ -45,10 +47,15 @@ export function createHarnessBridgeRuntime(ctx) {
             return { agent: handle.agent, dispose: () => handle.dispose() };
         }
         const composition = await setupFor(undefined);
+        const sessionCwd = options.workspaceFor(sessionId);
+        await options.ensureWorkspace(sessionCwd);
         const handle = await ctx.agents.create({
             sessionId,
             signal,
-            meta: composition.resolvedPreset === undefined ? {} : { agentPreset: composition.resolvedPreset },
+            meta: {
+                cwd: sessionCwd,
+                ...composition.resolvedPreset === undefined ? {} : { agentPreset: composition.resolvedPreset },
+            },
             agentOptions: composition.selection,
             setup: composition.setup,
         });

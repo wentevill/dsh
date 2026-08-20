@@ -5124,7 +5124,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 63,
+						"line": 69,
 						"column": 21
 					}
 				},
@@ -5142,7 +5142,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 62,
+						"line": 68,
 						"column": 22
 					}
 				},
@@ -5169,7 +5169,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 65,
+						"line": 71,
 						"column": 40
 					}
 				},
@@ -5187,7 +5187,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 64,
+						"line": 70,
 						"column": 28
 					}
 				},
@@ -5205,7 +5205,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/wecom/src/index.ts",
-						"line": 61,
+						"line": 67,
 						"column": 21
 					}
 				}

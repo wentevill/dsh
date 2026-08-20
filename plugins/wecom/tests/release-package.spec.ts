@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 describe('0.2 channel release contract', () => {
   it('ships every channel module and exact SDK version', async () => {
     const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
-    expect(manifest.version).toBe('0.2.0')
+    expect(manifest.version).toBe('0.2.3')
     expect(manifest.dependencies['@wecom/aibot-node-sdk']).toBe('1.0.7')
     const build = JSON.parse(await readFile(new URL('../tsconfig.build.json', import.meta.url), 'utf8'))
     expect(build.include).toEqual(expect.arrayContaining([

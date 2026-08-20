@@ -102,6 +102,23 @@ describe('channel connection generations', () => {
     expect(clients).toHaveLength(1)
   })
 
+  it('does not fight another active Bot connection after a server disconnect event', async () => {
+    const { controller, clients } = setup()
+    await controller.start({ botId: 'bot', secret: 'redacted' })
+
+    clients[0].emit('disconnected', 'New connection established, server disconnected this connection')
+    await Promise.resolve()
+    await vi.runAllTimersAsync()
+
+    expect(controller.snapshot()).toStrictEqual({
+      state: 'failed',
+      attempt: 0,
+      error: { category: 'permanent', message: 'Another WeCom Bot connection is active' },
+    })
+    expect(clients).toHaveLength(1)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('retries immediately when the network returns and resets after stability', async () => {
     const { controller, clients, restoreNetwork } = setup()
     await controller.start({ botId: 'bot', secret: 'redacted' })
@@ -132,6 +149,16 @@ describe('channel connection generations', () => {
     expect(clients[0].listenerCount()).toBe(0)
     expect(vi.getTimerCount()).toBe(0)
     expect(clients).toHaveLength(1)
+  })
+
+  it('publishes JSON-safe snapshots when optional channel fields are cleared', async () => {
+    const { controller } = setup()
+
+    await controller.start({ botId: 'bot', secret: 'redacted' })
+    expect(controller.snapshot()).toStrictEqual({ state: 'connecting', attempt: 0 })
+
+    await controller.stop()
+    expect(controller.snapshot()).toStrictEqual({ state: 'stopped', attempt: 0 })
   })
 
   it('aborts and joins message work before stop resolves', async () => {

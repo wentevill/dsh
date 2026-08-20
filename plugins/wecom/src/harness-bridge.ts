@@ -55,8 +55,16 @@ export interface HarnessBridgeOptions {
   readonly createStreamId: () => string
 }
 
+export interface HarnessBridgeRuntimeOptions {
+  readonly workspaceFor: (sessionId: SessionId) => string
+  readonly ensureWorkspace: (path: string) => Promise<void>
+}
+
 /** Build the production bridge boundary from Harness services. */
-export function createHarnessBridgeRuntime(ctx: Context): HarnessBridgeRuntime {
+export function createHarnessBridgeRuntime(
+  ctx: Context,
+  options: HarnessBridgeRuntimeOptions,
+): HarnessBridgeRuntime {
   const pending = new Map<SessionId, Promise<{ agent: Agent; dispose?: () => Promise<void> }>>()
 
   const setupFor = async (presetId: string | undefined) => {
@@ -81,6 +89,7 @@ export function createHarnessBridgeRuntime(ctx: Context): HarnessBridgeRuntime {
     const header = headers.find(candidate => candidate.id === sessionId)
     if (header) {
       const inspected = await ctx.sessionPersistence.inspect(sessionId)
+      if (inspected.meta.cwd !== undefined) await options.ensureWorkspace(inspected.meta.cwd)
       const composition = await setupFor(recordedPreset(inspected.meta, inspected.events))
       const handle = await ctx.agents.resume({
         resumeSessionId: sessionId,
@@ -91,10 +100,15 @@ export function createHarnessBridgeRuntime(ctx: Context): HarnessBridgeRuntime {
       return { agent: handle.agent, dispose: () => handle.dispose() }
     }
     const composition = await setupFor(undefined)
+    const sessionCwd = options.workspaceFor(sessionId)
+    await options.ensureWorkspace(sessionCwd)
     const handle = await ctx.agents.create({
       sessionId,
       signal,
-      meta: composition.resolvedPreset === undefined ? {} : { agentPreset: composition.resolvedPreset },
+      meta: {
+        cwd: sessionCwd,
+        ...composition.resolvedPreset === undefined ? {} : { agentPreset: composition.resolvedPreset },
+      },
       agentOptions: composition.selection,
       setup: composition.setup,
     })

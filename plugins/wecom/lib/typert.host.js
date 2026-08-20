@@ -547,7 +547,7 @@ export const TYPERT = {
         typeSymbol: 'dsh-wecom/remote-types#WeComAuthSnapshot',
         schema: dsh_wecom_wecomAuth_cancel_result$schema,
       },
-      sourceLocation: {"file":"packages/wecom/src/index.ts","line":63,"column":21},
+      sourceLocation: {"file":"packages/wecom/src/index.ts","line":69,"column":21},
     },
     {
       id: 'dsh-wecom#wecomAuth/connect',
@@ -562,7 +562,7 @@ export const TYPERT = {
         typeSymbol: 'dsh-wecom/remote-types#WeComAuthSnapshot',
         schema: dsh_wecom_wecomAuth_connect_result$schema,
       },
-      sourceLocation: {"file":"packages/wecom/src/index.ts","line":62,"column":22},
+      sourceLocation: {"file":"packages/wecom/src/index.ts","line":68,"column":22},
     },
     {
       id: 'dsh-wecom#wecomAuth/deleteAuthorization',
@@ -587,7 +587,7 @@ export const TYPERT = {
         typeSymbol: 'dsh-wecom/remote-types#WeComAuthSnapshot',
         schema: dsh_wecom_wecomAuth_deleteAuthorization_result$schema,
       },
-      sourceLocation: {"file":"packages/wecom/src/index.ts","line":65,"column":40},
+      sourceLocation: {"file":"packages/wecom/src/index.ts","line":71,"column":40},
     },
     {
       id: 'dsh-wecom#wecomAuth/refresh',
@@ -602,7 +602,7 @@ export const TYPERT = {
         typeSymbol: 'dsh-wecom/remote-types#WeComAuthSnapshot',
         schema: dsh_wecom_wecomAuth_refresh_result$schema,
       },
-      sourceLocation: {"file":"packages/wecom/src/index.ts","line":64,"column":28},
+      sourceLocation: {"file":"packages/wecom/src/index.ts","line":70,"column":28},
     },
     {
       id: 'dsh-wecom#wecomAuth/status',
@@ -617,7 +617,7 @@ export const TYPERT = {
         typeSymbol: 'dsh-wecom/remote-types#WeComAuthSnapshot',
         schema: dsh_wecom_wecomAuth_status_result$schema,
       },
-      sourceLocation: {"file":"packages/wecom/src/index.ts","line":61,"column":21},
+      sourceLocation: {"file":"packages/wecom/src/index.ts","line":67,"column":21},
     },
   ],
   model: {

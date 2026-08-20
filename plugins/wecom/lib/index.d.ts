@@ -8,6 +8,7 @@ export interface Config {
     readonly profile?: string;
     readonly timeoutMs?: number;
     readonly maxOutputBytes?: number;
+    readonly sessionWorkspaceTemplate?: string;
 }
 export declare const Config: z<Config>;
 export declare const name = "wecom";

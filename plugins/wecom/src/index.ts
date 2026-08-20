@@ -19,6 +19,10 @@ import { createGenerationInstaller } from './generation-installer.ts'
 import { createNodeProcessExecutor, createWeComProcessRunner, type JsonValue } from './transport.ts'
 import { waitForFile } from './qr-file.ts'
 import { createQrAuthManager } from './qr-auth-manager.ts'
+import {
+  defaultSessionWorkspaceTemplate,
+  sessionWorkspaceTemplateSchema,
+} from './session-workspace.ts'
 import type { WeComAuthSnapshot } from './remote-types.ts'
 
 export interface Config {
@@ -26,6 +30,7 @@ export interface Config {
   readonly profile?: string
   readonly timeoutMs?: number
   readonly maxOutputBytes?: number
+  readonly sessionWorkspaceTemplate?: string
 }
 
 export const Config: z<Config> = z.object({
@@ -33,6 +38,7 @@ export const Config: z<Config> = z.object({
   profile: z.string().default('web'),
   timeoutMs: z.number().step(1).min(1_000).default(300_000),
   maxOutputBytes: z.number().step(1).min(1_024).default(1_048_576),
+  sessionWorkspaceTemplate: sessionWorkspaceTemplateSchema,
 })
 
 export const name = 'wecom'
@@ -98,6 +104,10 @@ function profilePath(ctx: Context, config: Config): string {
 /** Standard Cordis Host entry. Dynamic tools exist only while authorization is valid. */
 export async function apply(ctx: Context, config: Config): Promise<void> {
   const configDir = profilePath(ctx, config)
+  const sessionWorkspaceTemplate = config.sessionWorkspaceTemplate ?? defaultSessionWorkspaceTemplate()
+  if (!isAbsolute(sessionWorkspaceTemplate)) {
+    throw new Error('WeCom sessionWorkspaceTemplate must be absolute')
+  }
   const tempDir = resolve(configDir, 'tmp')
   const execute = createNodeProcessExecutor()
   const executable = cliExecutable()
@@ -141,6 +151,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   })
   const channelHost = await createWeComChannelHost(ctx, {
     cli: cliAuth,
+    sessionWorkspaceTemplate,
     qr: createQrAuthManager({
       toQrDataUrl: value => QRCode.toDataURL(value, { width: 240, margin: 1 }),
     }),

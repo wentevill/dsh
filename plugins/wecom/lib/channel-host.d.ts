@@ -17,4 +17,5 @@ export declare function createWeComChannelHost(ctx: Context, options: {
     readonly cli: CliAuthBackend;
     readonly qr: QrAuthManager;
     readonly createController?: typeof createChannelController;
+    readonly sessionWorkspaceTemplate?: string;
 }): Promise<WeComChannelHost>;

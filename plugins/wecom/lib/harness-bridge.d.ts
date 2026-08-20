@@ -29,8 +29,12 @@ export interface HarnessBridgeOptions {
     readonly reply: (context: unknown, streamId: string, content: string, finish: boolean) => Promise<void>;
     readonly createStreamId: () => string;
 }
+export interface HarnessBridgeRuntimeOptions {
+    readonly workspaceFor: (sessionId: SessionId) => string;
+    readonly ensureWorkspace: (path: string) => Promise<void>;
+}
 /** Build the production bridge boundary from Harness services. */
-export declare function createHarnessBridgeRuntime(ctx: Context): HarnessBridgeRuntime;
+export declare function createHarnessBridgeRuntime(ctx: Context, options: HarnessBridgeRuntimeOptions): HarnessBridgeRuntime;
 export declare class HarnessBridge {
     #private;
     constructor(options: HarnessBridgeOptions);

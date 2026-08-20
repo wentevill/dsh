@@ -51,11 +51,13 @@ import { createGenerationInstaller } from "./generation-installer.js";
 import { createNodeProcessExecutor, createWeComProcessRunner } from "./transport.js";
 import { waitForFile } from "./qr-file.js";
 import { createQrAuthManager } from "./qr-auth-manager.js";
+import { defaultSessionWorkspaceTemplate, sessionWorkspaceTemplateSchema, } from "./session-workspace.js";
 export const Config = z.object({
     configDir: z.string(),
     profile: z.string().default('web'),
     timeoutMs: z.number().step(1).min(1_000).default(300_000),
     maxOutputBytes: z.number().step(1).min(1_024).default(1_048_576),
+    sessionWorkspaceTemplate: sessionWorkspaceTemplateSchema,
 });
 export const name = 'wecom';
 export const inject = [
@@ -140,6 +142,10 @@ function profilePath(ctx, config) {
 /** Standard Cordis Host entry. Dynamic tools exist only while authorization is valid. */
 export async function apply(ctx, config) {
     const configDir = profilePath(ctx, config);
+    const sessionWorkspaceTemplate = config.sessionWorkspaceTemplate ?? defaultSessionWorkspaceTemplate();
+    if (!isAbsolute(sessionWorkspaceTemplate)) {
+        throw new Error('WeCom sessionWorkspaceTemplate must be absolute');
+    }
     const tempDir = resolve(configDir, 'tmp');
     const execute = createNodeProcessExecutor();
     const executable = cliExecutable();
@@ -183,6 +189,7 @@ export async function apply(ctx, config) {
     });
     const channelHost = await createWeComChannelHost(ctx, {
         cli: cliAuth,
+        sessionWorkspaceTemplate,
         qr: createQrAuthManager({
             toQrDataUrl: value => QRCode.toDataURL(value, { width: 240, margin: 1 }),
         }),

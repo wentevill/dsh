@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { HarnessBridge, HarnessBridgeError } from '../src/harness-bridge.js'
+import { createHarnessBridgeRuntime, HarnessBridge, HarnessBridgeError } from '../src/harness-bridge.js'
 import { RoomScheduler } from '../src/room-scheduler.js'
 
 function envelope() {
@@ -44,6 +44,50 @@ function setup(reason: Record<string, unknown> = { kind: 'completed' }) {
 }
 
 describe('HarnessBridge', () => {
+  it('creates autonomous WeCom sessions with a dedicated workspace cwd', async () => {
+    const agent = { session: { seq: 0, events: [] }, followup() {}, async whenIdle() {} }
+    const create = vi.fn(async () => ({ agent, async dispose() {} }))
+    const ensureWorkspace = vi.fn(async () => {})
+    const ctx = {
+      agents: { get: () => undefined, create },
+      sessions: { get: () => undefined },
+      sessionPersistence: { list: async () => [] },
+      agentDefaultModel: { currentSelection: () => ({ provider: 'test', model: 'model' }) },
+      get: () => undefined,
+    }
+    const runtime = createHarnessBridgeRuntime(ctx as never, {
+      workspaceFor: sessionId => `/tmp/wecom-session-workspace/${sessionId}`,
+      ensureWorkspace,
+    })
+
+    await runtime.agentFor('wecom-new' as never, new AbortController().signal)
+
+    expect(ensureWorkspace).toHaveBeenCalledWith('/tmp/wecom-session-workspace/wecom-new')
+    expect(ensureWorkspace.mock.invocationCallOrder[0]).toBeLessThan(create.mock.invocationCallOrder[0]!)
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      meta: { cwd: '/tmp/wecom-session-workspace/wecom-new' },
+    }))
+  })
+
+  it('does not create an Agent when its workspace cannot be created', async () => {
+    const create = vi.fn()
+    const ctx = {
+      agents: { get: () => undefined, create },
+      sessions: { get: () => undefined },
+      sessionPersistence: { list: async () => [] },
+      agentDefaultModel: { currentSelection: () => ({ provider: 'test', model: 'model' }) },
+      get: () => undefined,
+    }
+    const runtime = createHarnessBridgeRuntime(ctx as never, {
+      workspaceFor: () => '/tmp/unavailable-wecom-workspace',
+      ensureWorkspace: async () => { throw new Error('workspace unavailable') },
+    })
+
+    await expect(runtime.agentFor('wecom-new' as never, new AbortController().signal))
+      .rejects.toThrow('workspace unavailable')
+    expect(create).not.toHaveBeenCalled()
+  })
+
   it('resolves one room session, drives one turn, flushes, and references the callback', async () => {
     const { bridge, runtime, roomSessions, reply, agent } = setup()
     const input = envelope()
