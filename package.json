@@ -10,6 +10,7 @@
     "manager:pack": "corepack pnpm --dir plugins/manager pack --pack-destination .",
     "mail:pack": "corepack pnpm --dir plugins/mail pack --pack-destination .",
     "wecom:pack": "corepack pnpm --dir plugins/wecom pack --pack-destination .",
+    "nextcloud:pack": "corepack pnpm --dir plugins/nextcloud pack --pack-destination .",
     "mail:test": "vitest run plugins/mail/tests",
     "verify:upstream": "node --experimental-strip-types packaging/assert-upstream.ts",
     "test": "vitest run packaging",

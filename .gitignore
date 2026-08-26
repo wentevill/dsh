@@ -5,6 +5,7 @@
 node_modules/
 plugins/mail/*.tgz
 plugins/wecom/*.tgz
+plugins/nextcloud/*.tgz
 target/
 dist/
 *.dmg
