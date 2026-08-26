@@ -22,8 +22,11 @@ PLUGIN_PACK_SCRIPT := confluence:pack
 else ifeq ($(PLUGIN),manager)
 PLUGIN_PACKAGE := dsh-plugin-manager
 PLUGIN_PACK_SCRIPT := manager:pack
+else ifeq ($(PLUGIN),nextcloud)
+PLUGIN_PACKAGE := dsh-nextcloud
+PLUGIN_PACK_SCRIPT := nextcloud:pack
 else
-$(error unsupported PLUGIN=$(PLUGIN); supported plugins: mail wecom confluence manager)
+$(error unsupported PLUGIN=$(PLUGIN); supported plugins: mail wecom confluence manager nextcloud)
 endif
 ifneq ($(PLUGIN),mail)
 PLUGIN_VERSION := $(shell node -p "require('./plugins/$(PLUGIN)/package.json').version")
@@ -37,10 +40,10 @@ help:
 	@printf '%s\n' \
 		'make release-dmg    Build and audit the release app and DMG' \
 		'make run            Start Tauri development mode' \
-		'make pack-plugin    Build a production plugin tgz (PLUGIN=mail|wecom|confluence|manager)' \
+		'make pack-plugin    Build a production plugin tgz (PLUGIN=mail|wecom|confluence|manager|nextcloud)' \
 		'make install-plugin Pack and install a plugin into the Desktop web profile' \
 		'' \
-		'Variables: APP_PATH, PLUGIN=mail|wecom|confluence|manager, PROFILE=web, DESKTOP_DSH_HOME'
+		'Variables: APP_PATH, PLUGIN=mail|wecom|confluence|manager|nextcloud, PROFILE=web, DESKTOP_DSH_HOME'
 
 release-dmg:
 	corepack pnpm desktop:build

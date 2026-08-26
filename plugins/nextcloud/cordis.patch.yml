@@ -1,0 +1,11 @@
+- insert:
+    - id: nextcloud
+      name: dsh-nextcloud
+      config:
+        serverUrl: ""
+        username: ""
+        accessMode: all
+        allowedRoots: []
+        allowDelete: false
+        allowHttp: false
+        skipTlsVerify: false

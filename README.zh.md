@@ -14,6 +14,7 @@ make run             # 启动 Tauri 开发模式
 make pack-plugin     # 生成 mail 插件生产 tgz
 make install-plugin  # 打包并安装 mail 到 Desktop web profile
 make pack-plugin PLUGIN=manager  # 生成插件管理器生产 tgz
+make pack-plugin PLUGIN=nextcloud  # 生成 Nextcloud 文件与共享插件 tgz
 ```
 
 执行 `make install-plugin` 前请退出已经安装的 DeepSeek Harness，避免同时读写 profile。安装过程只使用 `/Applications/DeepSeek Harness.app` 内置的 Node、dsh CLI 和 pnpm，并明确写入 Desktop 数据目录，不会写入默认的 `~/.dsh`。
@@ -28,6 +29,6 @@ Desktop 会内置 `dsh-plugin-manager`，并在启动 Web 服务前保证 web pr
 
 Confluence Data Center 插件可通过 `make pack-plugin PLUGIN=confluence` 打包。它使用 HTTPS 和 Personal Access Token，并可配置允许的 Space Key 或显式允许全部空间。
 
-支持的变量为 `APP_PATH`、`PLUGIN=mail|wecom|confluence|manager`、`PROFILE` 和 `DESKTOP_DSH_HOME`。运行 `make help` 查看命令摘要。
+支持的变量为 `APP_PATH`、`PLUGIN=mail|wecom|confluence|manager|nextcloud`、`PROFILE` 和 `DESKTOP_DSH_HOME`。运行 `make help` 查看命令摘要。
 
 选择新的 GitHub revision 前请阅读 [更新 upstream](docs/operations/upstream-update.md)。

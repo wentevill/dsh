@@ -40,6 +40,7 @@ make pack-plugin                       # create the production mail plugin tgz
 make pack-plugin PLUGIN=wecom          # create the production WeCom plugin tgz
 make pack-plugin PLUGIN=confluence     # create the Confluence Data Center plugin tgz
 make pack-plugin PLUGIN=manager        # create the production Plugin manager tgz
+make pack-plugin PLUGIN=nextcloud      # create the production Nextcloud files and sharing plugin tgz
 make install-plugin PLUGIN=wecom       # pack and install WeCom into the Desktop web profile
 ```
 
@@ -60,5 +61,5 @@ immediately after **Plugin list**, accepts one `.tgz` at a time and manages
 dependency-backed plugins by package name and installed version. Changes require
 a manual application restart.
 
-Supported variables are `APP_PATH`, `PLUGIN=mail|wecom|confluence|manager`, `PROFILE`, and
+Supported variables are `APP_PATH`, `PLUGIN=mail|wecom|confluence|manager|nextcloud`, `PROFILE`, and
 `DESKTOP_DSH_HOME`. Run `make help` for the command summary.
