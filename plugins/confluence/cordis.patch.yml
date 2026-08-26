@@ -1,0 +1,7 @@
+- insert:
+    - id: confluence
+      name: dsh-confluence
+      config:
+        baseUrl: ""
+        allowAllSpaces: false
+        allowedSpaceKeys: []

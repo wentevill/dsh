@@ -26,6 +26,8 @@ make install-plugin APP_PATH="/Applications/DeepSeek Harness.app" PROFILE=web
 
 Desktop 会内置 `dsh-plugin-manager`，并在启动 Web 服务前保证 web profile 使用内置版本。设置页中 **插件管理** 选项卡紧跟 **插件列表**：每次可拖入一个 `.tgz`，列表按包名和已安装版本展示额外插件，展开卡片后可以卸载。安装或卸载后需要手动重启应用。
 
-支持的变量为 `APP_PATH`、`PLUGIN=mail|wecom|manager`、`PROFILE` 和 `DESKTOP_DSH_HOME`。运行 `make help` 查看命令摘要。
+Confluence Data Center 插件可通过 `make pack-plugin PLUGIN=confluence` 打包。它使用 HTTPS 和 Personal Access Token，并可配置允许的 Space Key 或显式允许全部空间。
+
+支持的变量为 `APP_PATH`、`PLUGIN=mail|wecom|confluence|manager`、`PROFILE` 和 `DESKTOP_DSH_HOME`。运行 `make help` 查看命令摘要。
 
 选择新的 GitHub revision 前请阅读 [更新 upstream](docs/operations/upstream-update.md)。
