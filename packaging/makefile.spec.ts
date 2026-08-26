@@ -24,6 +24,10 @@ describe('Desktop Make commands', () => {
     expect(dryRun('pack-plugin', ['PLUGIN=wecom'])).toContain('corepack pnpm wecom:pack')
   })
 
+  it('delegates Confluence packaging to its owned script', () => {
+    expect(dryRun('pack-plugin', ['PLUGIN=confluence'])).toContain('corepack pnpm confluence:pack')
+  })
+
   it('installs the selected WeCom archive into the requested profile', () => {
     const manifest = JSON.parse(readFileSync(resolve(root, 'plugins/wecom/package.json'), 'utf8')) as { version: string }
     const output = dryRun('install-plugin', [
@@ -93,6 +97,6 @@ describe('Desktop Make commands', () => {
     const result = spawnSync('make', ['-n', 'pack-plugin', 'PLUGIN=unknown'], { cwd: root, encoding: 'utf8' })
     expect(result.status).not.toBe(0)
     expect(`${result.stdout}${result.stderr}`).toContain('unsupported PLUGIN=unknown')
-    expect(`${result.stdout}${result.stderr}`).toContain('supported plugins: mail wecom')
+    expect(`${result.stdout}${result.stderr}`).toContain('supported plugins: mail wecom confluence manager')
   })
 })
