@@ -220,9 +220,9 @@ async function activateServedClient(code: string, loadedSettings: unknown): Prom
     ctx.provide('locale', { register: () => () => undefined })
     ctx.provide('settingsScope', {})
     ctx.provide('slots', {
-      register(options: { id: string }) {
-        slots.add(options.id)
-        return () => { slots.delete(options.id) }
+      register(options: { key: string }) {
+        slots.add(options.key)
+        return () => { slots.delete(options.key) }
       },
       inject(_name: string, register: () => Iterable<() => void>) {
         const disposers = [...register()]

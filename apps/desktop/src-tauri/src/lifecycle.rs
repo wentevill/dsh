@@ -156,7 +156,7 @@ impl ServerProcess {
         let mut command = Command::new(&spec.node);
         command
             .arg(&spec.cli)
-            .args(["--profile", "web", "--port", "0"])
+            .args(["--profile", "web", "--port", "0", "--no-open"])
             .env("DSH_HOME", &spec.dsh_home)
             .env("PATH", private_path)
             .env_remove("NODE_OPTIONS")

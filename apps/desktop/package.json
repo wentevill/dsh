@@ -24,6 +24,8 @@
     "@deepseek-ai/schemastery": "workspace:^",
     "dsh-jsonrpc-agent-pkg": "workspace:*",
     "dsh-plugin-manager": "workspace:*",
-    "pnpm": "11.7.0"
+    "pnpm": "11.7.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }

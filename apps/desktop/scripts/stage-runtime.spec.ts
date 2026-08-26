@@ -71,9 +71,14 @@ describe('runtime staging', () => {
     expect(lstatSync(join(root, 'missing', 'resources')).isDirectory()).toBe(true)
   })
 
-  it('runs assembly tools with the pinned Node before the host PATH', () => {
-    const environment = buildEnvironment('/runtime/node/bin/node', { PATH: '/host/bin', TOKEN: 'kept' })
+  it('runs assembly tools with the pinned Node and archived upstream commit', () => {
+    const environment = buildEnvironment(
+      '/runtime/node/bin/node',
+      'b150a551b8d465e31e418e1b2eaf5e79bbb7d28e',
+      { PATH: '/host/bin', TOKEN: 'kept' },
+    )
     expect(environment.PATH).toBe(`/runtime/node/bin${delimiter}/host/bin`)
+    expect(environment.DSH_CLIENT_COMMIT_HASH).toBe('b150a551b8d465e31e418e1b2eaf5e79bbb7d28e')
     expect(environment.TOKEN).toBe('kept')
   })
 

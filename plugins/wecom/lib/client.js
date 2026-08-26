@@ -5213,11 +5213,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		};
 		//#endregion
 		//#region src/client/slot-options.ts
-		/** Runtime registration shape used before the configurable tab declares its keyed child slot. */
+		/** Keyed registration for the settings namespace owned by WeCom. */
 		const WECOM_CARD_SLOT_OPTIONS = {
 			name: "settings.plugin.item",
-			id: "wecom",
-			order: 35,
+			key: "wecom",
 			locale: "settings.plugins.wecom"
 		};
 		//#endregion

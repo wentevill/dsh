@@ -2,7 +2,7 @@ use dsh_desktop::lifecycle::{
     ServerProcess, StartError, StartSpec, parse_web_url, private_runtime_path,
 };
 use std::ffi::OsStr;
-use std::fs::{create_dir_all, write};
+use std::fs::{create_dir_all, read_to_string, write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -106,6 +106,28 @@ fn child_resolves_bare_pnpm_from_the_private_package_bin() {
 
     let mut server = ServerProcess::start(start).unwrap();
     assert_eq!(server.origin(), "http://127.0.0.1:43125");
+    server.shutdown().unwrap();
+}
+
+#[test]
+fn desktop_child_disables_browser_open() {
+    let root =
+        std::env::temp_dir().join(format!("dsh-desktop-arguments-{}", std::process::id()));
+    create_dir_all(&root).unwrap();
+    let arguments = root.join("arguments.txt");
+    let cli = fixture_script(
+        "capture-arguments.sh",
+        &format!(
+            "trap 'exit 0' TERM\nprintf '%s\\n' \"$@\" > '{}'\necho 'dsh web: http://127.0.0.1:43126'\nwhile :; do sleep 1; done",
+            arguments.display(),
+        ),
+    );
+
+    let mut server = ServerProcess::start(spec(cli, Duration::from_secs(1))).unwrap();
+    assert_eq!(
+        read_to_string(arguments).unwrap(),
+        "--profile\nweb\n--port\n0\n--no-open\n",
+    );
     server.shutdown().unwrap();
 }
 

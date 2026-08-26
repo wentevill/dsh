@@ -66,7 +66,8 @@ export function stageRuntime(
     mkdirSync(extract)
     execFileSync('tar', ['-xzf', archivePath, '-C', extract])
     const node = join(extract, basename(config.archive, '.tar.gz'), 'bin', 'node')
-    const environment = buildEnvironment(node, process.env)
+    const upstreamCommit = execFileSync('git', ['-C', upstreamRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+    const environment = buildEnvironment(node, upstreamCommit, process.env)
     copyFileSync(node, join(staged, 'node', 'bin', 'node'))
     chmodSync(join(staged, 'node', 'bin', 'node'), 0o755)
     signRuntimeExecutable(join(staged, 'node', 'bin', 'node'))
@@ -163,9 +164,17 @@ export function createStageDirectory(destination: string, stagingParent: string)
   return mkdtempSync(join(stagingParent, '.runtime-stage-'))
 }
 
-export function buildEnvironment(node: string, inherited: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+export function buildEnvironment(
+  node: string,
+  upstreamCommit: string,
+  inherited: NodeJS.ProcessEnv,
+): NodeJS.ProcessEnv {
   const nodeBin = dirname(node)
-  return { ...inherited, PATH: inherited.PATH ? `${nodeBin}${delimiter}${inherited.PATH}` : nodeBin }
+  return {
+    ...inherited,
+    DSH_CLIENT_COMMIT_HASH: upstreamCommit,
+    PATH: inherited.PATH ? `${nodeBin}${delimiter}${inherited.PATH}` : nodeBin,
+  }
 }
 
 function copyPackagingPackage(source: string, destination: string): void {

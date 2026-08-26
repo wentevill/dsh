@@ -1,6 +1,6 @@
 {
   "name": "dsh-mail",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "TLS-only IMAP and SMTP mail bundle for DeepSeek Harness",
   "type": "module",
   "packageManager": "pnpm@11.7.0",

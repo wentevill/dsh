@@ -22,8 +22,9 @@ import { MAIL_SETTINGS_NAMESPACE, createMailCardController } from './mail-card-c
 import { en, zh } from './locales.ts'
 import { unwrapMailSettingsSave } from './remote-save.ts'
 import { createMailSettingsMirror } from './settings-mirror.ts'
+import { MAIL_CARD_SLOT_OPTIONS } from './slot-options.ts'
 
-export { MailCard, createMailCardController, MAIL_SETTINGS_NAMESPACE }
+export { MailCard, createMailCardController, MAIL_CARD_SLOT_OPTIONS, MAIL_SETTINGS_NAMESPACE }
 export type { MailCardFace, MailCardState } from './mail-card-controller.ts'
 
 /** Copy namespace owned by this client plugin. */
@@ -60,10 +61,7 @@ export const mailClientFeature = Object.assign(async (ctx: ClientContext): Promi
 
   ctx.slots.inject('settings.plugin.item', function* () {
     yield ctx.slots.register({
-      name: 'settings.plugin.item',
-      id: 'mail',
-      order: 30,
-      locale: NS,
+      ...MAIL_CARD_SLOT_OPTIONS,
       inject: controller.face,
     }, MailCard)
   })

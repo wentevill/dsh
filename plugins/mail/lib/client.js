@@ -5897,6 +5897,14 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			};
 		}
 		//#endregion
+		//#region src/client/slot-options.ts
+		/** Keyed registration for the settings namespace owned by Mail. */
+		const MAIL_CARD_SLOT_OPTIONS = {
+			name: "settings.plugin.item",
+			key: "mail",
+			locale: "settings.plugins.mail"
+		};
+		//#endregion
 		//#region src/client/index.ts
 		/** Copy namespace owned by this client plugin. */
 		const NS = "settings.plugins.mail";
@@ -5921,10 +5929,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			}), "mail-client: credential invalidations");
 			ctx.slots.inject("settings.plugin.item", function* () {
 				yield ctx.slots.register({
-					name: "settings.plugin.item",
-					id: "mail",
-					order: 30,
-					locale: NS,
+					...MAIL_CARD_SLOT_OPTIONS,
 					inject: controller.face
 				}, MailCard);
 			});
@@ -5946,6 +5951,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			};
 		}
 		//#endregion
+		exports.MAIL_CARD_SLOT_OPTIONS = MAIL_CARD_SLOT_OPTIONS;
 		exports.MAIL_SETTINGS_NAMESPACE = MAIL_NS;
 		exports.MailCard = MailCard;
 		exports.apply = apply;
