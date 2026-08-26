@@ -2,10 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { CONFLUENCE_CARD_SLOT_OPTIONS } from '../src/client/slot-options.ts'
 import { unwrapRemote } from '../src/client/remote-result.ts'
+import { en, zh } from '../src/client/locales.ts'
 
 describe('Confluence settings client contract', () => {
   it('registers its card under the Host settings namespace', () => {
-    expect(CONFLUENCE_CARD_SLOT_OPTIONS).toEqual({ name: 'settings.plugin.item', key: 'confluence' })
+    expect(CONFLUENCE_CARD_SLOT_OPTIONS).toEqual({
+      name: 'settings.plugin.item', key: 'confluence', locale: 'settings.plugins.confluence',
+    })
+  })
+
+  it('ships complete English and Chinese settings dictionaries', () => {
+    expect(Object.keys(zh).sort()).toEqual(Object.keys(en).sort())
+    expect(en.save).toBe('Save')
+    expect(zh.save).toBe('保存')
   })
 
   it('unwraps generated Typert Remote results', () => {

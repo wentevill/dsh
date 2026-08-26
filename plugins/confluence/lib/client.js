@@ -4224,7 +4224,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		//#region src/client/slot-options.ts
 		const CONFLUENCE_CARD_SLOT_OPTIONS = {
 			name: "settings.plugin.item",
-			key: "confluence"
+			key: "confluence",
+			locale: "settings.plugins.confluence"
 		};
 		//#endregion
 		//#region src/client/remote-result.ts
@@ -4289,19 +4290,69 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			document.head.appendChild(tag);
 		}
 		//#endregion
+		//#region src/client/locales.ts
+		const en = {
+			title: "Confluence Data Center",
+			description: "Configure the site URL, personal access token, and allowed spaces.",
+			baseUrl: "HTTPS base URL",
+			token: "Personal Access Token",
+			allowAll: "Allow every space accessible to the token",
+			spaces: "Allowed Space Keys (one per line)",
+			unsaved: "Unsaved",
+			unconfigured: "Not configured",
+			saving: "Saving…",
+			saved: "Saved",
+			testing: "Testing…",
+			connected: "Connected",
+			discarded: "Changes discarded",
+			loadFailed: "Failed to load settings",
+			saveFailed: "Save failed",
+			testFailed: "Connection test failed",
+			tokenSaveFailed: "Failed to save token",
+			discard: "Discard changes",
+			test: "Test connection",
+			save: "Save",
+			expand: "Show settings",
+			collapse: "Hide settings"
+		};
+		const zh = {
+			title: "Confluence 数据中心",
+			description: "配置站点地址、个人访问令牌与允许访问的空间。",
+			baseUrl: "HTTPS 基础地址",
+			token: "个人访问令牌",
+			allowAll: "允许令牌可访问的全部空间",
+			spaces: "允许的空间 Key（每行一个）",
+			unsaved: "未保存",
+			unconfigured: "未配置",
+			saving: "正在保存…",
+			saved: "已保存",
+			testing: "正在测试…",
+			connected: "连接成功",
+			discarded: "已放弃修改",
+			loadFailed: "加载配置失败",
+			saveFailed: "保存失败",
+			testFailed: "连接测试失败",
+			tokenSaveFailed: "令牌保存失败",
+			discard: "放弃修改",
+			test: "测试连接",
+			save: "保存",
+			expand: "展开设置",
+			collapse: "收起设置"
+		};
+		//#endregion
 		//#region src/client/index.tsx
 		const EMPTY = {
 			baseUrl: "",
 			allowAllSpaces: false,
 			allowedSpaceKeys: []
 		};
-		function ConfluenceCard({ remoteApi, credentials }) {
+		function ConfluenceCard({ remoteApi, credentials, t }) {
 			const initialRemote = (0, react.useRef)(remoteApi);
 			const [settings, setSettings] = (0, react.useState)(EMPTY);
 			const [savedSettings, setSavedSettings] = (0, react.useState)(EMPTY);
 			const [pat, setPat] = (0, react.useState)("");
 			const [spaces, setSpaces] = (0, react.useState)("");
-			const [status, setStatus] = (0, react.useState)("未配置");
+			const [status, setStatus] = (0, react.useState)("unconfigured");
 			const [busy, setBusy] = (0, react.useState)(false);
 			const [open, setOpen] = (0, react.useState)(false);
 			ensureCardCSS();
@@ -4311,7 +4362,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					setSettings(value.settings);
 					setSavedSettings(value.settings);
 					setSpaces(value.settings.allowedSpaceKeys.join("\n"));
-				}).catch((cause) => setStatus(cause instanceof Error ? cause.message : "加载失败"));
+				}).catch((cause) => setStatus(cause instanceof Error ? cause.message : "loadFailed"));
 			}, []);
 			const update = (patch) => setSettings((current) => ({
 				...current,
@@ -4327,11 +4378,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				if ((await credentials.set({
 					ref: patRef,
 					value: pat.trim()
-				}))?.result?.ok !== true) throw new Error("Token 保存失败");
+				}))?.result?.ok !== true) throw new Error(t("tokenSaveFailed"));
 			};
 			const save = async () => {
 				setBusy(true);
-				setStatus("正在保存…");
+				setStatus("saving");
 				try {
 					const pending = pendingSettings();
 					await stageCredential(pending);
@@ -4340,23 +4391,23 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					setSavedSettings(saved.settings);
 					setSpaces(saved.settings.allowedSpaceKeys.join("\n"));
 					setPat("");
-					setStatus("已保存");
+					setStatus("saved");
 				} catch (cause) {
-					setStatus(cause instanceof Error ? cause.message : "保存失败");
+					setStatus(cause instanceof Error ? cause.message : "saveFailed");
 				} finally {
 					setBusy(false);
 				}
 			};
 			const test = async () => {
 				setBusy(true);
-				setStatus("正在测试…");
+				setStatus("testing");
 				try {
 					const pending = pendingSettings();
 					await stageCredential(pending);
 					const tested = unwrapRemote(await remoteApi.testConnection(pending));
-					setStatus(`连接成功 · Confluence ${tested.version}`);
+					setStatus(`${t("connected")} · Confluence ${tested.version}`);
 				} catch (cause) {
-					setStatus(cause instanceof Error ? cause.message : "测试失败");
+					setStatus(cause instanceof Error ? cause.message : "testFailed");
 				} finally {
 					setBusy(false);
 				}
@@ -4365,7 +4416,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				setSettings(savedSettings);
 				setSpaces(savedSettings.allowedSpaceKeys.join("\n"));
 				setPat("");
-				setStatus("已放弃修改");
+				setStatus("discarded");
 			};
 			const dirty = pat !== "" || JSON.stringify(pendingSettings()) !== JSON.stringify(savedSettings);
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
@@ -4374,21 +4425,22 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					type: "button",
 					className: css.header,
 					"aria-expanded": open,
+					"aria-label": `${t(open ? "collapse" : "expand")}: ${t("title")}`,
 					onClick: () => setOpen((value) => !value),
 					children: [
 						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 							className: css.headText,
 							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: css.name,
-								children: "Confluence Data Center"
+								children: t("title")
 							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: css.description,
-								children: "配置页面访问地址、Token 与允许空间。"
+								children: t("description")
 							})]
 						}),
 						dirty && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 							className: css.pending,
-							children: "未保存"
+							children: t("unsaved")
 						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, { className: `${css.chevron}${open ? ` ${css.chevronOpen}` : ""}` })
 					]
@@ -4399,7 +4451,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 							className: css.field,
 							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: css.label,
-								children: "HTTPS 基础地址"
+								children: t("baseUrl")
 							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
 								className: css.input,
 								value: settings.baseUrl,
@@ -4411,7 +4463,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 							className: css.field,
 							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: css.label,
-								children: "Personal Access Token"
+								children: t("token")
 							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
 								className: css.input,
 								type: "password",
@@ -4426,13 +4478,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 								type: "checkbox",
 								checked: settings.allowAllSpaces,
 								onChange: (event) => update({ allowAllSpaces: event.target.checked })
-							}), "允许 Token 可访问的全部空间"]
+							}), t("allowAll")]
 						}),
 						!settings.allowAllSpaces && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
 							className: css.field,
 							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: css.label,
-								children: "允许的 Space Key（每行一个）"
+								children: t("spaces")
 							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
 								className: css.textarea,
 								rows: 4,
@@ -4443,7 +4495,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 							className: css.status,
 							role: "status",
-							children: status
+							children: status in en ? t(status) : status
 						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: css.footer,
@@ -4453,21 +4505,21 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 									className: css.discard,
 									disabled: !dirty || busy,
 									onClick: discard,
-									children: "放弃修改"
+									children: t("discard")
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 									type: "button",
 									className: css.test,
 									disabled: busy,
 									onClick: () => void test(),
-									children: "测试连接"
+									children: t("test")
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 									type: "button",
 									className: css.save,
 									disabled: !dirty || busy,
 									onClick: () => void save(),
-									children: "保存"
+									children: t("save")
 								})
 							]
 						})
@@ -4481,14 +4533,20 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			const disposeRemote = await ctx.remote.$mount(TYPERT_REMOTE);
 			const feature = ctx.plugin(Object.assign(async (child) => {
 				const { api } = child.get("connection");
+				child.effect(() => child.locale.register("settings.plugins.confluence", {
+					zh,
+					en
+				}), "confluence-client: dictionaries");
 				child.slots.inject("settings.plugin.item", function* () {
-					yield child.slots.register(CONFLUENCE_CARD_SLOT_OPTIONS, () => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ConfluenceCard, {
+					yield child.slots.register(CONFLUENCE_CARD_SLOT_OPTIONS, (props) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ConfluenceCard, {
 						remoteApi: child.remote.confluenceSettings,
-						credentials: api.credentials
+						credentials: api.credentials,
+						t: props.t
 					}));
 				});
 			}, { inject: [
 				"slots",
+				"locale",
 				"connection",
 				"remote",
 				"remote.confluenceSettings"
