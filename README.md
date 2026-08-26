@@ -38,6 +38,7 @@ make release-dmg     # build and audit the release app and DMG
 make run             # start Tauri development mode
 make pack-plugin                       # create the production mail plugin tgz
 make pack-plugin PLUGIN=wecom          # create the production WeCom plugin tgz
+make pack-plugin PLUGIN=manager        # create the production Plugin manager tgz
 make install-plugin PLUGIN=wecom       # pack and install WeCom into the Desktop web profile
 ```
 
@@ -52,5 +53,11 @@ Override paths and selection when needed:
 make install-plugin PLUGIN=wecom APP_PATH="/Applications/DeepSeek Harness.app" PROFILE=web
 ```
 
-Supported variables are `APP_PATH`, `PLUGIN=mail|wecom`, `PROFILE`, and
+Desktop bundles `dsh-plugin-manager` and keeps its exact version installed in
+the `web` profile before starting the Web server. Its **Plugin manager** tab,
+immediately after **Plugin list**, accepts one `.tgz` at a time and manages
+dependency-backed plugins by package name and installed version. Changes require
+a manual application restart.
+
+Supported variables are `APP_PATH`, `PLUGIN=mail|wecom|manager`, `PROFILE`, and
 `DESKTOP_DSH_HOME`. Run `make help` for the command summary.

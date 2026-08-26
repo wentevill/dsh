@@ -77,6 +77,7 @@ export function stageRuntime(
     // A second install updates only this disposable assembly's lock and links.
     copyPackagingPackage(join(packagingRoot, 'apps/desktop'), join(assembly, 'apps/desktop'))
     copyPackagingPackage(join(packagingRoot, 'packages/mail'), join(assembly, 'packages/mail'))
+    copyPackagingPackage(join(packagingRoot, 'plugins/manager'), join(assembly, 'packages/extensions/plugin-manager'))
     augmentDesktopRuntimeClosure(assembly)
     execFileSync('corepack', ['pnpm', 'install', '--lockfile-only', '--no-frozen-lockfile'], { cwd: assembly, env: environment, stdio: 'inherit' })
     verifyPackageIntegrity(join(assembly, 'pnpm-lock.yaml'), 'pnpm', config.pnpmVersion, config.pnpmIntegrity)
@@ -104,11 +105,44 @@ export function stageRuntime(
     rmSync(join(deploy, 'node_modules/.pnpm/lock.yaml'), { force: true })
     mkdirSync(join(staged, 'app'))
     renameSync(join(deploy, 'node_modules'), join(staged, 'app', 'node_modules'))
+    stagePluginManagerAssets(
+      join(assembly, 'packages/extensions/plugin-manager'),
+      join(packagingRoot, 'apps/desktop/scripts/ensure-plugin-manager.mjs'),
+      staged,
+      (source, destination) => {
+        execFileSync('corepack', ['pnpm', 'pack', '--pack-destination', destination], {
+          cwd: source,
+          env: environment,
+          stdio: 'inherit',
+        })
+      },
+    )
     rmSync(destination, { recursive: true, force: true })
     renameSync(staged, destination)
   } finally {
     rmSync(temporary, { recursive: true, force: true })
   }
+}
+
+export type PluginManagerPackRunner = (source: string, destination: string) => void
+
+export function stagePluginManagerAssets(
+  managerRoot: string,
+  bootstrapPath: string,
+  staged: string,
+  pack: PluginManagerPackRunner,
+): void {
+  const plugins = join(staged, 'plugins')
+  const app = join(staged, 'app')
+  mkdirSync(plugins, { recursive: true })
+  mkdirSync(app, { recursive: true })
+  pack(managerRoot, plugins)
+  const archives = readdirSync(plugins).filter(name => /^dsh-plugin-manager-.+\.tgz$/u.test(name))
+  if (archives.length !== 1) {
+    throw new Error(`Plugin manager pack produced ${archives.length} archives`)
+  }
+  renameSync(join(plugins, archives[0]!), join(plugins, 'dsh-plugin-manager.tgz'))
+  copyFileSync(bootstrapPath, join(app, 'ensure-plugin-manager.mjs'))
 }
 
 /** Make Desktop-only capabilities part of the installed dsh closure used by profile peer fallback. */

@@ -16,8 +16,11 @@ PLUGIN_PACKAGE := dsh-mail
 else ifeq ($(PLUGIN),wecom)
 PLUGIN_PACKAGE := dsh-wecom
 PLUGIN_PACK_SCRIPT := wecom:pack
+else ifeq ($(PLUGIN),manager)
+PLUGIN_PACKAGE := dsh-plugin-manager
+PLUGIN_PACK_SCRIPT := manager:pack
 else
-$(error unsupported PLUGIN=$(PLUGIN); supported plugins: mail wecom)
+$(error unsupported PLUGIN=$(PLUGIN); supported plugins: mail wecom manager)
 endif
 ifneq ($(PLUGIN),mail)
 PLUGIN_VERSION := $(shell node -p "require('./plugins/$(PLUGIN)/package.json').version")
@@ -31,10 +34,10 @@ help:
 	@printf '%s\n' \
 		'make release-dmg    Build and audit the release app and DMG' \
 		'make run            Start Tauri development mode' \
-		'make pack-plugin    Build a production plugin tgz (PLUGIN=mail|wecom)' \
+		'make pack-plugin    Build a production plugin tgz (PLUGIN=mail|wecom|manager)' \
 		'make install-plugin Pack and install a plugin into the Desktop web profile' \
 		'' \
-		'Variables: APP_PATH, PLUGIN=mail|wecom, PROFILE=web, DESKTOP_DSH_HOME'
+		'Variables: APP_PATH, PLUGIN=mail|wecom|manager, PROFILE=web, DESKTOP_DSH_HOME'
 
 release-dmg:
 	corepack pnpm desktop:build

@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "./lib",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "./src",
+    "rewriteRelativeImportExtensions": true,
+    "allowImportingTsExtensions": false
+  },
+  "include": [
+    "src/archive.ts",
+    "src/cli.ts",
+    "src/errors.ts",
+    "src/index.ts",
+    "src/profile.ts",
+    "src/remote-types.ts",
+    "src/runtime.ts",
+    "src/service.ts",
+    "src/version.ts"
+  ]
+}

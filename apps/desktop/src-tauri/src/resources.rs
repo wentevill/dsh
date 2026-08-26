@@ -6,6 +6,8 @@ pub struct RuntimePaths {
     pub node: PathBuf,
     pub cli: PathBuf,
     pub package_bin: PathBuf,
+    pub manager_bootstrap: PathBuf,
+    pub manager_archive: PathBuf,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -31,10 +33,16 @@ impl RuntimePaths {
         require_file(root, &cli)?;
         let package_bin = root.join("runtime/app/node_modules/.bin");
         require_directory(root, &package_bin)?;
+        let manager_bootstrap = root.join("runtime/app/ensure-plugin-manager.mjs");
+        require_file(root, &manager_bootstrap)?;
+        let manager_archive = root.join("runtime/plugins/dsh-plugin-manager.tgz");
+        require_file(root, &manager_archive)?;
         Ok(Self {
             node,
             cli,
             package_bin,
+            manager_bootstrap,
+            manager_archive,
         })
     }
 }

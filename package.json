@@ -5,6 +5,9 @@
   "type": "module",
   "packageManager": "pnpm@11.7.0",
   "scripts": {
+    "manager:build": "corepack pnpm --dir plugins/manager run build",
+    "manager:test": "corepack pnpm --dir plugins/manager test",
+    "manager:pack": "corepack pnpm --dir plugins/manager pack --pack-destination .",
     "mail:pack": "corepack pnpm --dir plugins/mail pack --pack-destination .",
     "wecom:pack": "corepack pnpm --dir plugins/wecom pack --pack-destination .",
     "mail:test": "vitest run plugins/mail/tests",

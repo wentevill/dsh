@@ -23,6 +23,14 @@ npm run audit:runtime
 
 Staging verifies the pinned SHA-256, keeps only the Node executable and production package graph, and sanitizes build-machine paths. The private runtime contains upstream `dsh` and pnpm 11.7.0. Tauri prepends its private Node and package bin directories only to the DSH child process; it does not install tools or modify PATH on the host.
 
+The runtime also contains a self-contained `dsh-plugin-manager` archive. Before
+the Web server starts, Desktop installs the bundled version when the profile is
+missing it or has another version. In Settings, **Plugin manager** appears after
+**Plugin list**. It installs one dragged `.tgz` immediately, lists additional
+bundle dependencies by npm name and version, and exposes uninstall inside each
+expanded card. The manager itself cannot be replaced or removed from this page.
+All changes require a manual restart.
+
 Production plugins must be complete registry, URL, or `.tgz` packages. Source-directory links are unsupported. The release acceptance command is `npm run test:plugin-install`: it uses the staged Node, upstream dsh, and private pnpm to install the repository-owned mail archive once into a fresh profile and compose it immediately without a repair step.
 
 ## Build

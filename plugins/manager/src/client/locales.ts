@@ -1,0 +1,43 @@
+export const zh = {
+  tab: '插件管理',
+  dropTitle: '拖拽一个 .tgz 安装包到这里',
+  dropHint: '拖入后立即安装，最大 100 MiB',
+  choose: '选择 .tgz 文件',
+  installed: '已安装插件',
+  loading: '正在读取插件…',
+  empty: '暂无额外安装的插件。',
+  uninstall: '卸载',
+  uninstallConfirm: '确认卸载此插件？',
+  confirmUninstall: '确认卸载',
+  cancel: '取消',
+  managerProtected: '插件管理器仅随 Desktop 更新，不能卸载。',
+  removeHint: '确认后从 web profile 移除此插件。',
+  busy: '正在处理插件…',
+  restartRequired: '操作已完成，重启应用后生效。',
+  singleFileError: '每次只能安装一个 .tgz 文件。',
+  invalidFileError: '请选择不超过 100 MiB 的 .tgz 文件。',
+  operationError: '插件操作失败，请重试。',
+} as const
+
+export type PluginManagerLocaleKey = keyof typeof zh
+
+export const en = {
+  tab: 'Plugin manager',
+  dropTitle: 'Drop one .tgz package here',
+  dropHint: 'Installation starts immediately · maximum 100 MiB',
+  choose: 'Choose .tgz file',
+  installed: 'Installed plugins',
+  loading: 'Reading plugins…',
+  empty: 'No additional plugins are installed.',
+  uninstall: 'Uninstall',
+  uninstallConfirm: 'Uninstall this plugin?',
+  confirmUninstall: 'Confirm uninstall',
+  cancel: 'Cancel',
+  managerProtected: 'Plugin manager is updated with Desktop and cannot be uninstalled.',
+  removeHint: 'Remove this plugin from the web profile after confirmation.',
+  busy: 'Working on plugin…',
+  restartRequired: 'Operation complete. Restart the application to apply the change.',
+  singleFileError: 'Install exactly one .tgz file at a time.',
+  invalidFileError: 'Choose a .tgz file no larger than 100 MiB.',
+  operationError: 'Plugin operation failed. Try again.',
+} satisfies Record<PluginManagerLocaleKey, string>

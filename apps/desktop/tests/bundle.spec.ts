@@ -20,6 +20,11 @@ describe('Tauri bundle layout', () => {
     expect(config).toMatch(/"resources":\s*\{\s*"resources\/runtime":\s*"runtime"\s*\}/)
   })
 
+  it('lets the webview receive HTML5 file drag-and-drop events', () => {
+    const main = readFileSync(join(desktopRoot, 'src-tauri/src/main.rs'), 'utf8')
+    expect(main).toContain('.disable_drag_drop_handler()')
+  })
+
   it('gates release packaging on runtime and built-app audits', () => {
     const manifest = JSON.parse(readFileSync(join(desktopRoot, 'package.json'), 'utf8')) as {
       scripts: Record<string, string>

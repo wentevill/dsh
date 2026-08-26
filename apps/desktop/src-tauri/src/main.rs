@@ -32,6 +32,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn Error>> {
     let server = ServerProcess::start(StartSpec {
         node: resources.node,
         cli: resources.cli,
+        manager_bootstrap: resources.manager_bootstrap,
         package_bin: resources.package_bin,
         dsh_home,
         ready_timeout: Duration::from_secs(30),
@@ -59,6 +60,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn Error>> {
         .inner_size(initial_window.width, initial_window.height)
         .center()
         .visible(false)
+        .disable_drag_drop_handler()
         .build()?;
     app.manage(DesktopServer(Mutex::new(Some(server))));
     window.show()?;

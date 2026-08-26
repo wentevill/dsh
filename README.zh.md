@@ -13,6 +13,7 @@ make release-dmg     # 构建并审计 release app 和 DMG
 make run             # 启动 Tauri 开发模式
 make pack-plugin     # 生成 mail 插件生产 tgz
 make install-plugin  # 打包并安装 mail 到 Desktop web profile
+make pack-plugin PLUGIN=manager  # 生成插件管理器生产 tgz
 ```
 
 执行 `make install-plugin` 前请退出已经安装的 DeepSeek Harness，避免同时读写 profile。安装过程只使用 `/Applications/DeepSeek Harness.app` 内置的 Node、dsh CLI 和 pnpm，并明确写入 Desktop 数据目录，不会写入默认的 `~/.dsh`。
@@ -23,6 +24,8 @@ make install-plugin  # 打包并安装 mail 到 Desktop web profile
 make install-plugin APP_PATH="/Applications/DeepSeek Harness.app" PROFILE=web
 ```
 
-支持的变量为 `APP_PATH`、`PLUGIN=mail`、`PROFILE` 和 `DESKTOP_DSH_HOME`。运行 `make help` 查看命令摘要。
+Desktop 会内置 `dsh-plugin-manager`，并在启动 Web 服务前保证 web profile 使用内置版本。设置页中 **插件管理** 选项卡紧跟 **插件列表**：每次可拖入一个 `.tgz`，列表按包名和已安装版本展示额外插件，展开卡片后可以卸载。安装或卸载后需要手动重启应用。
+
+支持的变量为 `APP_PATH`、`PLUGIN=mail|wecom|manager`、`PROFILE` 和 `DESKTOP_DSH_HOME`。运行 `make help` 查看命令摘要。
 
 选择新的 GitHub revision 前请阅读 [更新 upstream](docs/operations/upstream-update.md)。

@@ -3,7 +3,7 @@ import { linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, statSync, sy
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { augmentDesktopRuntimeClosure, breakRuntimeHardlinks, buildEnvironment, createStageDirectory, materializeRuntimeLinks, signRuntimeExecutable, verifyPackageIntegrity, verifySha256 } from './stage-runtime.ts'
+import { augmentDesktopRuntimeClosure, breakRuntimeHardlinks, buildEnvironment, createStageDirectory, materializeRuntimeLinks, signRuntimeExecutable, stagePluginManagerAssets, verifyPackageIntegrity, verifySha256 } from './stage-runtime.ts'
 
 describe('runtime staging', () => {
   it('ad-hoc signs the bundled executable after copying it', () => {
@@ -35,6 +35,23 @@ describe('runtime staging', () => {
     const manifest = JSON.parse(readFileSync(cli, 'utf8')) as { dependencies: Record<string, string> }
     expect(manifest.dependencies).toMatchObject({ existing: 'workspace:^', '@deepseek-ai/dsh-mail': 'workspace:^' })
     expect(manifest.dependencies).not.toHaveProperty('pnpm')
+  })
+
+  it('stages a fixed-name manager archive and startup bootstrap', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-manager-assets-'))
+    const managerRoot = join(root, 'manager')
+    const bootstrap = join(root, 'ensure-plugin-manager.mjs')
+    const staged = join(root, 'runtime')
+    mkdirSync(managerRoot)
+    writeFileSync(bootstrap, 'export function ensurePluginManager() {}\n')
+
+    stagePluginManagerAssets(managerRoot, bootstrap, staged, (_source, destination) => {
+      writeFileSync(join(destination, 'dsh-plugin-manager-0.1.0.tgz'), 'archive')
+    })
+
+    expect(readFileSync(join(staged, 'plugins/dsh-plugin-manager.tgz'), 'utf8')).toBe('archive')
+    expect(readFileSync(join(staged, 'app/ensure-plugin-manager.mjs'), 'utf8'))
+      .toBe('export function ensurePluginManager() {}\n')
   })
 
   it('rejects a lockfile whose bundled package integrity is not pinned', () => {

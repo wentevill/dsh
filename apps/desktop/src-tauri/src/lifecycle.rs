@@ -48,6 +48,7 @@ unsafe extern "C" {
 pub struct StartSpec {
     pub node: PathBuf,
     pub cli: PathBuf,
+    pub manager_bootstrap: PathBuf,
     pub package_bin: PathBuf,
     pub dsh_home: PathBuf,
     pub ready_timeout: Duration,
@@ -57,6 +58,7 @@ pub struct StartSpec {
 
 #[derive(Debug)]
 pub enum StartError {
+    ManagerBootstrap { code: Option<i32>, stderr: String },
     Spawn(std::io::Error),
     EarlyExit {
         code: Option<i32>,
@@ -70,6 +72,10 @@ pub enum StartError {
 impl Display for StartError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::ManagerBootstrap { code, stderr } => write!(
+                formatter,
+                "failed to prepare the bundled plugin manager (code {code:?}): {stderr}"
+            ),
             Self::Spawn(error) => write!(
                 formatter,
                 "failed to start bundled Harness runtime: {error}"
@@ -125,6 +131,28 @@ impl ServerProcess {
         .map_err(|error| {
             StartError::Spawn(std::io::Error::new(std::io::ErrorKind::InvalidInput, error))
         })?;
+        let bootstrap = Command::new(&spec.node)
+            .arg(&spec.manager_bootstrap)
+            .env("DSH_HOME", &spec.dsh_home)
+            .env("PATH", &private_path)
+            .env_remove("NODE_OPTIONS")
+            .env_remove("NODE_PATH")
+            .env_remove("NODE_EXTRA_CA_CERTS")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()
+            .map_err(StartError::Spawn)?;
+        if !bootstrap.status.success() {
+            let stderr = String::from_utf8_lossy(
+                &bootstrap.stderr[..bootstrap.stderr.len().min(STDERR_LIMIT as usize)],
+            )
+            .into_owned();
+            return Err(StartError::ManagerBootstrap {
+                code: bootstrap.status.code(),
+                stderr,
+            });
+        }
         let mut command = Command::new(&spec.node);
         command
             .arg(&spec.cli)

@@ -23,6 +23,7 @@
     "@deepseek-ai/dsh-spill": "workspace:^",
     "@deepseek-ai/schemastery": "workspace:^",
     "dsh-jsonrpc-agent-pkg": "workspace:*",
+    "dsh-plugin-manager": "workspace:*",
     "pnpm": "11.7.0"
   }
 }

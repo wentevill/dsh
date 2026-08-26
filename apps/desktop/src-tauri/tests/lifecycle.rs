@@ -34,15 +34,37 @@ fn fixture_script(name: &str, body: &str) -> PathBuf {
 }
 
 fn spec(script: PathBuf, timeout: Duration) -> StartSpec {
+    let bootstrap = fixture_script("manager-bootstrap.sh", "exit 0");
     StartSpec {
         node: PathBuf::from("/bin/sh"),
         cli: script,
+        manager_bootstrap: bootstrap,
         package_bin: PathBuf::from("/private/runtime/app/node_modules/.bin"),
         dsh_home: std::env::temp_dir().join("dsh-desktop-home"),
         ready_timeout: timeout,
         shutdown_grace: Duration::from_millis(300),
         readiness_probe: |_| true,
     }
+}
+
+#[test]
+fn runs_manager_bootstrap_before_starting_the_web_server() {
+    let root = std::env::temp_dir().join(format!("dsh-manager-bootstrap-{}", std::process::id()));
+    create_dir_all(&root).unwrap();
+    let marker = root.join("installed");
+    let bootstrap = fixture_script(
+        "ordered-manager-bootstrap.sh",
+        &format!("echo installed > '{}'", marker.display()),
+    );
+    let server_script = fixture_script(
+        "manager-aware-server.sh",
+        &format!("test -f '{}' || exit 9; trap 'exit 0' TERM; echo 'dsh web: http://127.0.0.1:43126'; while :; do sleep 1; done", marker.display()),
+    );
+    let mut start = spec(server_script, Duration::from_secs(1));
+    start.manager_bootstrap = bootstrap;
+    let mut server = ServerProcess::start(start).unwrap();
+    assert!(marker.is_file());
+    server.shutdown().unwrap();
 }
 
 #[test]
