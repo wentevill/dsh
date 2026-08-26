@@ -11,16 +11,17 @@ import type { ConfluenceSettings } from '../settings.ts'
 import { CONFLUENCE_CARD_SLOT_OPTIONS } from './slot-options.ts'
 import { unwrapRemote } from './remote-result.ts'
 import { css, ensureCardCSS } from './card-css.ts'
+import { en, zh, type ConfluenceLocaleKey } from './locales.ts'
 
 const EMPTY: ConfluenceSettings = { baseUrl: '', allowAllSpaces: false, allowedSpaceKeys: [] }
 
-function ConfluenceCard({ remoteApi, credentials }: { remoteApi: any; credentials: any }) {
+function ConfluenceCard({ remoteApi, credentials, t }: { remoteApi: any; credentials: any; t: (key: ConfluenceLocaleKey) => string }) {
   const initialRemote = useRef(remoteApi)
   const [settings, setSettings] = useState(EMPTY)
   const [savedSettings, setSavedSettings] = useState(EMPTY)
   const [pat, setPat] = useState('')
   const [spaces, setSpaces] = useState('')
-  const [status, setStatus] = useState('未配置')
+  const [status, setStatus] = useState<ConfluenceLocaleKey | string>('unconfigured')
   const [busy, setBusy] = useState(false)
   const [open, setOpen] = useState(false)
   ensureCardCSS()
@@ -30,7 +31,7 @@ function ConfluenceCard({ remoteApi, credentials }: { remoteApi: any; credential
       setSettings(value.settings)
       setSavedSettings(value.settings)
       setSpaces(value.settings.allowedSpaceKeys.join('\n'))
-    }).catch((cause: unknown) => setStatus(cause instanceof Error ? cause.message : '加载失败'))
+    }).catch((cause: unknown) => setStatus(cause instanceof Error ? cause.message : 'loadFailed'))
   }, [])
   const update = (patch: Partial<ConfluenceSettings>) => setSettings(current => ({ ...current, ...patch }))
   const pendingSettings = (): ConfluenceSettings => ({
@@ -41,11 +42,11 @@ function ConfluenceCard({ remoteApi, credentials }: { remoteApi: any; credential
     const { patRef } = unwrapRemote<{ patRef: string }>(await remoteApi.credentialRef(pending.baseUrl))
     if (pat.trim() === '') return
     const result = await credentials.set({ ref: patRef, value: pat.trim() })
-    if (result?.result?.ok !== true) throw new Error('Token 保存失败')
+    if (result?.result?.ok !== true) throw new Error(t('tokenSaveFailed'))
   }
   const save = async () => {
     setBusy(true)
-    setStatus('正在保存…')
+    setStatus('saving')
     try {
       const pending = pendingSettings()
       await stageCredential(pending)
@@ -54,40 +55,40 @@ function ConfluenceCard({ remoteApi, credentials }: { remoteApi: any; credential
       setSavedSettings(saved.settings)
       setSpaces(saved.settings.allowedSpaceKeys.join('\n'))
       setPat('')
-      setStatus('已保存')
-    } catch (cause) { setStatus(cause instanceof Error ? cause.message : '保存失败') }
+      setStatus('saved')
+    } catch (cause) { setStatus(cause instanceof Error ? cause.message : 'saveFailed') }
     finally { setBusy(false) }
   }
   const test = async () => {
-    setBusy(true); setStatus('正在测试…')
+    setBusy(true); setStatus('testing')
     try {
       const pending = pendingSettings()
       await stageCredential(pending)
       const tested = unwrapRemote<{ version: string }>(await remoteApi.testConnection(pending))
-      setStatus(`连接成功 · Confluence ${tested.version}`)
-    } catch (cause) { setStatus(cause instanceof Error ? cause.message : '测试失败') }
+      setStatus(`${t('connected')} · Confluence ${tested.version}`)
+    } catch (cause) { setStatus(cause instanceof Error ? cause.message : 'testFailed') }
     finally { setBusy(false) }
   }
   const discard = () => {
-    setSettings(savedSettings); setSpaces(savedSettings.allowedSpaceKeys.join('\n')); setPat(''); setStatus('已放弃修改')
+    setSettings(savedSettings); setSpaces(savedSettings.allowedSpaceKeys.join('\n')); setPat(''); setStatus('discarded')
   }
   const dirty = pat !== '' || JSON.stringify(pendingSettings()) !== JSON.stringify(savedSettings)
   return <li className={`${css.card}${open ? ` ${css.open}` : ''}`}>
-    <button type="button" className={css.header} aria-expanded={open} onClick={() => setOpen(value => !value)}>
-      <span className={css.headText}><span className={css.name}>Confluence Data Center</span><span className={css.description}>配置页面访问地址、Token 与允许空间。</span></span>
-      {dirty && <span className={css.pending}>未保存</span>}
+    <button type="button" className={css.header} aria-expanded={open} aria-label={`${t(open ? 'collapse' : 'expand')}: ${t('title')}`} onClick={() => setOpen(value => !value)}>
+      <span className={css.headText}><span className={css.name}>{t('title')}</span><span className={css.description}>{t('description')}</span></span>
+      {dirty && <span className={css.pending}>{t('unsaved')}</span>}
       <IconChevronDownOutline14 className={`${css.chevron}${open ? ` ${css.chevronOpen}` : ''}`} />
     </button>
     {open && <div className={css.body}>
-      <label className={css.field}><span className={css.label}>HTTPS 基础地址</span><input className={css.input} value={settings.baseUrl} placeholder="https://wiki.example.com/confluence" onChange={event => update({ baseUrl: event.target.value })} /></label>
-      <label className={css.field}><span className={css.label}>Personal Access Token</span><input className={css.input} type="password" autoComplete="off" value={pat} onChange={event => setPat(event.target.value)} /></label>
-      <label className={css.check}><input type="checkbox" checked={settings.allowAllSpaces} onChange={event => update({ allowAllSpaces: event.target.checked })} />允许 Token 可访问的全部空间</label>
-      {!settings.allowAllSpaces && <label className={css.field}><span className={css.label}>允许的 Space Key（每行一个）</span><textarea className={css.textarea} rows={4} value={spaces} onChange={event => setSpaces(event.target.value)} /></label>}
-      <p className={css.status} role="status">{status}</p>
+      <label className={css.field}><span className={css.label}>{t('baseUrl')}</span><input className={css.input} value={settings.baseUrl} placeholder="https://wiki.example.com/confluence" onChange={event => update({ baseUrl: event.target.value })} /></label>
+      <label className={css.field}><span className={css.label}>{t('token')}</span><input className={css.input} type="password" autoComplete="off" value={pat} onChange={event => setPat(event.target.value)} /></label>
+      <label className={css.check}><input type="checkbox" checked={settings.allowAllSpaces} onChange={event => update({ allowAllSpaces: event.target.checked })} />{t('allowAll')}</label>
+      {!settings.allowAllSpaces && <label className={css.field}><span className={css.label}>{t('spaces')}</span><textarea className={css.textarea} rows={4} value={spaces} onChange={event => setSpaces(event.target.value)} /></label>}
+      <p className={css.status} role="status">{status in en ? t(status as ConfluenceLocaleKey) : status}</p>
       <div className={css.footer}>
-        <button type="button" className={css.discard} disabled={!dirty || busy} onClick={discard}>放弃修改</button>
-        <button type="button" className={css.test} disabled={busy} onClick={() => void test()}>测试连接</button>
-        <button type="button" className={css.save} disabled={!dirty || busy} onClick={() => void save()}>保存</button>
+        <button type="button" className={css.discard} disabled={!dirty || busy} onClick={discard}>{t('discard')}</button>
+        <button type="button" className={css.test} disabled={busy} onClick={() => void test()}>{t('test')}</button>
+        <button type="button" className={css.save} disabled={!dirty || busy} onClick={() => void save()}>{t('save')}</button>
       </div>
     </div>}
   </li>
@@ -100,11 +101,12 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const disposeRemote = await ctx.remote.$mount(remote)
   const feature = ctx.plugin(Object.assign(async (child: ClientContext) => {
     const { api } = child.get('connection') as ConnectionHandle
+    child.effect(() => child.locale.register('settings.plugins.confluence', { zh, en }), 'confluence-client: dictionaries')
     child.slots.inject('settings.plugin.item', function* () {
       yield child.slots.register(CONFLUENCE_CARD_SLOT_OPTIONS,
-        () => <ConfluenceCard remoteApi={child.remote.confluenceSettings} credentials={api.credentials} />)
+        (props: { t: (key: ConfluenceLocaleKey) => string }) => <ConfluenceCard remoteApi={child.remote.confluenceSettings} credentials={api.credentials} t={props.t} />)
     })
-  }, { inject: ['slots', 'connection', 'remote', 'remote.confluenceSettings'] }))
+  }, { inject: ['slots', 'locale', 'connection', 'remote', 'remote.confluenceSettings'] }))
   await feature
   return async () => { await feature.dispose(); await disposeRemote() }
 }
