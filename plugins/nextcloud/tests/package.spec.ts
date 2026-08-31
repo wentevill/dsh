@@ -7,6 +7,23 @@ import { describe, expect, it } from 'vitest'
 const root = resolve(import.meta.dirname, '..')
 
 describe('dsh-nextcloud package', () => {
+  it('declares only client injections shipped by the pinned upstream', () => {
+    const upstream = resolve(root, '../../upstream')
+    const manifests = execFileSync('git', ['ls-files', '**/package.json'], {
+      cwd: upstream,
+      encoding: 'utf8',
+    }).trim().split('\n').filter(Boolean)
+    const upstreamPackages = new Set(manifests.flatMap(path => {
+      const value = JSON.parse(readFileSync(resolve(upstream, path), 'utf8')) as { name?: unknown }
+      return typeof value.name === 'string' ? [value.name] : []
+    }))
+    const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
+      dsh: { client: { inject: string[] } }
+    }
+
+    expect(manifest.dsh.client.inject.filter(name => !upstreamPackages.has(name))).toEqual([])
+  })
+
   it('declares a separately installable Host and Web client plugin', () => {
     const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
       name: string
