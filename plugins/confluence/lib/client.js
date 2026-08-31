@@ -4346,6 +4346,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			allowAllSpaces: false,
 			allowedSpaceKeys: []
 		};
+		async function storeConfluenceCredential(credentials, ref, value) {
+			unwrapRemote(await credentials.set(ref, value));
+		}
 		function ConfluenceCard({ remoteApi, credentials, t }) {
 			const initialRemote = (0, react.useRef)(remoteApi);
 			const [settings, setSettings] = (0, react.useState)(EMPTY);
@@ -4375,10 +4378,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			const stageCredential = async (pending) => {
 				const { patRef } = unwrapRemote(await remoteApi.credentialRef(pending.baseUrl));
 				if (pat.trim() === "") return;
-				if ((await credentials.set({
-					ref: patRef,
-					value: pat.trim()
-				}))?.result?.ok !== true) throw new Error(t("tokenSaveFailed"));
+				await storeConfluenceCredential(credentials, patRef, pat.trim());
 			};
 			const save = async () => {
 				setBusy(true);
@@ -4532,7 +4532,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		async function apply(ctx) {
 			const disposeRemote = await ctx.remote.$mount(TYPERT_REMOTE);
 			const feature = ctx.plugin(Object.assign(async (child) => {
-				const { api } = child.get("connection");
 				child.effect(() => child.locale.register("settings.plugins.confluence", {
 					zh,
 					en
@@ -4540,15 +4539,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				child.slots.inject("settings.plugin.item", function* () {
 					yield child.slots.register(CONFLUENCE_CARD_SLOT_OPTIONS, (props) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ConfluenceCard, {
 						remoteApi: child.remote.confluenceSettings,
-						credentials: api.credentials,
+						credentials: child.remote.credentials,
 						t: props.t
 					}));
 				});
 			}, { inject: [
 				"slots",
 				"locale",
-				"connection",
 				"remote",
+				"remote.credentials",
 				"remote.confluenceSettings"
 			] }));
 			await feature;
@@ -4561,6 +4560,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		exports.apply = apply;
 		exports.inject = inject;
 		exports.name = name;
+		exports.storeConfluenceCredential = storeConfluenceCredential;
 		return module.exports;
 	}
 });

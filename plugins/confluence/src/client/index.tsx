@@ -2,7 +2,6 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import React, { useEffect, useRef, useState } from 'react'
 import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -15,7 +14,18 @@ import { en, zh, type ConfluenceLocaleKey } from './locales.ts'
 
 const EMPTY: ConfluenceSettings = { baseUrl: '', allowAllSpaces: false, allowedSpaceKeys: [] }
 
-function ConfluenceCard({ remoteApi, credentials, t }: { remoteApi: any; credentials: any; t: (key: ConfluenceLocaleKey) => string }) {
+type RemoteResult<T> = { ok: true; value: T } | { ok: false; error: { message: string } }
+type CredentialRemote = { set(ref: string, value: string): Promise<RemoteResult<void>> }
+
+export async function storeConfluenceCredential(
+  credentials: CredentialRemote,
+  ref: string,
+  value: string,
+): Promise<void> {
+  unwrapRemote<void>(await credentials.set(ref, value))
+}
+
+function ConfluenceCard({ remoteApi, credentials, t }: { remoteApi: any; credentials: CredentialRemote; t: (key: ConfluenceLocaleKey) => string }) {
   const initialRemote = useRef(remoteApi)
   const [settings, setSettings] = useState(EMPTY)
   const [savedSettings, setSavedSettings] = useState(EMPTY)
@@ -41,8 +51,7 @@ function ConfluenceCard({ remoteApi, credentials, t }: { remoteApi: any; credent
   const stageCredential = async (pending: ConfluenceSettings) => {
     const { patRef } = unwrapRemote<{ patRef: string }>(await remoteApi.credentialRef(pending.baseUrl))
     if (pat.trim() === '') return
-    const result = await credentials.set({ ref: patRef, value: pat.trim() })
-    if (result?.result?.ok !== true) throw new Error(t('tokenSaveFailed'))
+    await storeConfluenceCredential(credentials, patRef, pat.trim())
   }
   const save = async () => {
     setBusy(true)
@@ -100,13 +109,12 @@ export const inject = ['remote']
 export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const disposeRemote = await ctx.remote.$mount(remote)
   const feature = ctx.plugin(Object.assign(async (child: ClientContext) => {
-    const { api } = child.get('connection') as ConnectionHandle
     child.effect(() => child.locale.register('settings.plugins.confluence', { zh, en }), 'confluence-client: dictionaries')
     child.slots.inject('settings.plugin.item', function* () {
       yield child.slots.register(CONFLUENCE_CARD_SLOT_OPTIONS,
-        (props: { t: (key: ConfluenceLocaleKey) => string }) => <ConfluenceCard remoteApi={child.remote.confluenceSettings} credentials={api.credentials} t={props.t} />)
+        (props: { t: (key: ConfluenceLocaleKey) => string }) => <ConfluenceCard remoteApi={child.remote.confluenceSettings} credentials={child.remote.credentials} t={props.t} />)
     })
-  }, { inject: ['slots', 'locale', 'connection', 'remote', 'remote.confluenceSettings'] }))
+  }, { inject: ['slots', 'locale', 'remote', 'remote.credentials', 'remote.confluenceSettings'] }))
   await feature
   return async () => { await feature.dispose(); await disposeRemote() }
 }

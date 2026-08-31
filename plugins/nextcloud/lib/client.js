@@ -3977,6 +3977,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		async function loadNextcloudCardSettings(remoteApi) {
 			return unwrap(await remoteApi.load()).settings;
 		}
+		async function storeNextcloudCredential(credentials, value) {
+			unwrap(await credentials.set(NEXTCLOUD_PASSWORD_REF, value));
+		}
 		function Field(props) {
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: css.field,
@@ -4024,11 +4027,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				setSettings(saved.settings);
 				setBaseline(saved.settings);
 				if (password.trim() !== "") {
-					const response = await credentials.set({
-						ref: NEXTCLOUD_PASSWORD_REF,
-						value: password.trim()
-					});
-					if (response?.ok === false || response?.result?.ok === false) throw new Error("credential write rejected");
+					await storeNextcloudCredential(credentials, password.trim());
 					setPassword("");
 				}
 			}, "saved");
@@ -4187,7 +4186,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		async function apply(ctx) {
 			const disposeRemote = await ctx.remote.$mount(TYPERT_REMOTE);
 			const feature = ctx.plugin(Object.assign(async (child) => {
-				const { api } = child.get("connection");
 				child.effect(() => child.locale.register(NS, {
 					zh,
 					en
@@ -4197,7 +4195,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				child.slots.inject("settings.plugin.item", function* () {
 					yield child.slots.register(NEXTCLOUD_CARD_SLOT_OPTIONS, (props) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(Card, {
 						remoteApi,
-						credentials: api.credentials,
+						credentials: child.remote.credentials,
 						initialSettings,
 						t: props.t
 					}));
@@ -4205,8 +4203,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			}, { inject: [
 				"slots",
 				"locale",
-				"connection",
 				"remote",
+				"remote.credentials",
 				"remote.nextcloudSettings"
 			] }));
 			await feature;
@@ -4221,6 +4219,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		exports.inject = inject;
 		exports.loadNextcloudCardSettings = loadNextcloudCardSettings;
 		exports.name = name;
+		exports.storeNextcloudCredential = storeNextcloudCredential;
 		return module.exports;
 	}
 });

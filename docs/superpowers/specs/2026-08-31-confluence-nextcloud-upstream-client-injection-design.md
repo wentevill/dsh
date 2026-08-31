@@ -1,4 +1,4 @@
-# Confluence and Nextcloud Upstream Client Injection Compatibility
+# Confluence and Nextcloud Upstream Credential Remote Compatibility
 
 ## Goal
 
@@ -7,39 +7,38 @@ pinned upstream Harness revision to `cd5ef8148158c3a752a658978873241fdf8e2bbc`.
 
 ## Root cause
 
-The updated upstream no longer ships the product package
-`@deepseek-ai/dsh-client-runtime`. Both plugin manifests still name that removed
-package in `dsh.client.inject`. The client module graph therefore cannot satisfy
-the plugins' declared activation dependencies, so their browser halves never
-register their `settings.plugin.item` cards.
-
-The plugin source does not use the removed package at runtime. Its remaining
-client dependencies are the current owners of connection, locale, settings,
-and Remote services.
+The updated upstream removed the legacy `api` property from
+`ConnectionHandle`. Credential configuration is now owned by the generated
+`ctx.remote.credentials` namespace. Both cards still capture
+`child.get('connection').api` and dereference `api.credentials` when their slot
+contribution renders. Their Host settings namespaces and browser bundles are
+served correctly, but rendering either registered contribution throws before
+the card component is returned.
 
 ## Design
 
-Remove only `@deepseek-ai/dsh-client-runtime` from `dsh.client.inject` in the
-Confluence and Nextcloud package manifests. Do not add a compatibility shim and
-do not change their settings schemas, card components, Remote namespaces,
-credentials, or persisted configuration.
+Read credentials from `child.remote.credentials`, declare
+`remote.credentials` in each card feature's Cordis injection list, and remove
+the obsolete runtime read of `ConnectionHandle.api`. Credential writes use the
+current positional `set(ref, value)` Remote method and continue to unwrap the
+standard `{ ok, value | error }` result.
 
-Add package-contract coverage that resolves every declared client injection
-against the pinned upstream workspace package catalog. The regression test must
-fail when a plugin declares a package removed by upstream and pass after the
-obsolete entries are removed.
+Add client activation coverage that omits the obsolete connection service,
+activates each real client plugin, invokes its registered
+`settings.plugin.item` contribution, and asserts rendering does not throw. Add
+credential-write coverage for the positional Remote boundary.
 
 ## Verification
 
-- Observe the new manifest contract tests fail against the current manifests.
-- Remove the two obsolete declarations and observe the focused tests pass.
+- Observe both activation tests fail with an `api.credentials` dereference.
+- Migrate both clients to `remote.credentials` and observe the focused tests pass.
 - Build both plugins so their publishable artifacts are current.
 - Run the complete Confluence and Nextcloud test suites.
-- Exercise the packaged client activation path against the pinned upstream
-  runtime where the existing integration harness permits it.
+- Pack both plugins and verify that each archive contains its generated browser
+  client bundle.
 
 ## Scope
 
-This change covers only `dsh-confluence` and `dsh-nextcloud`. Similar stale
-declarations in other plugins are intentionally left for separate work. No
-stored settings or credentials are migrated or deleted.
+This change covers only `dsh-confluence` and `dsh-nextcloud`. Manifest cleanup
+and other plugins' credential migrations are intentionally left for separate
+work. No stored settings or credentials are migrated or deleted.
