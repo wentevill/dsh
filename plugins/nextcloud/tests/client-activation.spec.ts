@@ -1,16 +1,16 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { apply, inject, storeNextcloudCredential } from '../src/client/index.tsx'
 
 describe('Nextcloud client activation', () => {
-  it('renders its registered settings contribution with the current Remote credential service', async () => {
+  it('defers reading settings until the card mounts', async () => {
     const ctx = new Context()
     let component: ((props: { t: (key: string) => string }) => unknown) | undefined
     const settings = {
       serverUrl: '', username: '', accessMode: 'all' as const, allowedRoots: [],
       allowDelete: false, allowHttp: false, skipTlsVerify: false,
     }
-    const nextcloudSettings = { load: async () => ({ ok: true, value: { settings } }) }
+    const nextcloudSettings = { load: vi.fn(async () => ({ ok: true, value: { settings } })) }
     const credentials = { set: async () => ({ ok: true, value: undefined }) }
     const remote = { nextcloudSettings, credentials, $mount: async () => async () => undefined }
     ctx.provide('remote', remote)
@@ -30,6 +30,7 @@ describe('Nextcloud client activation', () => {
 
     const fiber = ctx.plugin({ inject, apply })
     await fiber.await()
+    expect(nextcloudSettings.load).not.toHaveBeenCalled()
     expect(component).toBeTypeOf('function')
     expect(() => component?.({ t: key => key })).not.toThrow()
     await fiber.dispose()
