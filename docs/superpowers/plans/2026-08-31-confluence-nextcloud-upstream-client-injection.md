@@ -55,6 +55,7 @@
 
 **Files:**
 - Update generated client bundles under `plugins/confluence/lib/` and `plugins/nextcloud/lib/`.
+- Include: `upstream.lock.json` at the upstream revision whose API is covered.
 
 **Interfaces:**
 - Consumes: the migrated browser client sources.
@@ -64,4 +65,4 @@
 - [x] Run both complete plugin suites.
 - [x] Pack both plugins into temporary directories and verify `package/lib/client.js`.
 - [x] Run scoped diff and whitespace checks without absorbing unrelated user changes.
-- [ ] Request independent review and address Critical or Important findings.
+- [x] Request independent review and address Critical or Important findings.

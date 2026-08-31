@@ -1,6 +1,6 @@
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
-import { apply, inject } from '../src/client/index.tsx'
+import { apply, inject, storeNextcloudCredential } from '../src/client/index.tsx'
 
 describe('Nextcloud client activation', () => {
   it('renders its registered settings contribution with the current Remote credential service', async () => {
@@ -48,5 +48,14 @@ describe('Nextcloud client activation', () => {
     await client.storeNextcloudCredential(credentials, 'secret')
 
     expect(received).toEqual(['NEXTCLOUD_APP_PASSWORD', 'secret'])
+  })
+
+  it('surfaces credential Remote failures', async () => {
+    const credentials = {
+      set: async () => ({ ok: false as const, error: { message: 'credential rejected' } }),
+    }
+
+    await expect(storeNextcloudCredential(credentials, 'secret'))
+      .rejects.toThrow('credential rejected')
   })
 })

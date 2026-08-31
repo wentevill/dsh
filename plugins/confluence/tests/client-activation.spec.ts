@@ -49,4 +49,14 @@ describe('Confluence client activation', () => {
 
     expect(received).toEqual(['CONFLUENCE_PAT_EXAMPLE', 'secret'])
   })
+
+  it('surfaces credential Remote failures', async () => {
+    const { storeConfluenceCredential } = await import('../src/client/index.tsx')
+    const credentials = {
+      set: async () => ({ ok: false as const, error: { message: 'credential rejected' } }),
+    }
+
+    await expect(storeConfluenceCredential(credentials, 'CONFLUENCE_PAT_EXAMPLE', 'secret'))
+      .rejects.toThrow('credential rejected')
+  })
 })
