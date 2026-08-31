@@ -9,7 +9,7 @@ make pack-plugin PLUGIN=nextcloud
 make install-plugin PLUGIN=nextcloud
 ```
 
-也可以把生成的 `dsh-nextcloud-0.1.0.tgz` 拖入 Desktop 的插件管理器。插件独立安装，不随 Desktop 默认预装。
+也可以把生成的 `dsh-nextcloud-0.1.1.tgz` 拖入 Desktop 的插件管理器。插件独立安装，不随 Desktop 默认预装。
 
 安装后打开 **Settings → Plugins → Nextcloud 文件**，填写服务器根地址（包含部署子路径但不要包含 `/remote.php/dav`）、用户名和 Nextcloud 应用密码。应用密码只保存在 Harness credentials 的 `NEXTCLOUD_APP_PASSWORD` 中。
 

@@ -9,6 +9,11 @@ const roots: string[] = []
 afterEach(() => { for (const value of roots.splice(0)) rmSync(value, { recursive: true, force: true }) })
 
 describe('published Confluence plugin', () => {
+  it('publishes the upstream credential compatibility fix as version 0.1.1', () => {
+    const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { version: string }
+    expect(manifest.version).toBe('0.1.1')
+  })
+
   it('packs the Host, browser client, Typert faces, docs, and patch', () => {
     const destination = mkdtempSync(join(tmpdir(), 'dsh-confluence-pack-'))
     roots.push(destination)

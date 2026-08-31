@@ -1,6 +1,6 @@
 {
   "name": "dsh-nextcloud",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Nextcloud file tools for DeepSeek Harness",
   "type": "module",
   "packageManager": "pnpm@11.7.0",

@@ -17,7 +17,7 @@ describe('dsh-nextcloud package', () => {
       dsh: { bundle: { patch: string }; client: { platform: string } }
     }
     expect(manifest.name).toBe('dsh-nextcloud')
-    expect(manifest.version).toMatch(/^0\.1\.0$/u)
+    expect(manifest.version).toBe('0.1.1')
     expect(manifest.dependencies.webdav).toBe('5.10.0')
     expect(manifest.peerDependencies).toHaveProperty('@deepseek-ai/dsh-credentials')
     expect(manifest.peerDependencies).toHaveProperty('@deepseek-ai/dsh-tools')
@@ -37,7 +37,7 @@ describe('dsh-nextcloud package', () => {
   it('packs a self-contained archive with the WebDAV runtime', () => {
     const destination = mkdtempSync(resolve(tmpdir(), 'dsh-nextcloud-pack-'))
     execFileSync('corepack', ['pnpm', 'pack', '--pack-destination', destination], { cwd: root })
-    const archive = resolve(destination, 'dsh-nextcloud-0.1.0.tgz')
+    const archive = resolve(destination, 'dsh-nextcloud-0.1.1.tgz')
     const entries = execFileSync('tar', ['-tzf', archive], { encoding: 'utf8' }).split('\n')
     expect(entries).toContain('package/lib/index.js')
     expect(entries).toContain('package/lib/client.js')
