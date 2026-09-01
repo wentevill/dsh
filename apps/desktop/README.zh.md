@@ -13,11 +13,11 @@
 
 ## 生成并检查 runtime
 
-从 Node.js 官方发行目录下载 `node-v24.7.0-darwin-arm64.tar.gz`，然后执行：
+从 Node.js 官方发行目录下载 `node-v22.19.0-darwin-arm64.tar.gz`，然后执行：
 
 ```sh
 cd apps/desktop
-npm run stage:runtime -- --archive /path/to/node-v24.7.0-darwin-arm64.tar.gz
+npm run stage:runtime -- --archive /path/to/node-v22.19.0-darwin-arm64.tar.gz
 npm run audit:runtime
 ```
 
@@ -37,4 +37,4 @@ npm run build
 
 未签名产物位于 `apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/`。分发前使用 `npm run audit:app -- <path-to-app>` 检查 `.app`。macOS 可能要求通过右键“打开”启动未签名应用。
 
-MVP 不增加认证、传输防护、Computer runtime、VM 或隔离边界；监听行为沿用 DSH Web profile 的 loopback 实现。
+MVP 不增加独立认证层、传输防护、Computer runtime、VM 或隔离边界；它保留 DSH Web profile 现有的 token 换取 cookie 认证与仅 loopback 监听行为。

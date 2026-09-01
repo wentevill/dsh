@@ -11,6 +11,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 const WEB_URL_PREFIX: &str = "dsh web: http://127.0.0.1:";
+const LOOPBACK_URL_PREFIX: &str = "http://127.0.0.1:";
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct WebUrlError;
@@ -24,15 +25,20 @@ impl Display for WebUrlError {
 impl std::error::Error for WebUrlError {}
 
 pub fn parse_web_url(output: &str) -> Result<String, WebUrlError> {
-    let line = output
+    let url = output
         .lines()
         .find_map(|line| line.strip_prefix(WEB_URL_PREFIX))
+        .and_then(|line| line.split_whitespace().next())
         .ok_or(WebUrlError)?;
-    let port = line.parse::<u16>().map_err(|_| WebUrlError)?;
+    let port = url
+        .split_once('/')
+        .map_or(url, |(port, _)| port)
+        .parse::<u16>()
+        .map_err(|_| WebUrlError)?;
     if port == 0 {
         return Err(WebUrlError);
     }
-    Ok(format!("http://127.0.0.1:{port}"))
+    Ok(format!("{LOOPBACK_URL_PREFIX}{url}"))
 }
 
 const STDERR_LIMIT: u64 = 32 * 1024;
@@ -224,8 +230,9 @@ impl ServerProcess {
                 Ok(Ok(line)) => {
                     if let Ok(origin) = parse_web_url(&line) {
                         let port = origin
-                            .rsplit_once(':')
-                            .and_then(|(_, port)| port.parse::<u16>().ok())
+                            .strip_prefix(LOOPBACK_URL_PREFIX)
+                            .and_then(|url| url.split('/').next())
+                            .and_then(|port| port.parse::<u16>().ok())
                             .ok_or_else(|| {
                                 StartError::Output(std::io::Error::other("invalid Harness port"))
                             })?;

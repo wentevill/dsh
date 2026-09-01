@@ -16,6 +16,17 @@ fn parses_the_existing_loopback_startup_line() {
 }
 
 #[test]
+fn preserves_the_authenticated_loopback_startup_url() {
+    assert_eq!(
+        parse_web_url(
+            "dsh web: http://127.0.0.1:43123/?token=abc_DEF-123 (LAN: http://192.168.1.2:43123/?token=abc_DEF-123)\n",
+        )
+        .unwrap(),
+        "http://127.0.0.1:43123/?token=abc_DEF-123",
+    );
+}
+
+#[test]
 fn rejects_non_loopback_and_malformed_startup_lines() {
     assert!(parse_web_url("dsh web: http://localhost:43123\n").is_err());
     assert!(parse_web_url("dsh web: http://127.0.0.1:0\n").is_err());

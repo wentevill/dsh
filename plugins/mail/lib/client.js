@@ -7,7 +7,7 @@ window.__ModuleLoader__.load({
 		let react = require("react");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
-		let _deepseek_ai_dsh_client_runtime_client = require("@deepseek-ai/dsh-client-runtime/client");
+		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
 		let _deepseek_ai_cordis = require("@deepseek-ai/cordis");
 		//#region node_modules/zod/v4/core/core.js
 		var _a$1;
@@ -5578,7 +5578,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					passwordWritable: credential.writable
 				};
 			};
-			const store = (0, _deepseek_ai_dsh_client_runtime_client.createSnapshotStore)(project());
+			const store = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(project());
 			const publish = () => {
 				if (!disposed) store.set(project());
 			};

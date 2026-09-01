@@ -12,10 +12,12 @@
 
 import {
   createSnapshotStore,
-  type SettingsScope,
-  type SettingsScopeSnapshot,
   type SnapshotStore,
-} from '@deepseek-ai/dsh-client-runtime/client'
+} from '@deepseek-ai/dsh-client-store'
+import type {
+  SettingsScope,
+  SettingsScopeSnapshot,
+} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { IApiClient } from '@deepseek-ai/dsh-client-connection/client'
 import { mailCapabilities, type MailCapabilities, type MailSettings } from '../mail-settings.ts'
 import type { MailSettingsSaveResult } from '../remote-types.ts'

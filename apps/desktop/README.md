@@ -13,11 +13,11 @@ This package is a Tauri host for the existing DeepSeek Harness Web UI. It does n
 
 ## Stage and verify the runtime
 
-Download `node-v24.7.0-darwin-arm64.tar.gz` from the official Node.js distribution, then run:
+Download `node-v22.19.0-darwin-arm64.tar.gz` from the official Node.js distribution, then run:
 
 ```sh
 cd apps/desktop
-npm run stage:runtime -- --archive /path/to/node-v24.7.0-darwin-arm64.tar.gz
+npm run stage:runtime -- --archive /path/to/node-v22.19.0-darwin-arm64.tar.gz
 npm run audit:runtime
 ```
 
@@ -43,4 +43,4 @@ npm run build
 
 Unsigned artifacts are written below `apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/`. Audit the `.app` before distribution with `npm run audit:app -- <path-to-app>`.
 
-The MVP adds no authentication, transport protection, Computer runtime, VM, or isolation boundary. It listens only through the existing DSH Web profile's loopback behavior. macOS may require Control-click → Open for an unsigned application.
+The MVP adds no independent authentication layer, transport protection, Computer runtime, VM, or isolation boundary. It preserves the existing DSH Web profile's token-to-cookie authentication and loopback-only binding. macOS may require Control-click → Open for an unsigned application.

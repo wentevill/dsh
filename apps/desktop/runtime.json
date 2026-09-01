@@ -1,8 +1,8 @@
 {
-  "nodeVersion": "24.7.0",
-  "archive": "node-v24.7.0-darwin-arm64.tar.gz",
-  "url": "https://nodejs.org/dist/v24.7.0/node-v24.7.0-darwin-arm64.tar.gz",
-  "sha256": "ff8298faaf82c85444aad7f1e12a4882496286ea9008702029b359d7fac7f8b3",
+  "nodeVersion": "22.19.0",
+  "archive": "node-v22.19.0-darwin-arm64.tar.gz",
+  "url": "https://nodejs.org/dist/v22.19.0/node-v22.19.0-darwin-arm64.tar.gz",
+  "sha256": "c59006db713c770d6ec63ae16cb3edc11f49ee093b5c415d667bb4f436c6526d",
   "pnpmVersion": "11.7.0",
   "pnpmIntegrity": "sha512-GcyFLBIMcSV2DyRD7mvgyltA+fUFmN4aCaHxd1A+AQ5Xwjx3ZG4B52HeWb+HT7IqM5jDOrlpH8E+uUa28PTWIA=="
 }

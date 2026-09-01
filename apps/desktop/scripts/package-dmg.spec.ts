@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { buildFinderLayoutScript, createCustomizedDmg, packageDmg, prepareDmgSource } from './package-dmg.ts'
+import { auditMountedDmg, buildFinderLayoutScript, createCustomizedDmg, packageDmg, prepareDmgSource } from './package-dmg.ts'
 
 describe('DMG packaging', () => {
   it('creates a compressed image after applying the standard Finder layout', () => {
@@ -35,7 +35,8 @@ describe('DMG packaging', () => {
     expect(script).toContain('set icon size to 128')
     expect(script).toContain('set position of item "DeepSeek Harness.app" to {170, 190}')
     expect(script).toContain('set position of item "Applications" to {490, 190}')
-    expect(script).toContain('set background picture of theViewOptions to file ".background:background.png"')
+    expect(script).toContain('set background picture of theViewOptions to file "DeepSeek Harness.app:Contents:Resources:dmg-background.png"')
+    expect(script).toContain('update item "Applications"')
   })
 
   it('resolves the private mount to a Finder disk window', () => {
@@ -62,13 +63,43 @@ describe('DMG packaging', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-dmg-'))
     const app = join(root, 'DeepSeek Harness.app')
     const source = join(root, 'source')
-    mkdirSync(app)
+    mkdirSync(join(app, 'Contents/Resources'), { recursive: true })
     writeFileSync(join(app, 'marker'), 'application bundle')
+    writeFileSync(join(app, 'Contents/Resources/dmg-background.png'), 'background')
 
     prepareDmgSource(app, source)
 
     expect(readFileSync(join(source, 'DeepSeek Harness.app/marker'), 'utf8')).toBe('application bundle')
     expect(readlinkSync(join(source, 'Applications'))).toBe('/Applications')
+    expect(existsSync(join(source, '.background'))).toBe(false)
+    expect(existsSync(join(source, '.fseventsd'))).toBe(false)
+    expect(readFileSync(join(source, 'DeepSeek Harness.app/Contents/Resources/dmg-background.png'))).not.toHaveLength(0)
+  })
+
+  it('does not mutate the signed app while staging it', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-dmg-hidden-'))
+    const app = join(root, 'DeepSeek Harness.app')
+    const source = join(root, 'source')
+    mkdirSync(app)
+
+    prepareDmgSource(app, source)
+
+    expect(readdirSync(source).sort()).toEqual(['Applications', 'DeepSeek Harness.app'])
+  })
+
+  it('rejects mounted images that expose metadata directories', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-dmg-mounted-audit-'))
+    mkdirSync(join(root, 'DeepSeek Harness.app'))
+    mkdirSync(join(root, 'DeepSeek Harness.app/Contents/Resources'), { recursive: true })
+    writeFileSync(join(root, 'DeepSeek Harness.app/Contents/Resources/dmg-background.png'), 'background')
+    writeFileSync(join(root, '.DS_Store'), 'layout')
+    symlinkSync('/Applications', join(root, 'Applications'))
+    mkdirSync(join(root, '.fseventsd'))
+
+    expect(() => auditMountedDmg(root, {
+      flags: () => [],
+      app: () => undefined,
+    })).toThrow(/must not contain \.fseventsd/)
   })
 
   it('preserves the previous image when image creation fails', () => {

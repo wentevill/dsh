@@ -17,7 +17,8 @@
     "targets": ["app"],
     "icon": ["icons/icon.png", "icons/icon.icns"],
     "resources": {
-      "resources/runtime": "runtime"
+      "resources/runtime": "runtime",
+      "../assets/dmg-background.png": "dmg-background.png"
     }
   }
 }

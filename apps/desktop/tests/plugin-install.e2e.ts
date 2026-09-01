@@ -67,18 +67,30 @@ interface WebInspection {
 }
 
 async function inspectWeb(origin: string): Promise<Pick<WebInspection, 'html' | 'client' | 'settings'>> {
-  const html = await fetch(origin).then(async response => {
+  const authenticated = await fetch(origin, { redirect: 'manual' })
+  const cookie = authenticated.headers.getSetCookie()[0]?.split(';', 1)[0]
+  if (authenticated.status !== 303 || cookie === undefined) {
+    throw new Error(`Web token exchange returned HTTP ${authenticated.status}`)
+  }
+  const base = new URL(authenticated.headers.get('location') ?? '/', origin)
+  const headers = { cookie }
+  const html = await fetch(base, { headers }).then(async response => {
     if (!response.ok) throw new Error(`Web root returned HTTP ${response.status}`)
     return response.text()
   })
-  const client = await fetch(new URL('/plugins/dsh-mail/client.js', origin)).then(async response => {
+  const graphSource = /globalThis\["__DSH_BOOT__"\] = (.+)<\/script>/u.exec(html)?.[1]
+  if (graphSource === undefined) throw new Error('Web root did not carry __DSH_BOOT__')
+  const graph = JSON.parse(graphSource) as { batches?: Array<{ url?: unknown, entries?: unknown }> }
+  const clientUrl = graph.batches?.find(batch => Array.isArray(batch.entries) && batch.entries.includes('dsh-mail'))?.url
+  if (typeof clientUrl !== 'string') throw new Error('Web boot graph did not batch dsh-mail')
+  const client = await fetch(new URL(clientUrl, base), { headers }).then(async response => {
     if (!response.ok) throw new Error(`Mail Client returned HTTP ${response.status}`)
     return response.text()
   })
   const rpcId = 'mail-settings-load-e2e'
-  const response = await fetch(new URL('/api/mailSettings/load', origin), {
+  const response = await fetch(new URL('/api/mailSettings/load', base), {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { ...headers, 'content-type': 'application/json' },
     body: JSON.stringify({
       type: 'client-request',
       rpcId,
@@ -112,9 +124,9 @@ function bootWeb(env: NodeJS.ProcessEnv): Promise<WebInspection> {
     child.stderr.setEncoding('utf8')
     child.stdout.on('data', (chunk: string) => {
       stdout += chunk
-      if (!ready && /dsh web: http:\/\/127\.0\.0\.1:\d+/u.test(stdout)) {
+      if (!ready && /dsh web: http:\/\/127\.0\.0\.1:\d+\/\?token=[^\s]+/u.test(stdout)) {
         ready = true
-        const origin = stdout.match(/dsh web: (http:\/\/127\.0\.0\.1:\d+)/u)?.[1]
+        const origin = stdout.match(/dsh web: (http:\/\/127\.0\.0\.1:\d+\/\?token=[^\s]+)/u)?.[1]
         if (origin === undefined) {
           inspectionError = new Error(`could not parse Web origin from ${stdout}`)
           child.kill('SIGTERM')
@@ -170,7 +182,7 @@ async function activateServedClient(code: string, loadedSettings: unknown): Prom
   let handoff: ClientHandoff | undefined
   const priorWindow = (globalThis as { window?: unknown }).window
   ;(globalThis as { window?: unknown }).window = {
-    __ModuleLoader__: { load(value: ClientHandoff) { handoff = value } },
+    __ModuleLoader__: { load(value: ClientHandoff) { if (value.id === 'dsh-mail') handoff = value } },
   }
   try {
     Function(code)()
@@ -182,7 +194,7 @@ async function activateServedClient(code: string, loadedSettings: unknown): Prom
       'react/jsx-runtime',
     ].map(async specifier => [specifier, await runtimeModule(specifier)] as const)))
     modules.set('@deepseek-ai/dsh-client-ui-primitives', { IconChevronDownOutline14: () => undefined })
-    modules.set('@deepseek-ai/dsh-client-runtime/client', {
+    modules.set('@deepseek-ai/dsh-client-store', {
       createSnapshotStore(initial: unknown) {
         let value = initial
         const listeners = new Set<() => void>()
@@ -342,7 +354,7 @@ describe('packaged native dsh plugin installation', () => {
     expect(web.stdout).toMatch(/dsh web: http:\/\/127\.0\.0\.1:\d+/u)
     expect(web.stderr).not.toMatch(/failed to apply loader entry|did not activate/u)
     expect(web.html).toContain('"id":"dsh-mail"')
-    expect(web.html).toContain('/plugins/dsh-mail/client.js')
+    expect(web.html).toContain('"dsh-mail"')
     expect(web.settings).toEqual({
       settings: {
         username: 'you@example.com',

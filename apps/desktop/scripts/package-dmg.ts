@@ -4,21 +4,22 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { auditApp } from './audit-app.ts'
 
-export function prepareDmgSource(appPath: string, sourceDirectory: string): void {
-  mkdirSync(sourceDirectory)
-  cpSync(appPath, join(sourceDirectory, basename(appPath)), { recursive: true })
-  symlinkSync('/Applications', join(sourceDirectory, 'Applications'))
-  const backgroundDirectory = join(sourceDirectory, '.background')
-  mkdirSync(backgroundDirectory)
-  cpSync(resolve(dirname(fileURLToPath(import.meta.url)), '../assets/dmg-background.png'), join(backgroundDirectory, 'background.png'))
-}
-
 type DmgCreator = (sourceDirectory: string, outputPath: string) => void
 type DmgAuditor = (imagePath: string) => void
 export type DmgCommandRunner = (command: string, args: string[]) => void
 
 function runDmgCommand(command: string, args: string[]): void {
   execFileSync(command, args, { stdio: 'inherit' })
+}
+
+export function prepareDmgSource(
+  appPath: string,
+  sourceDirectory: string,
+): void {
+  mkdirSync(sourceDirectory)
+  const stagedApp = join(sourceDirectory, basename(appPath))
+  cpSync(appPath, stagedApp, { recursive: true })
+  symlinkSync('/Applications', join(sourceDirectory, 'Applications'))
 }
 
 function appleScriptString(value: string): string {
@@ -42,9 +43,10 @@ tell application "Finder"
       set icon size to 128
       set text size to 14
     end tell
-    set background picture of theViewOptions to file ".background:background.png"
+    set background picture of theViewOptions to file "DeepSeek Harness.app:Contents:Resources:dmg-background.png"
     set position of item "DeepSeek Harness.app" to {170, 190}
     set position of item "Applications" to {490, 190}
+    update item "Applications" without registering applications
     update without registering applications
     close
     open
@@ -77,6 +79,7 @@ export function createCustomizedDmg(
       attached = true
       run('osascript', ['-e', buildFinderLayoutScript(mountPoint)])
       run('sync', [])
+      rmSync(join(mountPoint, '.fseventsd'), { recursive: true, force: true })
     } catch (error) {
       failure = error
       throw error
@@ -98,16 +101,48 @@ export function createCustomizedDmg(
   }
 }
 
+export interface MountedDmgAuditAdapters {
+  flags: (path: string) => string[]
+  app: (path: string) => void
+}
+
+const defaultMountedDmgAuditAdapters: MountedDmgAuditAdapters = {
+  flags: path => execFileSync('stat', ['-f', '%Sf', path], { encoding: 'utf8' }).trim().split(','),
+  app: auditApp,
+}
+
+export function auditMountedDmg(
+  mount: string,
+  adapters: MountedDmgAuditAdapters = defaultMountedDmgAuditAdapters,
+): void {
+  const app = join(mount, 'DeepSeek Harness.app')
+  if (!lstatSync(app, { throwIfNoEntry: false })?.isDirectory()) throw new Error('DMG is missing DeepSeek Harness.app')
+  const applications = join(mount, 'Applications')
+  if (readlinkSync(applications) !== '/Applications') throw new Error('DMG Applications shortcut is invalid')
+  if (adapters.flags(applications).includes('hidden')) throw new Error('DMG Applications shortcut must be visible')
+
+  for (const directory of ['.background', '.fseventsd']) {
+    const path = join(mount, directory)
+    if (lstatSync(path, { throwIfNoEntry: false })) throw new Error(`DMG must not contain ${directory}`)
+  }
+  if (!lstatSync(join(app, 'Contents/Resources/dmg-background.png'), { throwIfNoEntry: false })?.isFile()) {
+    throw new Error('DMG is missing background artwork')
+  }
+  if (!lstatSync(join(mount, '.DS_Store'), { throwIfNoEntry: false })?.isFile()) {
+    throw new Error('DMG is missing Finder layout metadata')
+  }
+  if (!adapters.flags(join(mount, '.DS_Store')).includes('hidden')) throw new Error('DMG .DS_Store must be hidden')
+  adapters.app(app)
+}
+
 export function auditDmg(imagePath: string): void {
   const mount = mkdtempSync(join(dirname(imagePath), '.dmg-audit-'))
   let attached = false
   try {
+    execFileSync('hdiutil', ['verify', imagePath], { stdio: 'inherit' })
     execFileSync('hdiutil', ['attach', '-readonly', '-nobrowse', '-mountpoint', mount, imagePath], { stdio: 'inherit' })
     attached = true
-    const app = join(mount, 'DeepSeek Harness.app')
-    if (!lstatSync(app, { throwIfNoEntry: false })?.isDirectory()) throw new Error('DMG is missing DeepSeek Harness.app')
-    if (readlinkSync(join(mount, 'Applications')) !== '/Applications') throw new Error('DMG Applications shortcut is invalid')
-    auditApp(app)
+    auditMountedDmg(mount)
   } finally {
     if (attached) execFileSync('hdiutil', ['detach', mount], { stdio: 'inherit' })
     rmSync(mount, { recursive: true, force: true })

@@ -1,4 +1,4 @@
-import type { SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { MailSettings } from '../mail-settings.ts'
 
 export interface MailSettingsMirror {

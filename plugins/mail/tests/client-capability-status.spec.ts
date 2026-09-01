@@ -24,7 +24,7 @@ async function loadController() {
   }
   const loader = {
     load({ factory }: { factory: (require: (name: string) => unknown) => Record<string, unknown> }) {
-      exports = factory((name) => name === '@deepseek-ai/dsh-client-runtime/client'
+      exports = factory((name) => name === '@deepseek-ai/dsh-client-store'
         ? runtime
         : name === 'react'
           ? { useState: () => [false, () => undefined] }

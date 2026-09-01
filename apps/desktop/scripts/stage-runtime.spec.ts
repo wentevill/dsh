@@ -3,7 +3,7 @@ import { linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, statSync, sy
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { augmentDesktopRuntimeClosure, breakRuntimeHardlinks, buildEnvironment, createStageDirectory, materializeRuntimeLinks, signRuntimeExecutable, stagePluginManagerAssets, verifyPackageIntegrity, verifySha256 } from './stage-runtime.ts'
+import { augmentDesktopRuntimeClosure, breakRuntimeHardlinks, buildEnvironment, copyPluginManagerPackage, createStageDirectory, materializeRuntimeLinks, packPluginManagerPackage, signRuntimeExecutable, stagePluginManagerAssets, verifyPackageIntegrity, verifySha256 } from './stage-runtime.ts'
 
 describe('runtime staging', () => {
   it('ad-hoc signs the bundled executable after copying it', () => {
@@ -52,6 +52,32 @@ describe('runtime staging', () => {
     expect(readFileSync(join(staged, 'plugins/dsh-plugin-manager.tgz'), 'utf8')).toBe('archive')
     expect(readFileSync(join(staged, 'app/ensure-plugin-manager.mjs'), 'utf8'))
       .toBe('export function ensurePluginManager() {}\n')
+  })
+
+  it('rebases the plugin manager tsconfig after relocating it into the upstream package tree', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-manager-package-'))
+    const source = join(root, 'plugins/manager')
+    const destination = join(root, 'assembly/packages/extensions/plugin-manager')
+    mkdirSync(source, { recursive: true })
+    writeFileSync(join(source, 'tsconfig.json'), JSON.stringify({ extends: '../../tsconfig.base.json' }))
+
+    copyPluginManagerPackage(source, destination)
+
+    const config = JSON.parse(readFileSync(join(destination, 'tsconfig.json'), 'utf8')) as { extends: string }
+    expect(config.extends).toBe('../../../tsconfig.base.json')
+  })
+
+  it('packs the already-built plugin manager without rerunning incompatible lifecycle builds', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-manager-pack-'))
+    const destination = join(root, 'archives')
+    mkdirSync(destination)
+
+    packPluginManagerPackage(root, destination, (_command, args) => {
+      if (!args.includes('--config.ignore-scripts=true')) throw new Error('prepack lifecycle ran')
+      writeFileSync(join(destination, 'dsh-plugin-manager-0.1.5.tgz'), 'archive')
+    })
+
+    expect(readFileSync(join(destination, 'dsh-plugin-manager-0.1.5.tgz'), 'utf8')).toBe('archive')
   })
 
   it('rejects a lockfile whose bundled package integrity is not pinned', () => {

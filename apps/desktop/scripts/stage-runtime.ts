@@ -78,7 +78,7 @@ export function stageRuntime(
     // A second install updates only this disposable assembly's lock and links.
     copyPackagingPackage(join(packagingRoot, 'apps/desktop'), join(assembly, 'apps/desktop'))
     copyPackagingPackage(join(packagingRoot, 'packages/mail'), join(assembly, 'packages/mail'))
-    copyPackagingPackage(join(packagingRoot, 'plugins/manager'), join(assembly, 'packages/extensions/plugin-manager'))
+    copyPluginManagerPackage(join(packagingRoot, 'plugins/manager'), join(assembly, 'packages/extensions/plugin-manager'))
     augmentDesktopRuntimeClosure(assembly)
     execFileSync('corepack', ['pnpm', 'install', '--lockfile-only', '--no-frozen-lockfile'], { cwd: assembly, env: environment, stdio: 'inherit' })
     verifyPackageIntegrity(join(assembly, 'pnpm-lock.yaml'), 'pnpm', config.pnpmVersion, config.pnpmIntegrity)
@@ -111,10 +111,8 @@ export function stageRuntime(
       join(packagingRoot, 'apps/desktop/scripts/ensure-plugin-manager.mjs'),
       staged,
       (source, destination) => {
-        execFileSync('corepack', ['pnpm', 'pack', '--pack-destination', destination], {
-          cwd: source,
-          env: environment,
-          stdio: 'inherit',
+        packPluginManagerPackage(source, destination, (command, args) => {
+          execFileSync(command, args, { cwd: source, env: environment, stdio: 'inherit' })
         })
       },
     )
@@ -126,6 +124,14 @@ export function stageRuntime(
 }
 
 export type PluginManagerPackRunner = (source: string, destination: string) => void
+
+export function packPluginManagerPackage(
+  source: string,
+  destination: string,
+  run: RuntimeCommandRunner = (command, args) => execFileSync(command, args, { cwd: source, stdio: 'inherit' }),
+): void {
+  run('corepack', ['pnpm', '--config.ignore-scripts=true', 'pack', '--pack-destination', destination])
+}
 
 export function stagePluginManagerAssets(
   managerRoot: string,
@@ -182,6 +188,14 @@ function copyPackagingPackage(source: string, destination: string): void {
     recursive: true,
     filter: path => !path.split('/').some(segment => ['node_modules', 'target', 'resources'].includes(segment)),
   })
+}
+
+export function copyPluginManagerPackage(source: string, destination: string): void {
+  copyPackagingPackage(source, destination)
+  const configPath = join(destination, 'tsconfig.json')
+  const config = JSON.parse(readFileSync(configPath, 'utf8')) as { extends?: string }
+  if (config.extends === '../../tsconfig.base.json') config.extends = '../../../tsconfig.base.json'
+  writeFileSync(configPath, JSON.stringify(config, undefined, 2) + '\n')
 }
 
 export function materializeRuntimeLinks(nodeModules: string): void {

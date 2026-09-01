@@ -4,8 +4,8 @@
  * Reuses the harness client preset's platform table ({@link CLIENT_EXTERNALS})
  * so the browser bundle resolves its externals against the loader module table
  * exactly like every shipped `dsh.client` package (react/cordis/ui-slots share
- * the frozen instances; `@deepseek-ai/dsh-client-runtime/client` rides its
- * documented store-engine exemption), bundles everything else inline, and lands
+ * the frozen instances, including the platform-owned client store), bundles
+ * everything else inline, and lands
  * in `lib/client.js` as a `window.__ModuleLoader__.load({ id, factory })`
  * closure-factory artifact served at `/plugins/dsh-mail/client.js`.
  *
@@ -19,7 +19,7 @@ const CLIENT_EXTERNALS = [
   'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-client-ui-slots', '@deepseek-ai/dsh-client-web-react',
   '@deepseek-ai/dsh-client-ui-primitives', '@deepseek-ai/dsh-client-ui-attachment',
-  '@deepseek-ai/dsh-client-schema-form', '@deepseek-ai/dsh-client-runtime/client',
+  '@deepseek-ai/dsh-client-schema-form', '@deepseek-ai/dsh-client-store',
 ] as const
 
 /** Must match the package name — the boot-graph entry id the browser correlates the load with. */

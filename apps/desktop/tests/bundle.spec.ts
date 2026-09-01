@@ -16,8 +16,10 @@ describe('Tauri bundle layout', () => {
   })
 
   it('places the runtime directly below the Tauri resource directory', () => {
-    const config = readFileSync(join(desktopRoot, 'src-tauri/tauri.conf.json'), 'utf8')
-    expect(config).toMatch(/"resources":\s*\{\s*"resources\/runtime":\s*"runtime"\s*\}/)
+    const config = JSON.parse(readFileSync(join(desktopRoot, 'src-tauri/tauri.conf.json'), 'utf8')) as {
+      bundle: { resources: Record<string, string> }
+    }
+    expect(config.bundle.resources['resources/runtime']).toBe('runtime')
   })
 
   it('lets the webview receive HTML5 file drag-and-drop events', () => {
