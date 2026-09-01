@@ -101,6 +101,7 @@ ifeq ($(PLUGIN),mail)
 	NODE_PATH= NODE_OPTIONS= "$(NODE)" "$(MAIL_RELEASE)" \
 		--pnpm "$(PACKAGE_BIN)/pnpm" --destination "$(CURDIR)/plugins/mail"
 else
+	corepack pnpm --dir plugins/$(PLUGIN) install --frozen-lockfile
 	corepack pnpm $(PLUGIN_PACK_SCRIPT)
 endif
 

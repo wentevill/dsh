@@ -6,6 +6,7 @@ node_modules/
 .cache/
 plugins/mail/*.tgz
 plugins/wecom/*.tgz
+plugins/confluence/*.tgz
 plugins/nextcloud/*.tgz
 target/
 dist/
