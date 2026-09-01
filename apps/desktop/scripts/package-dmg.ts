@@ -27,31 +27,30 @@ function appleScriptString(value: string): string {
 }
 
 export function buildFinderLayoutScript(mountPoint: string): string {
-  return `set mountedDiskName to "${appleScriptString(basename(mountPoint))}"
+  return `set mountedFolder to POSIX file "${appleScriptString(mountPoint)}" as alias
 tell application "Finder"
-  tell disk mountedDiskName
-    open
-    tell container window
-      set current view to icon view
-      set toolbar visible to false
-      set statusbar visible to false
-      set bounds to {200, 200, 860, 600}
-    end tell
-    set theViewOptions to icon view options of container window
-    tell theViewOptions
-      set arrangement to not arranged
-      set icon size to 128
-      set text size to 14
-    end tell
-    set background picture of theViewOptions to file "DeepSeek Harness.app:Contents:Resources:dmg-background.png"
-    set position of item "DeepSeek Harness.app" to {170, 190}
-    set position of item "Applications" to {490, 190}
-    update item "Applications" without registering applications
-    update without registering applications
-    close
-    open
-    delay 2
+  open mountedFolder
+  set mountedWindow to container window of mountedFolder
+  tell mountedWindow
+    set current view to icon view
+    set toolbar visible to false
+    set statusbar visible to false
+    set bounds to {200, 200, 860, 600}
   end tell
+  set theViewOptions to icon view options of mountedWindow
+  tell theViewOptions
+    set arrangement to not arranged
+    set icon size to 128
+    set text size to 14
+  end tell
+  set background picture of theViewOptions to file "DeepSeek Harness.app:Contents:Resources:dmg-background.png" of mountedFolder
+  set position of item "DeepSeek Harness.app" of mountedFolder to {170, 190}
+  set position of item "Applications" of mountedFolder to {490, 190}
+  update item "Applications" of mountedFolder without registering applications
+  update mountedFolder without registering applications
+  close mountedWindow
+  open mountedFolder
+  delay 2
 end tell`
 }
 

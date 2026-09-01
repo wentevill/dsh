@@ -3,6 +3,7 @@
 .project-knowledge/
 .worktrees/
 node_modules/
+.cache/
 plugins/mail/*.tgz
 plugins/wecom/*.tgz
 plugins/nextcloud/*.tgz

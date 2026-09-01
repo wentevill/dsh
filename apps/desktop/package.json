@@ -8,9 +8,10 @@
     "audit:runtime": "tsx scripts/audit-runtime.ts src-tauri/resources/runtime",
     "build": "npm run audit:runtime && npm run test:plugin-install && corepack pnpm dlx @tauri-apps/cli@2.11.4 build --target aarch64-apple-darwin --features desktop-app --bundles app && npm run audit:app -- 'src-tauri/target/aarch64-apple-darwin/release/bundle/macos/DeepSeek Harness.app' && tsx scripts/package-dmg.ts",
     "dev": "corepack pnpm dlx @tauri-apps/cli@2.11.4 dev --target aarch64-apple-darwin --features desktop-app",
+    "pack:mail": "NODE_PATH= NODE_OPTIONS= src-tauri/resources/runtime/node/bin/node ../../plugins/mail/scripts/pack-release.mjs --pnpm src-tauri/resources/runtime/app/node_modules/.bin/pnpm --destination ../../plugins/mail",
     "stage:runtime": "tsx scripts/stage-runtime.ts",
     "test": "vitest run --config vitest.config.ts --exclude tests/plugin-install.e2e.ts",
-    "test:plugin-install": "corepack pnpm --dir ../../plugins/mail pack --pack-destination . && vitest run tests/plugin-install.e2e.ts --config vitest.config.ts",
+    "test:plugin-install": "npm run pack:mail && vitest run tests/plugin-install.e2e.ts --config vitest.config.ts",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib --tests"
   },
   "dependencies": {

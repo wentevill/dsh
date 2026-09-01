@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { chmodSync, copyFileSync, cpSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, cpSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, delimiter, dirname, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -278,12 +278,12 @@ function materializeExternalPackages(
   for (const link of links) {
     if (link.target.startsWith(`${resolve(nodeModules)}/`)) continue
     if ([resolve(workspaceRoot, 'apps/desktop'), resolve(workspaceRoot, 'python/sdk-runtime')].includes(link.target)) {
-      rmSync(link.path)
+      removeRuntimeLink(link.path)
       continue
     }
     if (!link.target.startsWith(`${resolve(workspaceRoot)}/`)) continue
     if (lstatSync(link.target).isFile()) {
-      rmSync(link.path)
+      removeRuntimeLink(link.path)
       copyFileSync(link.target, link.path)
       continue
     }
@@ -292,7 +292,7 @@ function materializeExternalPackages(
     }
     const manifest = JSON.parse(readFileSync(join(link.target, 'package.json'), 'utf8')) as { os?: string[] }
     if (manifest.os && !manifest.os.includes('darwin')) {
-      rmSync(link.path)
+      removeRuntimeLink(link.path)
       continue
     }
     let packaged = materialized.get(link.target)
@@ -315,9 +315,15 @@ function materializeExternalPackages(
       renameSync(join(extractDirectory, 'package'), packaged)
       materialized.set(link.target, packaged)
     }
-    rmSync(link.path)
+    removeRuntimeLink(link.path)
     symlinkSync(relative(dirname(link.path), packaged), link.path, 'dir')
   }
+}
+
+/** Remove a deployed package link without following a directory symlink. */
+export function removeRuntimeLink(path: string): void {
+  if (!lstatSync(path).isSymbolicLink()) throw new Error(`Expected runtime link: ${path}`)
+  unlinkSync(path)
 }
 
 function collectLinks(directory: string, links: Array<{ path: string; target: string }>): void {

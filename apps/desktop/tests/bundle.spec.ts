@@ -43,4 +43,14 @@ describe('Tauri bundle layout', () => {
     expect(appAudit).toBeGreaterThan(tauriBuild)
     expect(dmg).toBeGreaterThan(appAudit)
   })
+
+  it('packs the release acceptance plugin through the staged private runtime', () => {
+    const manifest = JSON.parse(readFileSync(join(desktopRoot, 'package.json'), 'utf8')) as {
+      scripts: Record<string, string>
+    }
+    expect(manifest.scripts['test:plugin-install']).toContain('npm run pack:mail')
+    expect(manifest.scripts['pack:mail']).toContain('resources/runtime/node/bin/node')
+    expect(manifest.scripts['pack:mail']).toContain('scripts/pack-release.mjs')
+    expect(manifest.scripts['pack:mail']).toContain('resources/runtime/app/node_modules/.bin/pnpm')
+  })
 })

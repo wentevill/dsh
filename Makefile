@@ -2,6 +2,16 @@ APP_PATH ?= /Applications/DeepSeek Harness.app
 PLUGIN ?= mail
 PROFILE ?= web
 DESKTOP_DSH_HOME ?= $(HOME)/Library/Application Support/ai.deepseek.harness/harness
+RELEASE_CACHE ?= $(CURDIR)/.cache/release
+
+ifneq ($(filter release-dmg release-check release-dependencies download-runtime stage-runtime,$(MAKECMDGOALS)),)
+RUNTIME_CONFIG := $(CURDIR)/apps/desktop/runtime.json
+NODE_ARCHIVE_NAME := $(shell node -p "require('$(RUNTIME_CONFIG)').archive")
+NODE_ARCHIVE_URL := $(shell node -p "require('$(RUNTIME_CONFIG)').url")
+NODE_ARCHIVE_SHA256 := $(shell node -p "require('$(RUNTIME_CONFIG)').sha256")
+NODE_ARCHIVE ?= $(RELEASE_CACHE)/$(NODE_ARCHIVE_NAME)
+RUST_TARGET := aarch64-apple-darwin
+endif
 
 RUNTIME := $(APP_PATH)/Contents/Resources/runtime
 NODE := $(RUNTIME)/node/bin/node
@@ -34,19 +44,52 @@ PLUGIN_ARCHIVE := $(CURDIR)/plugins/$(PLUGIN)/$(PLUGIN_PACKAGE)-$(PLUGIN_VERSION
 endif
 endif
 
-.PHONY: help release-dmg run pack-plugin install-plugin
+.PHONY: help release-dmg release-check release-dependencies download-runtime stage-runtime run pack-plugin install-plugin
 
 help:
 	@printf '%s\n' \
-		'make release-dmg    Build and audit the release app and DMG' \
+		'make release-dmg    Install, stage, build, and audit the release app and DMG' \
 		'make run            Start Tauri development mode' \
 		'make pack-plugin    Build a production plugin tgz (PLUGIN=mail|wecom|confluence|manager|nextcloud)' \
 		'make install-plugin Pack and install a plugin into the Desktop web profile' \
 		'' \
-		'Variables: APP_PATH, PLUGIN=mail|wecom|confluence|manager|nextcloud, PROFILE=web, DESKTOP_DSH_HOME'
+		'Variables: NODE_ARCHIVE, RELEASE_CACHE, APP_PATH, PLUGIN=mail|wecom|confluence|manager|nextcloud, PROFILE=web, DESKTOP_DSH_HOME'
 
-release-dmg:
+release-dmg: stage-runtime
 	corepack pnpm desktop:build
+
+release-check:
+	@set -eu; \
+	if [ "$$(uname -s)" != Darwin ] || [ "$$(uname -m)" != arm64 ]; then \
+		printf '%s\n' 'release-dmg requires an Apple Silicon Mac' >&2; exit 1; \
+	fi; \
+	for command in node corepack cargo rustup curl shasum hdiutil osascript codesign git tar xcrun; do \
+		command -v "$$command" >/dev/null || { printf 'missing required command: %s\n' "$$command" >&2; exit 1; }; \
+	done; \
+	rustup target list --installed | grep -Fx '$(RUST_TARGET)' >/dev/null || { \
+		printf 'missing Rust target: %s (install with: rustup target add %s)\n' '$(RUST_TARGET)' '$(RUST_TARGET)' >&2; exit 1; \
+	}
+
+release-dependencies: release-check
+	corepack pnpm install --frozen-lockfile
+
+download-runtime: release-check
+	@set -eu; \
+	mkdir -p "$$(dirname "$(NODE_ARCHIVE)")"; \
+	if [ -f "$(NODE_ARCHIVE)" ] && printf '%s  %s\n' '$(NODE_ARCHIVE_SHA256)' "$(NODE_ARCHIVE)" | shasum -a 256 -c - >/dev/null 2>&1; then \
+		printf 'using cached Node runtime: %s\n' '$(NODE_ARCHIVE)'; \
+	else \
+		temporary="$(NODE_ARCHIVE).tmp.$$$$"; \
+		trap 'rm -f "$$temporary"' EXIT HUP INT TERM; \
+		printf 'downloading Node runtime: %s\n' '$(NODE_ARCHIVE_URL)'; \
+		curl --fail --location --retry 3 --output "$$temporary" '$(NODE_ARCHIVE_URL)'; \
+		printf '%s  %s\n' '$(NODE_ARCHIVE_SHA256)' "$$temporary" | shasum -a 256 -c -; \
+		mv "$$temporary" "$(NODE_ARCHIVE)"; \
+		trap - EXIT HUP INT TERM; \
+	fi
+
+stage-runtime: release-dependencies download-runtime
+	NODE_ARCHIVE="$(NODE_ARCHIVE)" corepack pnpm desktop:stage -- --archive "$(NODE_ARCHIVE)"
 
 run:
 	corepack pnpm --dir apps/desktop dev

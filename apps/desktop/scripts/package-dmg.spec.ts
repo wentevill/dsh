@@ -33,18 +33,18 @@ describe('DMG packaging', () => {
     const script = commands[2]?.args.at(-1) ?? ''
     expect(script).toContain('set bounds to {200, 200, 860, 600}')
     expect(script).toContain('set icon size to 128')
-    expect(script).toContain('set position of item "DeepSeek Harness.app" to {170, 190}')
-    expect(script).toContain('set position of item "Applications" to {490, 190}')
+    expect(script).toContain('set position of item "DeepSeek Harness.app" of mountedFolder to {170, 190}')
+    expect(script).toContain('set position of item "Applications" of mountedFolder to {490, 190}')
     expect(script).toContain('set background picture of theViewOptions to file "DeepSeek Harness.app:Contents:Resources:dmg-background.png"')
     expect(script).toContain('update item "Applications"')
   })
 
-  it('resolves the private mount to a Finder disk window', () => {
+  it('resolves the private mount through its POSIX path', () => {
     const script = buildFinderLayoutScript('/private/tmp/DeepSeek Harness mount')
 
-    expect(script).toContain('set mountedDiskName to "DeepSeek Harness mount"')
-    expect(script).toContain('tell disk mountedDiskName')
-    expect(script).not.toContain('tell disk "DeepSeek Harness"')
+    expect(script).toContain('set mountedFolder to POSIX file "/private/tmp/DeepSeek Harness mount" as alias')
+    expect(script).toContain('set mountedWindow to container window of mountedFolder')
+    expect(script).not.toContain('tell disk')
   })
 
   it('removes temporary layout files when Finder customization fails', () => {

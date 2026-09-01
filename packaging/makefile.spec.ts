@@ -12,12 +12,26 @@ function dryRun(target: string, overrides: string[] = []): string {
 
 describe('Desktop Make commands', () => {
   it('delegates release, development, and mail packaging to their owned scripts', () => {
-    expect(dryRun('release-dmg')).toContain('corepack pnpm desktop:build')
+    const release = dryRun('release-dmg')
+    expect(release).toContain('corepack pnpm install --frozen-lockfile')
+    expect(release).toContain('node-v22.19.0-darwin-arm64.tar.gz')
+    expect(release).toContain('c59006db713c770d6ec63ae16cb3edc11f49ee093b5c415d667bb4f436c6526d')
+    expect(release).toContain('corepack pnpm desktop:stage -- --archive')
+    expect(release).toContain('corepack pnpm desktop:build')
+    expect(release.indexOf('desktop:stage')).toBeLessThan(release.indexOf('desktop:build'))
     expect(dryRun('run')).toContain('corepack pnpm --dir apps/desktop dev')
     const pack = dryRun('pack-plugin')
     expect(pack).toContain('scripts/pack-release.mjs')
     expect(pack).toContain('app/node_modules/.bin/pnpm')
     expect(pack).not.toContain('corepack')
+  })
+
+  it('supports an explicit runtime archive and checks release prerequisites', () => {
+    const release = dryRun('release-dmg', ['NODE_ARCHIVE=/tmp/pinned-node.tar.gz'])
+    expect(release).toContain('curl shasum hdiutil osascript codesign')
+    expect(release).toContain('rustup target list --installed')
+    expect(release).toContain('NODE_ARCHIVE="/tmp/pinned-node.tar.gz"')
+    expect(release).toContain('--archive "/tmp/pinned-node.tar.gz"')
   })
 
   it('delegates WeCom packaging to its owned script', () => {

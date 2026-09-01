@@ -34,7 +34,7 @@ new GitHub revision.
 From the repository root:
 
 ```sh
-make release-dmg     # build and audit the release app and DMG
+make release-dmg     # install dependencies, stage the runtime, then build and audit the app and DMG
 make run             # start Tauri development mode
 make pack-plugin                       # create the production mail plugin tgz
 make pack-plugin PLUGIN=wecom          # create the production WeCom plugin tgz
@@ -43,6 +43,12 @@ make pack-plugin PLUGIN=manager        # create the production Plugin manager tg
 make pack-plugin PLUGIN=nextcloud      # create the production Nextcloud files and sharing plugin tgz
 make install-plugin PLUGIN=wecom       # pack and install WeCom into the Desktop web profile
 ```
+
+`make release-dmg` is the complete release entry point. It checks the Apple
+Silicon macOS toolchain and Rust target, installs locked dependencies, downloads
+and verifies the pinned Node.js archive, stages the runtime, then builds and
+audits the app and DMG. Downloads are cached in `.cache/release/` by default;
+set `NODE_ARCHIVE=/path/to/node.tar.gz` to use an existing archive.
 
 Quit the installed DeepSeek Harness application before `make install-plugin`
 to avoid concurrent access to its profile. Installation uses only the Node,

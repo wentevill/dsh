@@ -3,7 +3,7 @@ import { linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, statSync, sy
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { augmentDesktopRuntimeClosure, breakRuntimeHardlinks, buildEnvironment, copyPluginManagerPackage, createStageDirectory, materializeRuntimeLinks, packPluginManagerPackage, signRuntimeExecutable, stagePluginManagerAssets, verifyPackageIntegrity, verifySha256 } from './stage-runtime.ts'
+import { augmentDesktopRuntimeClosure, breakRuntimeHardlinks, buildEnvironment, copyPluginManagerPackage, createStageDirectory, materializeRuntimeLinks, packPluginManagerPackage, removeRuntimeLink, signRuntimeExecutable, stagePluginManagerAssets, verifyPackageIntegrity, verifySha256 } from './stage-runtime.ts'
 
 describe('runtime staging', () => {
   it('ad-hoc signs the bundled executable after copying it', () => {
@@ -131,6 +131,20 @@ describe('runtime staging', () => {
     expect(lstatSync(join(nodeModules, 'package')).isSymbolicLink()).toBe(false)
     expect(lstatSync(join(nodeModules, 'package/lib.js')).isFile()).toBe(true)
     expect(() => lstatSync(join(nodeModules, 'package/node_modules'))).toThrow()
+  })
+
+  it('removes deployed directory links without deleting their targets on Node 24', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-remove-link-'))
+    const target = join(root, 'target')
+    const link = join(root, 'link')
+    mkdirSync(target)
+    writeFileSync(join(target, 'kept.js'), 'kept')
+    symlinkSync(target, link)
+
+    removeRuntimeLink(link)
+
+    expect(lstatSync(link, { throwIfNoEntry: false })).toBeUndefined()
+    expect(readFileSync(join(target, 'kept.js'), 'utf8')).toBe('kept')
   })
 
   it('materializes the pnpm bin as a location-correct private launcher', () => {
