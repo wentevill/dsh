@@ -14,6 +14,7 @@ export interface RuntimeConfig {
 }
 
 export type RuntimeCommandRunner = (command: string, args: string[]) => void
+export type RuntimeCommandInDirectoryRunner = (command: string, args: string[], cwd: string) => void
 
 export function signRuntimeExecutable(
   path: string,
@@ -111,8 +112,8 @@ export function stageRuntime(
       join(packagingRoot, 'apps/desktop/scripts/ensure-plugin-manager.mjs'),
       staged,
       (source, destination) => {
-        packPluginManagerPackage(source, destination, (command, args) => {
-          execFileSync(command, args, { cwd: source, env: environment, stdio: 'inherit' })
+        packPluginManagerPackage(source, destination, (command, args, cwd) => {
+          execFileSync(command, args, { cwd, env: environment, stdio: 'inherit' })
         })
       },
     )
@@ -128,9 +129,33 @@ export type PluginManagerPackRunner = (source: string, destination: string) => v
 export function packPluginManagerPackage(
   source: string,
   destination: string,
-  run: RuntimeCommandRunner = (command, args) => execFileSync(command, args, { cwd: source, stdio: 'inherit' }),
+  run: RuntimeCommandInDirectoryRunner = (command, args, cwd) => execFileSync(command, args, { cwd, stdio: 'inherit' }),
 ): void {
-  run('corepack', ['pnpm', '--config.ignore-scripts=true', 'pack', '--pack-destination', destination])
+  mkdirSync(destination, { recursive: true })
+  const temporary = mkdtempSync(join(dirname(destination), '.plugin-manager-pack-'))
+  const production = join(temporary, 'package')
+  try {
+    run('corepack', [
+      'pnpm', '--config.ignore-scripts=true', '--config.inject-workspace-packages=true', '--config.node-linker=hoisted',
+      '--config.auto-install-peers=false', '--filter', 'dsh-plugin-manager',
+      'deploy', '--prod', production,
+    ], source)
+    const manifestPath = join(production, 'package.json')
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      name?: string
+      version?: string
+      scripts?: Record<string, string>
+    }
+    if (manifest.name !== 'dsh-plugin-manager' || !manifest.version) {
+      throw new Error('Plugin manager production deployment has an invalid manifest')
+    }
+    for (const lifecycle of ['prepack', 'prepare', 'prepublishOnly', 'postpack']) delete manifest.scripts?.[lifecycle]
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, undefined, 2)}\n`)
+    const archive = join(destination, `dsh-plugin-manager-${manifest.version}.tgz`)
+    run('tar', ['-czf', archive, '-C', temporary, 'package'], source)
+  } finally {
+    rmSync(temporary, { recursive: true, force: true })
+  }
 }
 
 export function stagePluginManagerAssets(

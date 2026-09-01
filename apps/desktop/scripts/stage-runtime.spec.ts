@@ -71,13 +71,25 @@ describe('runtime staging', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-manager-pack-'))
     const destination = join(root, 'archives')
     mkdirSync(destination)
+    const calls: Array<{ command: string, args: string[], cwd: string }> = []
 
-    packPluginManagerPackage(root, destination, (_command, args) => {
-      if (!args.includes('--config.ignore-scripts=true')) throw new Error('prepack lifecycle ran')
-      writeFileSync(join(destination, 'dsh-plugin-manager-0.1.5.tgz'), 'archive')
+    packPluginManagerPackage(root, destination, (command, args, cwd) => {
+      calls.push({ command, args, cwd })
+      if (command === 'corepack') {
+        if (!args.includes('--config.ignore-scripts=true') || !args.includes('deploy')) throw new Error('production deploy was not used')
+        const production = args.at(-1)!
+        mkdirSync(production, { recursive: true })
+        writeFileSync(join(production, 'package.json'), JSON.stringify({
+          name: 'dsh-plugin-manager', version: '0.1.6', scripts: { prepack: 'exit 1' },
+        }))
+      } else {
+        writeFileSync(args[1]!, 'archive')
+      }
     })
 
-    expect(readFileSync(join(destination, 'dsh-plugin-manager-0.1.5.tgz'), 'utf8')).toBe('archive')
+    expect(readFileSync(join(destination, 'dsh-plugin-manager-0.1.6.tgz'), 'utf8')).toBe('archive')
+    expect(calls.map(call => call.command)).toEqual(['corepack', 'tar'])
+    expect(calls.every(call => call.cwd === root)).toBe(true)
   })
 
   it('rejects a lockfile whose bundled package integrity is not pinned', () => {
