@@ -3,7 +3,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import remote from '../../lib/typert.remote-client.js'
 import type { NextcloudSettings } from '../settings.ts'
 import { css, ensureCardCSS } from './card-css.ts'
@@ -12,6 +12,10 @@ import { NEXTCLOUD_CARD_SLOT_OPTIONS } from './slot-options.ts'
 
 const NS = 'settings.plugins.nextcloud'
 const NEXTCLOUD_PASSWORD_REF = 'NEXTCLOUD_APP_PASSWORD'
+const EMPTY: NextcloudSettings = {
+  serverUrl: '', username: '', accessMode: 'all', allowedRoots: [],
+  allowDelete: false, allowHttp: false, skipTlsVerify: false,
+}
 
 type RemoteResult<T> = { ok: true; value: T } | { ok: false; error: { message: string } }
 type CredentialRemote = { set(ref: string, value: string): Promise<RemoteResult<void>> }
@@ -36,14 +40,20 @@ function Field(props: { id: string; label: string; hint?: string; children: Reac
   return <div className={css.field}><label className={css.label} htmlFor={props.id}>{props.label}</label>{props.children}{props.hint ? <p className={css.hint}>{props.hint}</p> : null}</div>
 }
 
-function Card({ remoteApi, credentials, initialSettings, t }: { remoteApi: any; credentials: CredentialRemote; initialSettings: NextcloudSettings; t: (key: LocaleKey) => string }) {
-  const [baseline, setBaseline] = useState(initialSettings)
-  const [settings, setSettings] = useState(initialSettings)
+function Card({ remoteApi, credentials, t }: { remoteApi: any; credentials: CredentialRemote; t: (key: LocaleKey) => string }) {
+  const initialRemote = useRef(remoteApi)
+  const [baseline, setBaseline] = useState(EMPTY)
+  const [settings, setSettings] = useState(EMPTY)
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<'saved' | 'connected' | 'failed' | ''>('')
   const [open, setOpen] = useState(false)
   ensureCardCSS()
+  useEffect(() => {
+    void loadNextcloudCardSettings(initialRemote.current)
+      .then(saved => { setSettings(saved); setBaseline(saved) })
+      .catch(() => setStatus('failed'))
+  }, [])
   const dirty = JSON.stringify(settings) !== JSON.stringify(baseline) || password.trim() !== ''
   const update = <K extends keyof NextcloudSettings>(key: K, value: NextcloudSettings[K]) => setSettings(current => ({ ...current, [key]: value }))
   const run = async (operation: () => Promise<void>, success: 'saved' | 'connected') => {
@@ -89,9 +99,8 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const feature = ctx.plugin(Object.assign(async (child: ClientContext) => {
     child.effect(() => child.locale.register(NS, { zh, en }), 'nextcloud-client: dictionaries')
     const remoteApi = child.remote.nextcloudSettings
-    const initialSettings = await loadNextcloudCardSettings(remoteApi)
     child.slots.inject('settings.plugin.item', function* () {
-      yield child.slots.register(NEXTCLOUD_CARD_SLOT_OPTIONS, (props: { t: (key: LocaleKey) => string }) => <Card remoteApi={remoteApi} credentials={child.remote.credentials} initialSettings={initialSettings} t={props.t} />)
+      yield child.slots.register(NEXTCLOUD_CARD_SLOT_OPTIONS, (props: { t: (key: LocaleKey) => string }) => <Card remoteApi={remoteApi} credentials={child.remote.credentials} t={props.t} />)
     })
   }, { inject: ['slots', 'locale', 'remote', 'remote.credentials', 'remote.nextcloudSettings'] }))
   await feature
