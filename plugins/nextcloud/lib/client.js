@@ -3970,15 +3970,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		//#region src/client/index.tsx
 		const NS = "settings.plugins.nextcloud";
 		const NEXTCLOUD_PASSWORD_REF = "NEXTCLOUD_APP_PASSWORD";
-		const EMPTY = {
-			serverUrl: "",
-			username: "",
-			accessMode: "all",
-			allowedRoots: [],
-			allowDelete: false,
-			allowHttp: false,
-			skipTlsVerify: false
-		};
 		function unwrap(response) {
 			if (!response.ok) throw new Error(response.error.message);
 			return response.value;
@@ -4006,21 +3997,14 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				]
 			});
 		}
-		function Card({ remoteApi, credentials, t }) {
-			const initialRemote = (0, react.useRef)(remoteApi);
-			const [baseline, setBaseline] = (0, react.useState)(EMPTY);
-			const [settings, setSettings] = (0, react.useState)(EMPTY);
+		function Card({ remoteApi, credentials, initialSettings, t }) {
+			const [baseline, setBaseline] = (0, react.useState)(initialSettings);
+			const [settings, setSettings] = (0, react.useState)(initialSettings);
 			const [password, setPassword] = (0, react.useState)("");
 			const [busy, setBusy] = (0, react.useState)(false);
 			const [status, setStatus] = (0, react.useState)("");
 			const [open, setOpen] = (0, react.useState)(false);
 			ensureCardCSS();
-			(0, react.useEffect)(() => {
-				loadNextcloudCardSettings(initialRemote.current).then((saved) => {
-					setSettings(saved);
-					setBaseline(saved);
-				}).catch(() => setStatus("failed"));
-			}, []);
 			const dirty = JSON.stringify(settings) !== JSON.stringify(baseline) || password.trim() !== "";
 			const update = (key, value) => setSettings((current) => ({
 				...current,
@@ -4207,10 +4191,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					en
 				}), "nextcloud-client: dictionaries");
 				const remoteApi = child.remote.nextcloudSettings;
+				const initialSettings = await loadNextcloudCardSettings(remoteApi);
 				child.slots.inject("settings.plugin.item", function* () {
 					yield child.slots.register(NEXTCLOUD_CARD_SLOT_OPTIONS, (props) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(Card, {
 						remoteApi,
 						credentials: child.remote.credentials,
+						initialSettings,
 						t: props.t
 					}));
 				});
