@@ -15,7 +15,6 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import mailRemote from '../../lib/typert.remote-client.js'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { MailCard } from './MailCard.tsx'
 import { MAIL_SETTINGS_NAMESPACE, createMailCardController } from './mail-card-controller.ts'
@@ -35,14 +34,13 @@ export const inject = ['remote']
 
 /** UI fiber started only after the parent has mounted the Mail Remote namespace. */
 export const mailClientFeature = Object.assign(async (ctx: ClientContext): Promise<void> => {
-  const { api } = ctx.get('connection') as ConnectionHandle
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'mail-client: dictionaries')
 
   const loaded = unwrapMailSettingsSave(await ctx.remote.mailSettings.load())
   const mirror = createMailSettingsMirror(loaded.settings)
   const controller = createMailCardController(
     mirror.scope,
-    api,
+    ctx.remote.credentials,
     async settings => {
       const response = await ctx.remote.mailSettings.save({ settings })
       const saved = unwrapMailSettingsSave(response)
@@ -65,7 +63,7 @@ export const mailClientFeature = Object.assign(async (ctx: ClientContext): Promi
       inject: controller.face,
     }, MailCard)
   })
-}, { inject: ['slots', 'locale', 'connection', 'remote', 'remote.mailSettings', 'settingsScope'] })
+}, { inject: ['slots', 'locale', 'connection', 'remote', 'remote.mailSettings', 'remote.credentials', 'settingsScope'] })
 
 export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const disposeRemote = await ctx.remote.$mount(mailRemote)

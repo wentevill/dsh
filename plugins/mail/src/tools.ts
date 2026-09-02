@@ -1,6 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { createHash } from 'node:crypto'
-import type { Credentials } from '@deepseek-ai/dsh-credentials'
+import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import type { ToolDefinition, ToolExecution } from '@deepseek-ai/dsh-tools'
 import { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from './attachment-loader.ts'
@@ -11,7 +11,7 @@ import type { MailApprovalPreparer, MailDeleteApprovalMetadata, MailSendApproval
 import type { MailTransport, ResolvedConfig } from './index.ts'
 
 interface ManagerOptions {
-  credentials: Credentials
+  credentials: CredentialProvider
   resolveConfig(settings: MailSettings): ResolvedConfig
   imap: Pick<MailTransport, 'list' | 'read' | 'archive' | 'delete'>
   smtp: Pick<MailTransport, 'send'>
@@ -285,7 +285,7 @@ export class MailCapabilityManager implements MailApprovalPreparer {
     if (config.username.trim() === '' || /[\r\n]/u.test(config.username)) {
       throw mailError('mail username is unavailable', 'MAIL_USERNAME_UNAVAILABLE')
     }
-    let credential: Awaited<ReturnType<Credentials['resolve']>>
+    let credential: Awaited<ReturnType<CredentialProvider['resolve']>>
     try {
       credential = await this.options.credentials.resolve(config.passwordRef)
     } catch (error) {

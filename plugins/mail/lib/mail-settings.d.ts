@@ -15,7 +15,7 @@ export declare class MailSettingsValidationError extends Error {
     constructor(message: string, code: 'MAIL_TLS_REQUIRED' | 'MAIL_INPUT_INVALID');
 }
 /** The user-settings namespace owning this plugin's account form. */
-export declare const MAIL_SETTINGS_NAMESPACE: Branded<"SettingsNamespace">;
+export declare const MAIL_SETTINGS_NAMESPACE: "mail";
 /** SMTP/IMAP endpoint shared shape. */
 export interface NetworkEndpoint {
     host: string;

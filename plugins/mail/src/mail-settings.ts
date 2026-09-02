@@ -10,7 +10,6 @@
  */
 
 import z from '@deepseek-ai/schemastery'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 
 /** Client-safe settings validation failure; Host boundaries translate its code to MailError. */
 export class MailSettingsValidationError extends Error {
@@ -21,7 +20,7 @@ export class MailSettingsValidationError extends Error {
 }
 
 /** The user-settings namespace owning this plugin's account form. */
-export const MAIL_SETTINGS_NAMESPACE = settingsNamespace('mail')
+export const MAIL_SETTINGS_NAMESPACE = 'mail' as const
 
 /** SMTP/IMAP endpoint shared shape. */
 export interface NetworkEndpoint {

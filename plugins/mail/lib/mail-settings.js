@@ -9,7 +9,6 @@
  * with `ctx.credentials.resolve` on every operation.
  */
 import z from '@deepseek-ai/schemastery';
-import { settingsNamespace } from '@deepseek-ai/dsh-settings';
 /** Client-safe settings validation failure; Host boundaries translate its code to MailError. */
 export class MailSettingsValidationError extends Error {
     code;
@@ -20,7 +19,7 @@ export class MailSettingsValidationError extends Error {
     }
 }
 /** The user-settings namespace owning this plugin's account form. */
-export const MAIL_SETTINGS_NAMESPACE = settingsNamespace('mail');
+export const MAIL_SETTINGS_NAMESPACE = 'mail';
 /** Enforce the transport invariant only for an endpoint that is enabled by host. */
 export function assertConfiguredEndpoint(label, value) {
     if (value.host.trim() === '')

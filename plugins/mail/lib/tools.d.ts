@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis';
-import type { Credentials } from '@deepseek-ai/dsh-credentials';
+import type { CredentialProvider } from '@deepseek-ai/dsh-credentials';
 import type { SettingsScope } from '@deepseek-ai/dsh-settings';
 import type { ToolExecution } from '@deepseek-ai/dsh-tools';
 import { loadAttachments } from './attachment-loader.ts';
@@ -7,7 +7,7 @@ import { type MailSettings } from './mail-settings.ts';
 import type { MailApprovalPreparer, MailDeleteApprovalMetadata, MailSendApprovalMetadata } from './approval.ts';
 import type { MailTransport, ResolvedConfig } from './index.ts';
 interface ManagerOptions {
-    credentials: Credentials;
+    credentials: CredentialProvider;
     resolveConfig(settings: MailSettings): ResolvedConfig;
     imap: Pick<MailTransport, 'list' | 'read' | 'archive' | 'delete'>;
     smtp: Pick<MailTransport, 'send'>;

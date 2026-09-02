@@ -8,7 +8,6 @@ window.__ModuleLoader__.load({
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
-		let _deepseek_ai_cordis = require("@deepseek-ai/cordis");
 		//#region node_modules/zod/v4/core/core.js
 		var _a$1;
 		function $constructor(name, initializer, params) {
@@ -155,7 +154,7 @@ window.__ModuleLoader__.load({
 				return false;
 			}
 		});
-		function isPlainObject$2(o) {
+		function isPlainObject$1(o) {
 			if (isObject(o) === false) return false;
 			const ctor = o.constructor;
 			if (ctor === void 0) return true;
@@ -166,7 +165,7 @@ window.__ModuleLoader__.load({
 			return true;
 		}
 		function shallowClone(o) {
-			if (isPlainObject$2(o)) return { ...o };
+			if (isPlainObject$1(o)) return { ...o };
 			if (Array.isArray(o)) return [...o];
 			if (o instanceof Map) return new Map(o);
 			if (o instanceof Set) return new Set(o);
@@ -249,7 +248,7 @@ window.__ModuleLoader__.load({
 			}));
 		}
 		function extend(schema, shape) {
-			if (!isPlainObject$2(shape)) throw new Error("Invalid input to extend: expected a plain object");
+			if (!isPlainObject$1(shape)) throw new Error("Invalid input to extend: expected a plain object");
 			const checks = schema._zod.def.checks;
 			if (checks && checks.length > 0) {
 				const existingShape = schema._zod.def.shape;
@@ -265,7 +264,7 @@ window.__ModuleLoader__.load({
 			} }));
 		}
 		function safeExtend(schema, shape) {
-			if (!isPlainObject$2(shape)) throw new Error("Invalid input to safeExtend: expected a plain object");
+			if (!isPlainObject$1(shape)) throw new Error("Invalid input to safeExtend: expected a plain object");
 			return clone$1(schema, mergeDefs(schema._zod.def, { get shape() {
 				const _shape = {
 					...schema._zod.def.shape,
@@ -1804,7 +1803,7 @@ window.__ModuleLoader__.load({
 				valid: true,
 				data: a
 			};
-			if (isPlainObject$2(a) && isPlainObject$2(b)) {
+			if (isPlainObject$1(a) && isPlainObject$1(b)) {
 				const bKeys = Object.keys(b);
 				const sharedKeys = Object.keys(a).filter((key) => bKeys.indexOf(key) !== -1);
 				const newObj = {
@@ -4593,7 +4592,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			return value === null || value === void 0;
 		}
 		/** Return true for non-array object values. */
-		function isPlainObject$1(data) {
+		function isPlainObject(data) {
 			return data && typeof data === "object" && !Array.isArray(data);
 		}
 		/** Filter object entries and return a new object. */
@@ -5231,7 +5230,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			return [data.map((_, index) => property(data, index, inner, options))];
 		});
 		Schema.extend("dict", (data, { inner, sKey }, options, strict) => {
-			if (!isPlainObject$1(data)) throw new ValidationError(`expected object but got ${data}`, options);
+			if (!isPlainObject(data)) throw new ValidationError(`expected object but got ${data}`, options);
 			const result = {};
 			for (const key in data) {
 				let rKey;
@@ -5261,7 +5260,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			}
 		}
 		Schema.extend("object", (data, { dict }, options, strict) => {
-			if (!isPlainObject$1(data)) throw new ValidationError(`expected object but got ${data}`, options);
+			if (!isPlainObject(data)) throw new ValidationError(`expected object but got ${data}`, options);
 			const result = {};
 			for (const key in dict) {
 				const value = property(data, key, dict[key], options);
@@ -5290,7 +5289,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				else if (typeof value === "object") merge(result ??= {}, value);
 				else if (result !== value) throw new ValidationError(`expected ${toString()} but got ${JSON.stringify(data)}`, options);
 			}
-			if (!strict && isPlainObject$1(data)) merge(result, data);
+			if (!strict && isPlainObject(data)) merge(result, data);
 			return [result];
 		});
 		Schema.extend("transform", (data, { inner, callback, preserve }, options) => {
@@ -5376,25 +5375,18 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			"callback",
 			"preserve"
 		], ({ inner }, isInner) => inner.toString(isInner));
+		//#endregion
+		//#region src/mail-settings.ts
 		/**
-		* Service Definition for the user-settings capability seam (`ctx.settings`). Providers store one raw document of
-		* per-namespace sections; plugins register a namespace schema and read the
-		* resolved value, which layers schema defaults, the registrant's composition
-		* `base`, and the user document section, in that order.
-		* @module @deepseek-ai/dsh-settings
+		* The mail plugin's configuration surface: one user-settings namespace `mail`
+		* that the web GUI renders as the SMTP/IMAP account form.
+		*
+		* The namespace carries ONLY non-secret account fields. The password is never
+		* stored here — the end user enters it in the same page and the card writes it
+		* through the DSH key-management component (`ctx.credentials.set`) addressed
+		* by the `passwordEnv` reference this section names. The Host side resolves it
+		* with `ctx.credentials.resolve` on every operation.
 		*/
-		const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/;
-		/**
-		* Brand a raw string as a {@link SettingsNamespace}.
-		* @param value - candidate namespace; lowercase kebab-case, as in plugin short names.
-		* @returns the branded namespace.
-		*/
-		function settingsNamespace(value) {
-			if (!NAMESPACE_PATTERN.test(value)) throw new TypeError(`settings namespace "${value}" must match ${String(NAMESPACE_PATTERN)}`);
-			return value;
-		}
-		_deepseek_ai_cordis.Service, _deepseek_ai_cordis.Service.init;
-		settingsNamespace("mail");
 		/** Derive operation availability from endpoint configuration and deletion consent. */
 		function mailCapabilities(settings) {
 			const imap = settings.imap.host.trim() !== "";
@@ -5474,11 +5466,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		/**
 		* Build the mail card controller.
 		* @param scope - the bound settings scope for the `mail` namespace.
-		* @param api - wire face used for the password credential.
+		* @param credentials - wire face used for the password credential.
 		* @param available - true once the namespace is served to this client.
 		* @returns the snapshot store, injected face, and a credential invalidation hook.
 		*/
-		function createMailCardController(scope, api, saveSettings, available) {
+		function createMailCardController(scope, credentials, saveSettings, available) {
 			const drafts = /* @__PURE__ */ new Map();
 			const credential = {
 				configured: false,
@@ -5591,10 +5583,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				if (disposed) return;
 				const generation = ++credentialReadGeneration;
 				try {
-					const response = await api.credentials.describe({ refs: [PASSWORD_REF] });
+					const response = await credentials.describe([PASSWORD_REF]);
 					if (disposed || generation !== credentialReadGeneration) return;
-					if (!response.result.ok) return;
-					const view = response.result.value.credentials[PASSWORD_REF];
+					if (!response.ok) return;
+					const view = response.value[PASSWORD_REF];
 					const next = {
 						configured: view?.configured ?? false,
 						writable: view?.writable ?? true
@@ -5673,13 +5665,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					const passwordDraft = submittedDrafts.get("password");
 					const pw = passwordDraft?.text.trim();
 					if (pw) try {
-						const response = await api.credentials.set({
-							ref: PASSWORD_REF,
-							value: pw
-						});
+						const response = await credentials.set(PASSWORD_REF, pw);
 						if (!transactionActive()) return;
-						const result = response;
-						if (result.ok === false || result.result?.ok === false) throw new Error("credential write was rejected");
+						if (response.ok !== true) throw new Error("credential write was rejected");
 						if (drafts.get("password")?.generation === passwordDraft?.generation) drafts.delete("password");
 						await readCredential();
 						if (!transactionActive()) return;
@@ -5912,13 +5900,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		const inject = ["remote"];
 		/** UI fiber started only after the parent has mounted the Mail Remote namespace. */
 		const mailClientFeature = Object.assign(async (ctx) => {
-			const { api } = ctx.get("connection");
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
 			}), "mail-client: dictionaries");
 			const mirror = createMailSettingsMirror(unwrapMailSettingsSave(await ctx.remote.mailSettings.load()).settings);
-			const controller = createMailCardController(mirror.scope, api, async (settings) => {
+			const controller = createMailCardController(mirror.scope, ctx.remote.credentials, async (settings) => {
 				const saved = unwrapMailSettingsSave(await ctx.remote.mailSettings.save({ settings }));
 				mirror.accept(saved.settings);
 				return saved;
@@ -5939,6 +5926,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			"connection",
 			"remote",
 			"remote.mailSettings",
+			"remote.credentials",
 			"settingsScope"
 		] });
 		async function apply(ctx) {

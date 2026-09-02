@@ -18,7 +18,7 @@ import type {
   SettingsScope,
   SettingsScopeSnapshot,
 } from '@deepseek-ai/dsh-client-ui-settings/client'
-import type { IApiClient } from '@deepseek-ai/dsh-client-connection/client'
+import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
 import { mailCapabilities, type MailCapabilities, type MailSettings } from '../mail-settings.ts'
 import type { MailSettingsSaveResult } from '../remote-types.ts'
 import type { CardActions, CardFieldState, CardShell } from './card-types.ts'
@@ -28,6 +28,9 @@ const MAIL_NS = 'mail' as const
 
 /** The credential reference the password always lives under. */
 const PASSWORD_REF = 'MAIL_APP_PASSWORD'
+
+/** The credentials Remote surface this card writes and reads its password through. */
+type CredentialsFace = Pick<ClientRemote['credentials'], 'describe' | 'set'>
 
 /** Flat control names the card chrome edits; nested fields map onto the section. */
 type FlatField =
@@ -113,13 +116,13 @@ const isFlat = (field: string): boolean =>
 /**
  * Build the mail card controller.
  * @param scope - the bound settings scope for the `mail` namespace.
- * @param api - wire face used for the password credential.
+ * @param credentials - wire face used for the password credential.
  * @param available - true once the namespace is served to this client.
  * @returns the snapshot store, injected face, and a credential invalidation hook.
  */
 export function createMailCardController(
   scope: Pick<SettingsScope<MailSettings>, 'getSnapshot' | 'subscribe'>,
-  api: Pick<IApiClient, 'credentials'>,
+  credentials: CredentialsFace,
   saveSettings: (settings: MailSettings) => Promise<MailSettingsSaveResult>,
   available: boolean,
 ): { store: SnapshotStore<MailCardState>; face: () => MailCardFace; refreshCredential: () => void; dispose: () => void } {
@@ -236,10 +239,10 @@ export function createMailCardController(
     if (disposed) return
     const generation = ++credentialReadGeneration
     try {
-      const response = await api.credentials.describe({ refs: [PASSWORD_REF] })
+      const response = await credentials.describe([PASSWORD_REF])
       if (disposed || generation !== credentialReadGeneration) return
-      if (!response.result.ok) return
-      const view = response.result.value.credentials[PASSWORD_REF]
+      if (!response.ok) return
+      const view = response.value[PASSWORD_REF]
       const next = { configured: view?.configured ?? false, writable: view?.writable ?? true }
       if (next.configured === credential.configured && next.writable === credential.writable) return
       credential.configured = next.configured
@@ -316,10 +319,9 @@ export function createMailCardController(
       const passwordDraft = submittedDrafts.get('password')
       const pw = passwordDraft?.text.trim()
       if (pw) try {
-        const response = await api.credentials.set({ ref: PASSWORD_REF, value: pw })
+        const response = await credentials.set(PASSWORD_REF, pw)
         if (!transactionActive()) return
-        const result = response as unknown as { ok?: boolean; result?: { ok?: boolean } }
-        if (result.ok === false || result.result?.ok === false) throw new Error('credential write was rejected')
+        if (response.ok !== true) throw new Error('credential write was rejected')
         if (drafts.get('password')?.generation === passwordDraft?.generation) drafts.delete('password')
         await readCredential()
         if (!transactionActive()) return
