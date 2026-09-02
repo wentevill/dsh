@@ -4,7 +4,10 @@ import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export function managerNeedsInstall(bundledVersion, installedVersion) {
-  return bundledVersion !== installedVersion
+  // Plugin-first bootstrap: provision the bundled manager only on a fresh
+  // profile. Once a manager is installed as a plugin in the profile, that
+  // profile copy is authoritative — never overwrite it with the bundled one.
+  return installedVersion === undefined
 }
 
 export function buildManagerInstallArgs(cli, archive) {

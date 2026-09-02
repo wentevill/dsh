@@ -4265,7 +4265,22 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		//#endregion
 		//#region src/client/PluginManagerTab.tsx
 		const MAX_FILE_BYTES = 104857600;
-		function PluginManagerTab({ t, list, install, uninstall }) {
+		const ERROR_MESSAGE_KEYS = {
+			"the plugin manager is updated with Desktop": "managerProtectedError",
+			"the plugin manager cannot uninstall itself": "managerProtectedError",
+			"plugin downgrades are not supported": "downgradeBlocked",
+			"another plugin operation is active": "anotherOperationActive",
+			"plugin is not an uninstallable profile dependency": "pluginNotFoundError",
+			"plugin version changed; refresh and try again": "pluginStateChanged",
+			"upload is incomplete": "uploadIncomplete",
+			"select one supported .tgz package": "invalidFileError"
+		};
+		function describeOperationError(t, error) {
+			const message = error instanceof Error ? error.message : "";
+			const key = ERROR_MESSAGE_KEYS[message];
+			return key !== void 0 ? t(key) : message !== "" ? message : t("operationError");
+		}
+		function PluginManagerTab({ t, list, install, uninstall, restart = () => window.location.reload() }) {
 			const inputId = (0, react.useId)();
 			const [entries, setEntries] = (0, react.useState)([]);
 			const [expanded, setExpanded] = (0, react.useState)();
@@ -4275,6 +4290,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			const [dragActive, setDragActive] = (0, react.useState)(false);
 			const [message, setMessage] = (0, react.useState)();
 			const [error, setError] = (0, react.useState)();
+			const [fileName, setFileName] = (0, react.useState)();
+			const [progress, setProgress] = (0, react.useState)(0);
+			const [installPrompt, setInstallPrompt] = (0, react.useState)(false);
 			const refresh = async () => {
 				const result = await list();
 				setEntries(result.entries);
@@ -4295,6 +4313,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			const selectFile = async (files) => {
 				setError(void 0);
 				setMessage(void 0);
+				setInstallPrompt(false);
 				if (files.length !== 1) {
 					setError(t("singleFileError"));
 					return;
@@ -4305,14 +4324,22 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					return;
 				}
 				setBusy(true);
+				setFileName(file.name);
+				setProgress(0);
 				try {
-					await install(file);
+					await install(file, (received, size) => {
+						setProgress(size > 0 ? received / size : 0);
+					});
 					await refresh();
-					setMessage(t("restartRequired"));
-				} catch {
-					setError(t("operationError"));
+					setBusy(false);
+					setProgress(0);
+					setConfirming(void 0);
+					setInstallPrompt(true);
+				} catch (error) {
+					setError(describeOperationError(t, error));
 				} finally {
 					setBusy(false);
+					setProgress(0);
 				}
 			};
 			(0, react.useEffect)(() => {
@@ -4365,8 +4392,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					setExpanded(void 0);
 					setConfirming(void 0);
 					setMessage(t("restartRequired"));
-				} catch {
-					setError(t("operationError"));
+				} catch (error) {
+					setError(describeOperationError(t, error));
 				} finally {
 					setBusy(false);
 				}
@@ -4413,7 +4440,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 							})
 						]
 					}),
-					busy ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					busy && fileName ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: "dsh-plugin-manager__importing",
+						role: "status",
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("importing").replace("{name}", fileName) }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("progress", {
+							className: "dsh-plugin-manager__progress",
+							value: progress,
+							max: 1,
+							children: [Math.round(progress * 100), "%"]
+						})]
+					}) : busy ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						role: "status",
 						children: t("busy")
 					}) : null,
@@ -4424,6 +4460,30 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					error ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						role: "alert",
 						children: error
+					}) : null,
+					installPrompt ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: "dsh-plugin-manager__dialog",
+						role: "dialog",
+						"aria-labelledby": `${inputId}-restart-title`,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							id: `${inputId}-restart-title`,
+							children: t("installComplete")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: "dsh-plugin-manager__actions",
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								onClick: () => {
+									setInstallPrompt(false);
+									setMessage(t("restartRequired"));
+								},
+								children: t("restartLater")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								className: "dsh-plugin-manager__restart",
+								type: "button",
+								onClick: restart,
+								children: t("restartNow")
+							})]
+						})]
 					}) : null,
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: "dsh-plugin-manager__heading",
@@ -4518,10 +4578,20 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			managerProtected: "插件管理器仅随 Desktop 更新，不能卸载。",
 			removeHint: "确认后从 web profile 移除此插件。",
 			busy: "正在处理插件…",
+			importing: "正在导入 {name}…",
+			installComplete: "导入完成，重启应用后新插件生效。",
+			restartNow: "立即重启",
+			restartLater: "稍后重启",
 			restartRequired: "操作已完成，重启应用后生效。",
 			singleFileError: "每次只能安装一个 .tgz 文件。",
 			invalidFileError: "请选择不超过 100 MiB 的 .tgz 文件。",
-			operationError: "插件操作失败，请重试。"
+			operationError: "插件操作失败，请重试。",
+			managerProtectedError: "插件管理器仅随 Desktop 更新，不能在插件管理器中安装或卸载。",
+			downgradeBlocked: "不支持降级安装插件。",
+			anotherOperationActive: "已有插件操作正在进行，请稍后重试。",
+			pluginNotFoundError: "未在 web profile 中找到该插件。",
+			pluginStateChanged: "插件版本已变化，请刷新列表后重试。",
+			uploadIncomplete: "上传未完成，请重试。"
 		};
 		const en = {
 			tab: "Plugin manager",
@@ -4538,10 +4608,20 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			managerProtected: "Plugin manager is updated with Desktop and cannot be uninstalled.",
 			removeHint: "Remove this plugin from the web profile after confirmation.",
 			busy: "Working on plugin…",
+			importing: "Importing {name}…",
+			installComplete: "Import complete. Restart the application for the new plugin to take effect.",
+			restartNow: "Restart now",
+			restartLater: "Restart later",
 			restartRequired: "Operation complete. Restart the application to apply the change.",
 			singleFileError: "Install exactly one .tgz file at a time.",
 			invalidFileError: "Choose a .tgz file no larger than 100 MiB.",
-			operationError: "Plugin operation failed. Try again."
+			operationError: "Plugin operation failed. Try again.",
+			managerProtectedError: "The plugin manager is updated with Desktop and cannot be installed or uninstalled here.",
+			downgradeBlocked: "Plugin downgrades are not supported.",
+			anotherOperationActive: "Another plugin operation is running. Try again shortly.",
+			pluginNotFoundError: "The plugin is not an uninstallable profile dependency.",
+			pluginStateChanged: "The plugin version changed. Refresh the list and try again.",
+			uploadIncomplete: "The upload was incomplete. Try again."
 		};
 		//#endregion
 		//#region src/client/port.ts
@@ -4558,7 +4638,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		function createPluginManagerPort(remote) {
 			return {
 				list: async () => unwrap(await remote.list()),
-				install: async (file) => {
+				install: async (file, onProgress) => {
 					const begun = unwrap(await remote.begin({
 						fileName: file.name,
 						size: file.size
@@ -4573,6 +4653,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 								bytesBase64: base64(bytes)
 							}));
 							index += 1;
+							const received = Math.min(offset + begun.chunkSize, file.size);
+							onProgress?.(received, file.size);
 						}
 						return unwrap(await remote.finish({ uploadId: begun.uploadId }));
 					} catch (error) {
@@ -4599,7 +4681,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		//#endregion
 		//#region src/client/styles.ts
 		const PLUGIN_MANAGER_CSS = `
-.dsh-plugin-manager{display:grid;gap:16px}.dsh-plugin-manager__drop{display:grid;gap:6px;padding:24px;text-align:center;border:1px dashed var(--border-color,rgba(127,127,127,.35));border-radius:10px}.dsh-plugin-manager__drop[data-drag-active=true]{border-color:var(--accent-color,#4f7cff);background:rgba(79,124,255,.08)}.dsh-plugin-manager__drop span,.dsh-plugin-manager__heading span,.dsh-plugin-manager__version,.dsh-plugin-manager__details{color:var(--text-secondary,rgba(127,127,127,.9))}.dsh-plugin-manager__choose{justify-self:center;margin-top:6px;padding:7px 12px;border:1px solid var(--border-color,rgba(127,127,127,.35));border-radius:7px;cursor:pointer}.dsh-plugin-manager__input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.dsh-plugin-manager__heading{display:flex;align-items:center;justify-content:space-between}.dsh-plugin-manager__heading h3{margin:0}.dsh-plugin-manager__cards{display:grid;gap:8px;margin:0;padding:0;list-style:none}.dsh-plugin-manager__card{overflow:hidden;border:1px solid var(--border-color,rgba(127,127,127,.25));border-radius:10px}.dsh-plugin-manager__card-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;width:100%;padding:15px 16px;border:0;background:transparent;color:inherit;text-align:left}.dsh-plugin-manager__card-head strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsh-plugin-manager__chevron{transition:transform .16s ease}.dsh-plugin-manager__card[data-open=true] .dsh-plugin-manager__chevron{transform:rotate(180deg)}.dsh-plugin-manager__details{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;border-top:1px solid var(--border-color,rgba(127,127,127,.25))}.dsh-plugin-manager__actions{display:flex;gap:8px}.dsh-plugin-manager__actions button{padding:7px 12px;border:1px solid currentColor;border-radius:7px;background:transparent;color:inherit}.dsh-plugin-manager__uninstall{color:var(--danger-color,#c53535)!important}.dsh-plugin-manager__uninstall:disabled{opacity:.45}@media(max-width:520px){.dsh-plugin-manager__details{align-items:flex-start;flex-direction:column}}
+.dsh-plugin-manager{display:grid;gap:16px}.dsh-plugin-manager__drop{display:grid;gap:6px;padding:24px;text-align:center;border:1px dashed var(--border-color,rgba(127,127,127,.35));border-radius:10px}.dsh-plugin-manager__drop[data-drag-active=true]{border-color:var(--accent-color,#4f7cff);background:rgba(79,124,255,.08)}.dsh-plugin-manager__drop span,.dsh-plugin-manager__heading span,.dsh-plugin-manager__version,.dsh-plugin-manager__details{color:var(--text-secondary,rgba(127,127,127,.9))}.dsh-plugin-manager__choose{justify-self:center;margin-top:6px;padding:7px 12px;border:1px solid var(--border-color,rgba(127,127,127,.35));border-radius:7px;cursor:pointer}.dsh-plugin-manager__input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.dsh-plugin-manager__heading{display:flex;align-items:center;justify-content:space-between}.dsh-plugin-manager__heading h3{margin:0}.dsh-plugin-manager__cards{display:grid;gap:8px;margin:0;padding:0;list-style:none}.dsh-plugin-manager__card{overflow:hidden;border:1px solid var(--border-color,rgba(127,127,127,.25));border-radius:10px}.dsh-plugin-manager__card-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;width:100%;padding:15px 16px;border:0;background:transparent;color:inherit;text-align:left}.dsh-plugin-manager__card-head strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dsh-plugin-manager__chevron{transition:transform .16s ease}.dsh-plugin-manager__card[data-open=true] .dsh-plugin-manager__chevron{transform:rotate(180deg)}.dsh-plugin-manager__details{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;border-top:1px solid var(--border-color,rgba(127,127,127,.25))}.dsh-plugin-manager__actions{display:flex;gap:8px}.dsh-plugin-manager__actions button{padding:7px 12px;border:1px solid currentColor;border-radius:7px;background:transparent;color:inherit}.dsh-plugin-manager__uninstall{color:var(--danger-color,#c53535)!important}.dsh-plugin-manager__uninstall:disabled{opacity:.45}.dsh-plugin-manager__importing{display:grid;gap:8px;padding:14px 16px;border:1px solid var(--border-color,rgba(127,127,127,.25));border-radius:10px}.dsh-plugin-manager__importing span{color:var(--text-secondary,rgba(127,127,127,.9))}.dsh-plugin-manager__progress{width:100%;height:8px;appearance:none;-webkit-appearance:none;border:0;border-radius:999px;overflow:hidden;background:rgba(127,127,127,.2)}.dsh-plugin-manager__progress::-webkit-progress-bar{background:rgba(127,127,127,.2)}.dsh-plugin-manager__progress::-webkit-progress-value{background:var(--accent-color,#4f7cff);border-radius:999px}.dsh-plugin-manager__progress::-moz-progress-bar{background:var(--accent-color,#4f7cff);border-radius:999px}.dsh-plugin-manager__dialog{display:grid;gap:12px;padding:16px;border:1px solid var(--border-color,rgba(127,127,127,.3));border-radius:10px;background:var(--background-secondary,rgba(127,127,127,.08))}.dsh-plugin-manager__dialog p{margin:0}.dsh-plugin-manager__restart{color:var(--accent-color,#4f7cff)!important;font-weight:600}@media(max-width:520px){.dsh-plugin-manager__details{align-items:flex-start;flex-direction:column}}
 `;
 		//#endregion
 		//#region src/client/index.ts

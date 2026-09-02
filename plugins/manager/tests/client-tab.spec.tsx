@@ -65,13 +65,75 @@ describe('PluginManagerTab', () => {
     document.removeEventListener('drop', pageDrop, true)
   })
 
-  it('installs one selected tgz and announces manual restart', async () => {
+  it('renders an import progress bar while a tgz is installing', async () => {
+    let releaseInstall: () => void = () => {}
+    const gate = new Promise<void>(resolve => { releaseInstall = resolve })
+    const install = vi.fn<PluginManagerTabProps['install']>(async (_, onProgress) => {
+      onProgress?.(4, 8)
+      await gate
+      onProgress?.(8, 8)
+      return { action: 'install', packageName: 'dsh-example', version: '1.0.0', requiresRestart: true }
+    })
+    render(<PluginManagerTab {...props({ install })} />)
+    const input = screen.getByLabelText(en.choose)
+    fireEvent.change(input, { target: { files: [new File(['plugin'], 'plugin.tgz')] } })
+
+    const status = await screen.findByRole('status')
+    expect(status.textContent).toContain('plugin.tgz')
+    const bar = status.querySelector('.dsh-plugin-manager__progress') as HTMLProgressElement
+    expect(bar).toBeTruthy()
+    expect(bar.max).toBe(1)
+    expect(bar.value).toBeCloseTo(0.5)
+
+    releaseInstall()
+    await waitFor(() => { expect(screen.queryByRole('status')).toBeNull() })
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+  })
+
+  it('shows a restart-now/restart-later dialog after a successful install', async () => {
     const install = vi.fn(props().install)
     render(<PluginManagerTab {...props({ install })} />)
     const input = screen.getByLabelText(en.choose)
     fireEvent.change(input, { target: { files: [new File(['plugin'], 'plugin.tgz')] } })
-    await waitFor(() => { expect(install).toHaveBeenCalledOnce() })
-    expect((await screen.findByRole('status')).textContent).toContain(en.restartRequired)
+
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(screen.getByText(en.installComplete)).toBeTruthy()
+    expect((await screen.findByRole('button', { name: en.restartNow })).textContent).toBe(en.restartNow)
+  })
+
+  it('choosing "restart later" dismisses the dialog and announces manual restart', async () => {
+    const install = vi.fn(props().install)
+    render(<PluginManagerTab {...props({ install })} />)
+    const input = screen.getByLabelText(en.choose)
+    fireEvent.change(input, { target: { files: [new File(['plugin'], 'plugin.tgz')] } })
+
+    fireEvent.click(await screen.findByRole('button', { name: en.restartLater }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByText(en.restartRequired)).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'dsh-mail, 0.2.3' })).toBeTruthy()
+  })
+
+  it('choosing "restart now" triggers the restart callback', async () => {
+    const install = vi.fn(props().install)
+    const restart = vi.fn()
+    render(<PluginManagerTab {...props({ install, restart })} />)
+    const input = screen.getByLabelText(en.choose)
+    fireEvent.change(input, { target: { files: [new File(['plugin'], 'plugin.tgz')] } })
+
+    fireEvent.click(await screen.findByRole('button', { name: en.restartNow }))
+    expect(restart).toHaveBeenCalledOnce()
+  })
+
+  it('surfaces the real install error instead of the generic failure', async () => {
+    const install = vi.fn<PluginManagerTabProps['install']>(async () => {
+      throw new Error('the plugin manager is updated with Desktop')
+    })
+    render(<PluginManagerTab {...props({ install })} />)
+    const input = screen.getByLabelText(en.choose)
+    fireEvent.change(input, { target: { files: [new File(['plugin'], 'plugin.tgz')] } })
+
+    expect((await screen.findByRole('alert')).textContent).toContain(en.managerProtectedError)
+    expect((screen.getByRole('alert') as HTMLElement).textContent).not.toContain(en.operationError)
   })
 
   it('uses an inline confirmation before uninstalling without a native dialog', async () => {

@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { buildManagerInstallArgs, managerNeedsInstall } from './ensure-plugin-manager.mjs'
 
 describe('plugin manager bootstrap', () => {
-  it('installs only when the profile manager version differs from the bundled version', () => {
+  it('seeds the bundled manager only on a fresh profile, then defers to the installed plugin', () => {
     expect(managerNeedsInstall('0.1.0', undefined)).toBe(true)
-    expect(managerNeedsInstall('0.1.0', '0.0.9')).toBe(true)
-    expect(managerNeedsInstall('0.1.0', '0.2.0')).toBe(true)
+    expect(managerNeedsInstall('0.1.0', '0.0.9')).toBe(false)
+    expect(managerNeedsInstall('0.1.0', '0.2.0')).toBe(false)
     expect(managerNeedsInstall('0.1.0', '0.1.0')).toBe(false)
   })
 

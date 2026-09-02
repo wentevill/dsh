@@ -22,12 +22,15 @@ describe('createPluginManagerPort', () => {
     }
     const port = createPluginManagerPort(remote)
     const file = new File([Uint8Array.from([1, 2, 3, 4, 5, 6])], 'plugin.tgz')
+    const progress: Array<[number, number]> = []
 
-    await expect(port.install(file)).resolves.toMatchObject({ packageName: 'dsh-example', version: '1.0.0' })
+    await expect(port.install(file, (received, size) => { progress.push([received, size]) }))
+      .resolves.toMatchObject({ packageName: 'dsh-example', version: '1.0.0' })
     expect(appended).toEqual([
       { index: 0, bytesBase64: 'AQID' },
       { index: 1, bytesBase64: 'BAUG' },
     ])
+    expect(progress).toEqual([[3, 6], [6, 6]])
   })
 
   it('cancels the upload when a chunk request fails', async () => {

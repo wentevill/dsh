@@ -5,14 +5,33 @@ import type { PluginManagerLocaleKey } from './locales.ts'
 
 const MAX_FILE_BYTES = 100 * 1024 * 1024
 
+const ERROR_MESSAGE_KEYS: Readonly<Record<string, PluginManagerLocaleKey>> = {
+  'the plugin manager is updated with Desktop': 'managerProtectedError',
+  'the plugin manager cannot uninstall itself': 'managerProtectedError',
+  'plugin downgrades are not supported': 'downgradeBlocked',
+  'another plugin operation is active': 'anotherOperationActive',
+  'plugin is not an uninstallable profile dependency': 'pluginNotFoundError',
+  'plugin version changed; refresh and try again': 'pluginStateChanged',
+  'upload is incomplete': 'uploadIncomplete',
+  'select one supported .tgz package': 'invalidFileError',
+}
+
+function describeOperationError(t: (key: PluginManagerLocaleKey) => string, error: unknown): string {
+  const message = error instanceof Error ? error.message : ''
+  const key = ERROR_MESSAGE_KEYS[message]
+  return key !== undefined ? t(key) : message !== '' ? message : t('operationError')
+}
+
 export interface PluginManagerTabProps {
   readonly t: (key: PluginManagerLocaleKey) => string
   readonly list: () => Promise<ListPluginsResult>
-  readonly install: (file: File) => Promise<InstallResult>
+  readonly install: (file: File, onProgress?: (received: number, size: number) => void) => Promise<InstallResult>
   readonly uninstall: (entry: ManagedPluginEntry) => Promise<UninstallResult>
+  /** Restart the application so an installed plugin takes effect. Defaults to reloading the page. */
+  readonly restart?: () => void
 }
 
-export function PluginManagerTab({ t, list, install, uninstall }: PluginManagerTabProps): ReactNode {
+export function PluginManagerTab({ t, list, install, uninstall, restart = () => window.location.reload() }: PluginManagerTabProps): ReactNode {
   const inputId = useId()
   const [entries, setEntries] = useState<readonly ManagedPluginEntry[]>([])
   const [expanded, setExpanded] = useState<string>()
@@ -22,6 +41,9 @@ export function PluginManagerTab({ t, list, install, uninstall }: PluginManagerT
   const [dragActive, setDragActive] = useState(false)
   const [message, setMessage] = useState<string>()
   const [error, setError] = useState<string>()
+  const [fileName, setFileName] = useState<string>()
+  const [progress, setProgress] = useState<number>(0)
+  const [installPrompt, setInstallPrompt] = useState(false)
 
   const refresh = async (): Promise<void> => {
     const result = await list()
@@ -40,6 +62,7 @@ export function PluginManagerTab({ t, list, install, uninstall }: PluginManagerT
   const selectFile = async (files: FileList | readonly File[]): Promise<void> => {
     setError(undefined)
     setMessage(undefined)
+    setInstallPrompt(false)
     if (files.length !== 1) {
       setError(t('singleFileError'))
       return
@@ -50,14 +73,22 @@ export function PluginManagerTab({ t, list, install, uninstall }: PluginManagerT
       return
     }
     setBusy(true)
+    setFileName(file.name)
+    setProgress(0)
     try {
-      await install(file)
+      await install(file, (received, size) => {
+        setProgress(size > 0 ? received / size : 0)
+      })
       await refresh()
-      setMessage(t('restartRequired'))
-    } catch {
-      setError(t('operationError'))
+      setBusy(false)
+      setProgress(0)
+      setConfirming(undefined)
+      setInstallPrompt(true)
+    } catch (error) {
+      setError(describeOperationError(t, error))
     } finally {
       setBusy(false)
+      setProgress(0)
     }
   }
 
@@ -115,8 +146,8 @@ export function PluginManagerTab({ t, list, install, uninstall }: PluginManagerT
       setExpanded(undefined)
       setConfirming(undefined)
       setMessage(t('restartRequired'))
-    } catch {
-      setError(t('operationError'))
+    } catch (error) {
+      setError(describeOperationError(t, error))
     } finally {
       setBusy(false)
     }
@@ -149,9 +180,26 @@ export function PluginManagerTab({ t, list, install, uninstall }: PluginManagerT
           }}
         />
       </div>
-      {busy ? <p role="status">{t('busy')}</p> : null}
+      {busy && fileName ? (
+        <div className="dsh-plugin-manager__importing" role="status">
+          <span>{t('importing').replace('{name}', fileName)}</span>
+          <progress className="dsh-plugin-manager__progress" value={progress} max={1}>{Math.round(progress * 100)}%</progress>
+        </div>
+      ) : busy ? <p role="status">{t('busy')}</p> : null}
       {message ? <p role="status">{message}</p> : null}
       {error ? <p role="alert">{error}</p> : null}
+      {installPrompt ? (
+        <div className="dsh-plugin-manager__dialog" role="dialog" aria-labelledby={`${inputId}-restart-title`}>
+          <p id={`${inputId}-restart-title`}>{t('installComplete')}</p>
+          <div className="dsh-plugin-manager__actions">
+            <button type="button" onClick={() => {
+              setInstallPrompt(false)
+              setMessage(t('restartRequired'))
+            }}>{t('restartLater')}</button>
+            <button className="dsh-plugin-manager__restart" type="button" onClick={restart}>{t('restartNow')}</button>
+          </div>
+        </div>
+      ) : null}
       <div className="dsh-plugin-manager__heading">
         <h3>{t('installed')}</h3>
         <span>{entries.length}</span>

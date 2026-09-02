@@ -18,9 +18,12 @@ export interface PluginManagerRemoteFace {
   readonly uninstall: (request: UninstallWireRequest, signal?: AbortSignal) => Promise<Result<UninstallResult>>
 }
 
+/** Upload progress report: bytes persisted vs. the total file size. */
+export type InstallProgress = (received: number, size: number) => void
+
 export interface PluginManagerPort {
   readonly list: () => Promise<ListPluginsResult>
-  readonly install: (file: File) => Promise<InstallResult>
+  readonly install: (file: File, onProgress?: InstallProgress) => Promise<InstallResult>
   readonly uninstall: (entry: ManagedPluginEntry) => Promise<UninstallResult>
 }
 
@@ -41,7 +44,7 @@ function base64(bytes: Uint8Array): string {
 export function createPluginManagerPort(remote: PluginManagerRemoteFace): PluginManagerPort {
   return {
     list: async () => unwrap(await remote.list()),
-    install: async (file) => {
+    install: async (file, onProgress) => {
       const begun = unwrap(await remote.begin({ fileName: file.name, size: file.size }))
       try {
         let index = 0
@@ -49,6 +52,8 @@ export function createPluginManagerPort(remote: PluginManagerRemoteFace): Plugin
           const bytes = new Uint8Array(await file.slice(offset, offset + begun.chunkSize).arrayBuffer())
           unwrap(await remote.append({ uploadId: begun.uploadId, index, bytesBase64: base64(bytes) }))
           index += 1
+          const received = Math.min(offset + begun.chunkSize, file.size)
+          onProgress?.(received, file.size)
         }
         return unwrap(await remote.finish({ uploadId: begun.uploadId }))
       } catch (error) {

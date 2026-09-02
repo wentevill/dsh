@@ -54,7 +54,8 @@ export class PluginCli {
             throw new PluginManagerError(code, 'plugin operation could not start', { cause: error });
         }
         if (result.code !== 0) {
-            throw new PluginManagerError(code, 'plugin operation failed');
+            const detail = result.stderr.trim();
+            throw new PluginManagerError(code, detail ? `plugin operation failed: ${detail}` : 'plugin operation failed');
         }
     }
 }
