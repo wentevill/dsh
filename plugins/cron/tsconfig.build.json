@@ -16,6 +16,7 @@
     "src/types.ts",
     "src/errors.ts",
     "src/domain.ts",
+    "src/node-cron-runtime.ts",
     "src/store.ts"
   ]
 }
