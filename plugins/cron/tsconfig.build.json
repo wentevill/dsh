@@ -15,6 +15,7 @@
     "src/brand.ts",
     "src/types.ts",
     "src/errors.ts",
-    "src/domain.ts"
+    "src/domain.ts",
+    "src/store.ts"
   ]
 }
