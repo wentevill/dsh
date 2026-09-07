@@ -28,8 +28,8 @@ for the downtime window.
 Every Cron is permanently bound to the Workspace selected when it is created.
 The creator chooses one execution mode:
 
-- `existing_session`: queue every execution into one fixed Session in that
-  Workspace.
+- `existing_session`: queue every execution into the Session that is current
+  when this execution mode is selected.
 - `new_session`: create a new Session for every execution in the same Workspace
   using the Agent preset captured when the Cron was created.
 
@@ -128,9 +128,11 @@ interface CronDefinition {
 ```
 
 `workspaceId` and `createdFromSessionId` are immutable. An existing-Session
-definition requires `targetSessionId`; a new-Session definition requires
-`agentPresetId`. An update that switches mode must provide the complete target
-for the new mode.
+definition requires `targetSessionId`, which the Host derives from the invoking
+Session. A new-Session definition requires `agentPresetId`, which the Host
+captures from the invoking Session's current Agent preset. An update that
+switches mode captures the new target from that update's invoking Session; the
+model and Client cannot provide either stored target directly.
 
 Runtime state is stored separately so the user definition does not pretend to
 own schedule calculations:
@@ -192,12 +194,12 @@ task. Registration records the library's next-run checkpoint.
 When `node-cron` invokes a task:
 
 1. `CronRuntime` serializes handling by Cron ID.
-2. It records the occurrence and refreshes the next-run checkpoint from the
-   library.
-3. If no execution is active, it asks `CronExecutionService` to dispatch.
-4. If an execution is active or waiting for approval, it stores the occurrence
+2. It creates and persists the `CronExecution` record for the occurrence.
+3. It refreshes and persists the next-run checkpoint from the library.
+4. Only after both durable writes complete does it submit the Session request.
+5. If an execution is active or waiting for approval, it stores the occurrence
    as the single pending occurrence.
-5. If a pending occurrence already exists, the old one becomes a `coalesced`
+6. If a pending occurrence already exists, the old one becomes a `coalesced`
    history record and the new occurrence replaces it.
 
 When the active execution becomes terminal, an active Cron immediately
@@ -212,9 +214,10 @@ already active Run to finish.
 
 ## Startup Catch-Up
 
-If an active Cron's durable `libraryNextRunAt` is later than the previous
-observation but not later than startup time, DSH was unavailable for at least
-one expected trigger. The runtime creates exactly one delayed
+On startup, the runtime reads and retains each active Cron's durable checkpoint
+before registering its new library task. If that old `libraryNextRunAt` is later
+than the previous observation but not later than startup time, DSH was
+unavailable for at least one expected trigger. The runtime creates exactly one delayed
 `startup_catch_up` occurrence for the downtime window. It does not calculate or
 persist every missed occurrence.
 
@@ -302,9 +305,10 @@ validation, serialization, audit, and persistence behavior.
 
 ## Workspace and Validation Boundary
 
-The model and Client cannot provide an authoritative Workspace ID. The Host
-derives it from the invoking Session and writes `createdFromSessionId` itself.
-Every target Session and Cron ID is checked against that Workspace.
+The model and Client cannot provide an authoritative Workspace ID, fixed target
+Session ID, or captured Agent preset ID. The Host derives them from the invoking
+Session and writes `createdFromSessionId` itself. Every target Session and Cron
+ID is checked against that Workspace.
 
 Foreign and unknown Cron IDs return the same minimal not-found failure. The Host
 does not reveal whether an object exists in another Workspace. Invalid context,
