@@ -131,6 +131,19 @@ export class CronStore {
     return value
   }
 
+  async updateExecution(
+    id: CronExecutionId,
+    change: (current: CronExecution) => CronExecution,
+  ): Promise<CronExecution> {
+    return this.executions.update(id, (current) => {
+      const next = cronExecutionSchema.parse(change(current))
+      if (next.id !== current.id || next.cronId !== current.cronId) {
+        throw new CronStoreError('immutable_identity')
+      }
+      return next
+    })
+  }
+
   async finishExecution(
     id: CronExecutionId,
     state: TerminalState,

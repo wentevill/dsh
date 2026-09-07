@@ -200,4 +200,19 @@ describe('CronStore', () => {
     expect('deleteHistory' in store).toBe(false)
     await store.close()
   })
+
+  it('updates nonterminal execution correlation without allowing identity changes', async () => {
+    const { store } = await openStore()
+    const running = execution('execution-1', 'cron-1')
+    await store.beginExecution(running)
+    const waiting = await store.updateExecution(running.id, value => ({
+      ...value, state: 'waiting_approval',
+    }))
+    expect(waiting.state).toBe('waiting_approval')
+
+    await expect(store.updateExecution(running.id, value => ({
+      ...value, id: CronExecutionId('replacement'),
+    }))).rejects.toMatchObject({ code: 'immutable_identity' })
+    await store.close()
+  })
 })

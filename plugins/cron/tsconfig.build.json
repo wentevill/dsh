@@ -16,12 +16,14 @@
     "src/commands.ts",
     "src/types.ts",
     "src/errors.ts",
+    "src/execution.ts",
     "src/domain.ts",
     "src/node-cron-runtime.ts",
     "src/runtime.ts",
     "src/state-machine.ts",
     "src/store.ts",
     "src/timezone.ts",
+    "src/tracker.ts",
     "src/workspace.ts"
   ]
 }
