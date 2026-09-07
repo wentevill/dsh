@@ -5,8 +5,9 @@
 Add an independent `dsh-cron` plugin that runs persistent, Workspace-bound Cron
 tasks for the lifetime of a running DeepSeek Harness process. A task can either
 queue work into one fixed Session or create a fresh Session for every
-execution. Users can manage tasks from the Session three-column interface, and
-the model can query and mutate them through narrow Cron-specific tools.
+execution. Users can manage tasks from the Session conversation transcript, and
+the model can query and mutate them through narrow Cron-specific tools. The
+manager is an expandable card inside the conversation transcript.
 
 This is not an offline scheduler. Nothing executes while DSH is stopped. On the
 next start, each active Cron can produce at most one delayed catch-up execution
@@ -17,8 +18,8 @@ for the downtime window.
 - Do not extend or migrate `@deepseek-ai/dsh-schedule`.
 - Do not run a daemon, launch agent, operating-system service, or second desktop
   runtime outside DSH.
-- Do not modify or write through the packaging repository's pinned upstream
-  checkout.
+- Do not modify, fork, patch, publish, or write through any DeepSeek Harness
+  checkout. Do not update the pinned upstream revision for this feature.
 - Do not pre-authorize tools used by a Cron-triggered Run.
 - Do not add history retention or cleanup policy in the first version.
 - Do not support seconds, Quartz fields, macros, retries, or distributed Cron.
@@ -61,25 +62,22 @@ The Host owns all authoritative behavior:
 - `CronRemote` exposes browser-safe snapshots and explicit user-gesture
   commands.
 
-The Client owns presentation and user intent only. It never computes schedules,
-selects a Workspace on behalf of the Host, or writes persistence directly.
+The Client owns presentation and user intent only. It registers one keyed
+`tool.call.toolview` contribution for `cron_open_manager`; it never computes
+schedules, selects a Workspace on behalf of the Host, or writes persistence
+directly.
 
-## Upstream UI Prerequisite
+## Official UI Seam Boundary
 
 The pinned DSH UI currently has a single top-level `details` occupant owned by
 chat and one single tool-details child slot. A standalone plugin cannot safely
 install a Cron manager there without replacing first-party details behavior.
 
-The upstream DSH project therefore needs one minimal, generic, keyed details
-view seam. The seam routes a Client contribution into the existing right-hand
-details column and lets the contribution be opened with typed state. It contains
-no Cron concepts and preserves the current ToolDetails contribution as the
-default route.
-
-That upstream change must be released independently. This packaging repository
-then updates its upstream pin and consumes the public seam. It must not patch
-`deepseek-harness-source`, replace the core DetailsPanel, or use runtime source
-rewrites.
+`dsh-cron` therefore uses only the existing keyed `tool.call.toolview` seam. It
+does not register `conversation.details.tool`, replace the core DetailsPanel,
+register a new Conversation View, rewrite runtime sources, or require an
+upstream release. The accepted `cron_open_manager` card expands in place inside
+the originating tool-call row.
 
 ## Scheduling Dependency
 
@@ -292,15 +290,16 @@ executions. `cron_history` uses cursor pagination but does not delete records.
 
 `cron_open_manager` returns a suggestion card rather than opening UI as a side
 effect. When the model recognizes Cron-management intent it calls this tool;
-the Client opens the right details view only after the user accepts the card.
+the Client expands the tool row into the manager only after the user accepts
+the card.
 
 Model-driven create, update, delete, and resume require confirmation for every
 operation. Model-driven pause may execute without confirmation. Query and open
 suggestion tools do not require confirmation.
 
-Explicit controls in the right details view are direct user gestures and count
-as authorization, so they do not enter a second Agent approval flow. All tool
-and Remote mutations nevertheless call the same `CronCommandService` and share
+Explicit controls in the expanded manager are direct user gestures and count as
+authorization, so they do not enter a second Agent approval flow. All tool and
+Remote mutations nevertheless call the same `CronCommandService` and share
 validation, serialization, audit, and persistence behavior.
 
 ## Workspace and Validation Boundary
@@ -332,17 +331,18 @@ Stable public failure codes include:
 Messages are bounded and contain no filesystem paths, foreign identifiers,
 prompts, tool arguments, or provider secrets.
 
-## Client Manager
+## In-Conversation Client Manager
 
-The manager opens in the existing right details column through the new upstream
-keyed seam. It receives the selected Session identity and initially shows
-`related` Cron definitions for the current Workspace. Users can switch to
-`all` or `deleted`.
+The settled `cron_open_manager` tool row first renders a compact suggestion
+card. Accepting it changes only plugin-local Client state and expands that same
+row into the manager. The manager receives the tool call's Session identity and
+initially shows `related` Cron definitions for the current Workspace. Users can
+switch to `all` or `deleted`, or collapse back to the suggestion card.
 
 Selecting a Cron shows its definition, timezone, mode, current state, control
-actions, and execution history in the same details column. An execution created
-in new-Session mode links to its Session. An active fixed-Session execution
-links to that fixed Session. Deleted definitions are read-only.
+actions, and execution history inside the expanded row. An execution created in
+new-Session mode links to its Session. An active fixed-Session execution links
+to that fixed Session. Deleted definitions are read-only.
 
 The Client renders Host snapshots and stable failure states. It does not infer
 active execution state from local timers or optimistically invent durable
@@ -405,16 +405,16 @@ Security and tool tests cover strict schemas, the confirmation matrix,
 server-derived Workspace context, foreign-ID indistinguishability, stable
 failure codes, and direct-user Remote commands using the same command path.
 
-Client tests cover suggestion acceptance, right-details routing, related/all/
-deleted filters, controls, history pagination, execution Session links, stale
-response rejection, and unavailable states.
+Client tests cover suggestion acceptance, in-row expansion/collapse,
+related/all/deleted filters, controls, history pagination, execution Session
+links, stale response rejection, and unavailable states. They also assert that
+the plugin registers only `tool.call.toolview` and never a details replacement.
 
 Packaging acceptance builds and packs the standalone plugin, installs it
 through the bundled DSH plugin flow, boots a real Host/Client composition,
 creates both execution modes, observes a trigger, pauses and resumes a task,
-and confirms the pinned upstream checkout remains clean. The upstream keyed
-details seam has its own compatibility and default-ToolDetails regression tests
-before this repository updates its pin.
+and confirms the pinned upstream checkout remains clean and pinned to the same
+revision.
 
 ## Acceptance Criteria
 
@@ -430,12 +430,12 @@ before this repository updates its pin.
 - Pause and delete do not cancel an active Session Run; delete is terminal and
   retains definition and history.
 - Model mutations follow the approved confirmation matrix, while explicit
-  right-panel gestures do not receive duplicate approval prompts.
+  expanded-manager gestures do not receive duplicate approval prompts.
 - Users can open the manager from an accepted conversation suggestion and view
-  related, all, deleted, and execution-history states in the right details
-  column.
+  related, all, deleted, and execution-history states inside that tool row.
 - Missing or foreign resources fail closed without fallback or information
   disclosure.
 - Existing `dsh-schedule` behavior and data remain untouched.
 - Packaging and canary verification leave the pinned upstream checkout
-  unchanged.
+  unchanged, and the implementation requires no DeepSeek Harness modification
+  or release.
