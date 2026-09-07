@@ -13,6 +13,7 @@
   "include": [
     "src/index.ts",
     "src/brand.ts",
+    "src/approval.ts",
     "src/commands.ts",
     "src/types.ts",
     "src/errors.ts",
@@ -23,6 +24,7 @@
     "src/state-machine.ts",
     "src/store.ts",
     "src/timezone.ts",
+    "src/tools.ts",
     "src/tracker.ts",
     "src/workspace.ts"
   ]
