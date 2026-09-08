@@ -1,0 +1,33 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "outDir": "./lib",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "./src",
+    "rewriteRelativeImportExtensions": true,
+    "allowImportingTsExtensions": false
+  },
+  "include": [
+    "src/index.ts",
+    "src/brand.ts",
+    "src/approval.ts",
+    "src/commands.ts",
+    "src/types.ts",
+    "src/errors.ts",
+    "src/execution.ts",
+    "src/domain.ts",
+    "src/node-cron-runtime.ts",
+    "src/remote-types.ts",
+    "src/remote.ts",
+    "src/runtime.ts",
+    "src/state-machine.ts",
+    "src/store.ts",
+    "src/timezone.ts",
+    "src/tools.ts",
+    "src/tracker.ts",
+    "src/workspace.ts"
+  ]
+}

@@ -1,0 +1,3 @@
+- insert:
+    - id: cron
+      name: dsh-cron
