@@ -20,7 +20,7 @@ describe('standalone Cron plugin manifest', () => {
     }
 
     expect(manifest).toMatchObject({
-      name: 'dsh-cron', version: '0.1.0', engines: { node: '>=24' },
+      name: 'dsh-cron', version: '0.1.0', engines: { node: '^22.19.0 || >=24.0.0' },
       files: ['lib', 'cordis.patch.yml', 'README.md', 'LICENSE'],
       bundledDependencies: ['node-cron', 'zod'],
       dsh: { bundle: { patch: './cordis.patch.yml' }, client: { platform: 'web' } },

@@ -58,6 +58,22 @@ describe('CronRemote', () => {
     ])
   })
 
+  it('maps implementation failures to one bounded Remote error', async () => {
+    const commands = {
+      list: async () => { throw new Error('secret provider detail /private/path') },
+    }
+    const remote = new CronRemote({} as Context, commands as never)
+
+    const failure = await remote.list({ sessionId: SESSION, scope: 'related' })
+      .then(() => undefined, error => error)
+
+    expect(failure).toMatchObject({
+      name: 'CronFailure', code: 'internal_error', message: 'Cron operation failed.',
+    })
+    expect(String(failure)).not.toContain('secret provider detail')
+    expect(String(failure)).not.toContain('/private/path')
+  })
+
   it('generates exactly seven plain-string Remote wire methods', () => {
     const generated = readFileSync(new URL('../lib/typert.remote-client.js', import.meta.url), 'utf8')
     const methods = [...generated.matchAll(/method: '([^']+)'/gu)].map(match => match[1])

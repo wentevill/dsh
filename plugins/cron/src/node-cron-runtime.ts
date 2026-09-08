@@ -38,17 +38,22 @@ export class CronLibrary {
     }
   }
 
-  start(
+  async start(
     definition: CronDefinition,
     onOccurrence: (scheduledFor: Date) => Promise<void>,
-  ): LiveCron {
+  ): Promise<LiveCron> {
     const task = cron.createTask(
       definition.expression,
       async (context: TaskContext) => onOccurrence(context.date),
       { name: definition.id, timezone: definition.timezone },
     )
-    void task.start()
-    return liveTask(task)
+    try {
+      await task.start()
+      return liveTask(task)
+    } catch (error) {
+      try { await task.destroy() } catch {}
+      throw error
+    }
   }
 }
 

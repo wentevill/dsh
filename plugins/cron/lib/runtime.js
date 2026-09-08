@@ -28,7 +28,17 @@ export class CronRuntime {
                 ? { ...persisted, activeExecutionId: recoveredExecution.id }
                 : persisted;
             this.states.set(definition.id, { definitionState: 'active', runtime: oldRuntime });
-            const live = this.register(definition);
+            let live;
+            try {
+                live = await this.register(definition);
+            }
+            catch {
+                try {
+                    this.dependencies.registrationFailed?.(definition);
+                }
+                catch { }
+                continue;
+            }
             const checkpointed = withCheckpoint(oldRuntime, live.nextRunAt(), observedAt);
             this.states.set(definition.id, { definitionState: 'active', runtime: checkpointed });
             await this.dependencies.store.putRuntime(compactRuntime(checkpointed));
@@ -65,9 +75,20 @@ export class CronRuntime {
     }
     async dispose() {
         this.disposed = true;
-        await Promise.all([...this.live.values()].map(task => task.destroy()));
+        const failures = [];
+        const destroyed = await Promise.allSettled([...this.live.values()].map(task => task.destroy()));
+        for (const result of destroyed) {
+            if (result.status === 'rejected')
+                failures.push(result.reason);
+        }
         this.live.clear();
-        await Promise.all([...this.tails.values()]);
+        const drained = await Promise.allSettled([...this.tails.values()]);
+        for (const result of drained) {
+            if (result.status === 'rejected')
+                failures.push(result.reason);
+        }
+        if (failures.length > 0)
+            throw new Error('Cron runtime disposal failed');
     }
     async applyDefinitionChange(previous, next, options) {
         this.definitions.set(next.id, next);
@@ -81,7 +102,7 @@ export class CronRuntime {
             const runtime = options.clearPending
                 ? { ...current.runtime, pendingOccurrence: undefined }
                 : current.runtime;
-            const live = this.register(next);
+            const live = await this.register(next);
             const checkpointed = withCheckpoint(runtime, live.nextRunAt(), this.now().toISOString());
             this.states.set(next.id, { definitionState: 'active', runtime: checkpointed });
             await this.dependencies.store.putRuntime(compactRuntime(checkpointed));
@@ -93,8 +114,8 @@ export class CronRuntime {
         await this.applyControlEffects(next, transition.effects);
         await this.dependencies.store.putRuntime(compactRuntime(transition.next.runtime));
     }
-    register(definition) {
-        const live = this.dependencies.library.start(definition, scheduledFor => this.enqueue(definition.id, () => this.fire(definition.id, {
+    async register(definition) {
+        const live = await this.dependencies.library.start(definition, scheduledFor => this.enqueue(definition.id, () => this.fire(definition.id, {
             trigger: 'on_time', scheduledFor: scheduledFor.toISOString(),
             observedAt: this.now().toISOString(), delayed: false,
         })));

@@ -7,7 +7,7 @@ export declare class CronRemote extends TypertRemoteService {
     private readonly commands;
     constructor(ctx: Context, commands: CronCommandService);
     list(request: CronListRequest): Promise<CronListResult>;
-    history(request: CronHistoryRequest): CronHistoryResult;
+    history(request: CronHistoryRequest): Promise<CronHistoryResult>;
     create(request: CronCreateRequest): Promise<CronMutationResult>;
     update(request: CronUpdateRequest): Promise<CronMutationResult>;
     pause(request: CronIdRequest): Promise<CronMutationResult>;

@@ -9,7 +9,7 @@ import cronRemote from '../../lib/typert.remote-client.js'
 import type { CronRemotePort } from './controller.ts'
 import { en, zh, type CronLocaleKey } from './locales.ts'
 import type { CronSessionsPort } from './manager.tsx'
-import { CronManagerToolRow } from './suggestion-row.tsx'
+import { CronManagerToolRow, type CronManagerToolRowProps } from './suggestion-row.tsx'
 
 type CronClientContext = Omit<Context, 'remote' | 'sessions'> & {
   readonly remote: {
@@ -24,7 +24,7 @@ type CronClientContext = Omit<Context, 'remote' | 'sessions'> & {
     inject(name: 'tool.call.toolview', register: () => void): unknown
     register(
       options: { readonly name: 'tool.call.toolview'; readonly key: 'cron_open_manager'; readonly locale: 'cron' },
-      component: React.ComponentType<any>,
+      component: React.ComponentType<CronManagerToolRowProps>,
     ): () => void
   }
 }

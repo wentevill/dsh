@@ -29,6 +29,7 @@ export const inject = [
 ];
 /** Compose the standalone Cron Host from public Harness plugin services. */
 export async function apply(ctx) {
+    const logger = ctx.logger('cron');
     const store = await CronStore.open(ctx);
     let runtime;
     let execution;
@@ -51,6 +52,7 @@ export async function apply(ctx) {
         store,
         library,
         dispatch: (item, definition) => execution.dispatch(item, definition),
+        registrationFailed: () => logger.warn('operation=register outcome=failed reason=library_rejected_definition'),
     });
     const commands = new CronCommandService({
         workspaceRegistry: ctx.workspaceRegistry,
@@ -61,15 +63,47 @@ export async function apply(ctx) {
         lifecycle: runtime,
     });
     const dispose = async () => {
-        for (const stop of stopTools.splice(0).reverse())
-            stop();
-        stopApproval?.();
+        const failures = [];
+        const failed = (operation, error) => {
+            failures.push(error);
+            logger.warn(`operation=${operation} outcome=failed reason=dispose_failed`);
+        };
+        for (const stop of stopTools.splice(0).reverse()) {
+            try {
+                stop();
+            }
+            catch (error) {
+                failed('tool_dispose', error);
+            }
+        }
+        try {
+            stopApproval?.();
+        }
+        catch (error) {
+            failed('approval_dispose', error);
+        }
         stopApproval = undefined;
-        stopSessionEvents?.();
+        try {
+            stopSessionEvents?.();
+        }
+        catch (error) {
+            failed('session_observer_dispose', error);
+        }
         stopSessionEvents = undefined;
-        await runtime.dispose();
-        await execution.dispose();
-        await store.close();
+        for (const [operation, close] of [
+            ['runtime_dispose', () => runtime.dispose()],
+            ['execution_dispose', () => execution.dispose()],
+            ['store_close', () => store.close()],
+        ]) {
+            try {
+                await close();
+            }
+            catch (error) {
+                failed(operation, error);
+            }
+        }
+        if (failures.length > 0)
+            throw new Error('Cron Host disposal failed');
     };
     try {
         stopSessionEvents = ctx.on('session/event', (session, event) => {
@@ -93,7 +127,10 @@ export async function apply(ctx) {
         ctx.effect(() => dispose, 'cron.host');
     }
     catch (error) {
-        await dispose();
+        try {
+            await dispose();
+        }
+        catch { }
         throw error;
     }
 }

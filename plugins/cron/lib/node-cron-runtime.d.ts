@@ -18,5 +18,5 @@ export interface LiveCron {
 /** Narrow adapter keeping all schedule semantics inside node-cron. */
 export declare class CronLibrary {
     validate(rule: CronRule): CronValidation;
-    start(definition: CronDefinition, onOccurrence: (scheduledFor: Date) => Promise<void>): LiveCron;
+    start(definition: CronDefinition, onOccurrence: (scheduledFor: Date) => Promise<void>): Promise<LiveCron>;
 }

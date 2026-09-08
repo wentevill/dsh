@@ -12,6 +12,7 @@ interface RuntimeDependencies {
     readonly store: RuntimeStorePort;
     readonly library: Pick<CronLibrary, 'start'>;
     readonly dispatch: (execution: CronExecution, definition: CronDefinition) => Promise<void>;
+    readonly registrationFailed?: (definition: CronDefinition) => void;
     readonly createExecutionId?: () => CronExecutionId;
     readonly now?: () => Date;
 }

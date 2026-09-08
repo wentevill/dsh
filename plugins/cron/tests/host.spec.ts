@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const state = vi.hoisted(() => ({
   order: [] as string[],
+  warnings: [] as string[],
   sessionObserver: undefined as ((session: unknown, event: unknown) => void) | undefined,
+  runtimeDisposeFailure: false,
 }))
 
 vi.mock('@deepseek-ai/dsh-typert-protocol', () => ({
@@ -42,11 +44,21 @@ vi.mock('../lib/execution.js', () => ({
 }))
 vi.mock('../lib/runtime.js', () => ({
   CronRuntime: class {
-    constructor() { state.order.push('runtime') }
-    async initialize() { state.order.push('runtime:initialize') }
+    private readonly registrationFailed?: () => void
+    constructor(dependencies: { registrationFailed?: () => void }) {
+      state.order.push('runtime')
+      this.registrationFailed = dependencies.registrationFailed
+    }
+    async initialize() {
+      state.order.push('runtime:initialize')
+      this.registrationFailed?.()
+    }
     async definitionChanged() {}
     async executionFinished() {}
-    async dispose() { state.order.push('runtime:dispose') }
+    async dispose() {
+      state.order.push('runtime:dispose')
+      if (state.runtimeDisposeFailure) throw new Error('runtime dispose failed')
+    }
   },
 }))
 vi.mock('../lib/tools.js', () => ({
@@ -59,6 +71,7 @@ function harness() {
   const ctx = {
     storageDomain: {}, workspaceRegistry: {}, sessionController: {},
     permissionPresets: {}, agentPresets: {}, sessions: {},
+    logger: () => ({ warn: (message: string) => { state.warnings.push(message) } }),
     tools: {
       register(tool: { name: string }) {
         state.order.push(`tool:register:${tool.name}`)
@@ -84,7 +97,12 @@ function harness() {
 }
 
 describe('Cron Host composition', () => {
-  beforeEach(() => { state.order.length = 0; state.sessionObserver = undefined })
+  beforeEach(() => {
+    state.order.length = 0
+    state.warnings.length = 0
+    state.sessionObserver = undefined
+    state.runtimeDisposeFailure = false
+  })
 
   it('declares only the exact public services it consumes', async () => {
     const cron = await import('../lib/index.js')
@@ -110,5 +128,35 @@ describe('Cron Host composition', () => {
     expect(state.order.filter(value => value.startsWith('tool:dispose:'))).toHaveLength(8)
     expect(state.order).toContain('off:tools/pre-execute')
     expect(state.order).toContain('off:session/event')
+  })
+
+  it('reports task registration failure with bounded operational fields', async () => {
+    const cron = await import('../lib/index.js')
+    const { ctx, dispose } = harness()
+
+    await cron.apply(ctx)
+
+    expect(state.warnings).toEqual([
+      'operation=register outcome=failed reason=library_rejected_definition',
+    ])
+    expect(state.warnings.join(' ')).not.toContain('cron-')
+    await dispose()
+  })
+
+  it('closes execution and storage after a runtime disposal failure', async () => {
+    const cron = await import('../lib/index.js')
+    const { ctx, dispose } = harness()
+    await cron.apply(ctx)
+    state.runtimeDisposeFailure = true
+
+    const failure = await dispose().then(() => undefined, error => error)
+    expect(failure).toMatchObject({ message: 'Cron Host disposal failed' })
+    expect(failure).not.toHaveProperty('errors')
+    expect(state.warnings).toContain(
+      'operation=runtime_dispose outcome=failed reason=dispose_failed',
+    )
+
+    expect(state.order.indexOf('runtime:dispose')).toBeLessThan(state.order.indexOf('execution:dispose'))
+    expect(state.order.indexOf('execution:dispose')).toBeLessThan(state.order.indexOf('store:close'))
   })
 })

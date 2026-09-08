@@ -26,14 +26,24 @@ function definition(id: string, state: CronDefinition['state'] = 'active'): Cron
 class FakeLibrary {
   readonly callbacks = new Map<string, (scheduledFor: Date) => Promise<void>>()
   readonly live = new Map<string, LiveCron & { destroy: ReturnType<typeof vi.fn> }>()
+  readonly failures = new Set<string>()
+  readonly destroyFailures = new Set<string>()
+  readonly destroyWaits = new Map<string, Promise<void>>()
 
-  start(value: CronDefinition, callback: (scheduledFor: Date) => Promise<void>): LiveCron {
+  async start(value: CronDefinition, callback: (scheduledFor: Date) => Promise<void>): Promise<LiveCron> {
+    if (this.failures.has(value.id)) {
+      throw new Error(`unsafe registration detail: ${value.id}`)
+    }
     this.callbacks.set(value.id, callback)
     const task = {
-      start: vi.fn(async () => {}), stop: vi.fn(async () => {}), destroy: vi.fn(async () => {}),
+      start: vi.fn(async () => {}), stop: vi.fn(async () => {}), destroy: vi.fn(async () => {
+        await this.destroyWaits.get(value.id)
+        if (this.destroyFailures.has(value.id)) throw new Error(`unsafe destroy detail: ${value.id}`)
+      }),
       nextRunAt: () => new Date(at(11)),
     }
     this.live.set(value.id, task)
+    await task.start()
     return task
   }
 }
@@ -59,12 +69,14 @@ class FakeStore {
 function harness(store = new FakeStore(), library = new FakeLibrary()) {
   let id = 0
   const dispatch = vi.fn(async (execution: CronExecution) => { store.order.push(`dispatch:${execution.id}`) })
+  const registrationFailed = vi.fn()
   const runtime = new CronRuntime({
     store, library, dispatch,
+    registrationFailed,
     createExecutionId: () => CronExecutionId(`execution-${++id}`),
     now: () => new Date(at(10)),
   })
-  return { dispatch, library, runtime, store }
+  return { dispatch, library, registrationFailed, runtime, store }
 }
 
 describe('CronRuntime', () => {
@@ -77,6 +89,44 @@ describe('CronRuntime', () => {
     expect([...library.callbacks.keys()]).toEqual(['active'])
     await runtime.dispose()
     expect(library.live.get('active')!.destroy).toHaveBeenCalledOnce()
+  })
+
+  it('isolates one stored definition registration failure and continues loading', async () => {
+    const { library, registrationFailed, runtime, store } = harness()
+    const broken = definition('broken')
+    const healthy = definition('healthy')
+    library.failures.add(broken.id)
+    store.recovery = {
+      ...store.recovery,
+      activeDefinitions: [broken, healthy],
+    }
+
+    await runtime.initialize()
+
+    expect(registrationFailed).toHaveBeenCalledWith(broken)
+    expect(library.callbacks.has(healthy.id)).toBe(true)
+    await runtime.dispose()
+  })
+
+  it('waits for every live task cleanup before reporting disposal failures', async () => {
+    const { library, runtime } = harness()
+    await runtime.definitionChanged(undefined, definition('broken'), { clearPending: false })
+    await runtime.definitionChanged(undefined, definition('slow'), { clearPending: false })
+    library.destroyFailures.add('broken')
+    let releaseSlow!: () => void
+    library.destroyWaits.set('slow', new Promise(resolve => { releaseSlow = resolve }))
+
+    let settled = false
+    const disposal = runtime.dispose()
+    void disposal.then(() => { settled = true }, () => { settled = true })
+    await vi.waitFor(() => expect(library.live.get('slow')!.destroy).toHaveBeenCalledOnce())
+    await Promise.resolve()
+    expect(settled).toBe(false)
+
+    releaseSlow()
+    const failure = await disposal.then(() => undefined, error => error)
+    expect(failure).toMatchObject({ message: 'Cron runtime disposal failed' })
+    expect(failure).not.toHaveProperty('errors')
   })
 
   it('coalesces an overdue durable checkpoint into one startup catch-up', async () => {

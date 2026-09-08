@@ -43,7 +43,7 @@ describe('CronLibrary', () => {
   it('uses node-cron DOM-and-DOW matching when both fields are restricted', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-08T00:00:00.000Z'))
-    const live = new CronLibrary().start(definition('0 9 7 * 1'), async () => {})
+    const live = await new CronLibrary().start(definition('0 9 7 * 1'), async () => {})
 
     expect(live.nextRunAt()?.toISOString()).toBe('2026-12-07T09:00:00.000Z')
     await live.destroy()
@@ -52,7 +52,7 @@ describe('CronLibrary', () => {
   it('lets node-cron skip a nonexistent DST spring-forward wall time', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-03-08T06:59:00.000Z'))
-    const live = new CronLibrary().start(
+    const live = await new CronLibrary().start(
       definition('30 2 * * *', 'America/New_York'),
       async () => {},
     )
@@ -64,7 +64,7 @@ describe('CronLibrary', () => {
   it('uses the first repeated DST fall-back wall time selected by node-cron', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-11-01T04:59:00.000Z'))
-    const live = new CronLibrary().start(
+    const live = await new CronLibrary().start(
       definition('30 1 * * *', 'America/New_York'),
       async () => {},
     )
@@ -77,7 +77,7 @@ describe('CronLibrary', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-07T08:59:59.000Z'))
     const occurrences: Date[] = []
-    const live = new CronLibrary().start(definition('* * * * *'), async (scheduledFor) => {
+    const live = await new CronLibrary().start(definition('* * * * *'), async (scheduledFor) => {
       occurrences.push(scheduledFor)
     })
 

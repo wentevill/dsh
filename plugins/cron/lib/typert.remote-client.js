@@ -287,7 +287,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: 'dsh-cron/remote-types#CronMutationResult',
         schema: dsh_cron_cron_create_result$schema,
       },
-      sourceLocation: {"file":"packages/cron/src/remote.ts","line":34,"column":3},
+      sourceLocation: {"file":"packages/cron/src/remote.ts","line":37,"column":3},
     },
     {
       id: 'dsh-cron#cron/delete',
@@ -312,7 +312,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: 'dsh-cron/remote-types#CronMutationResult',
         schema: dsh_cron_cron_delete_result$schema,
       },
-      sourceLocation: {"file":"packages/cron/src/remote.ts","line":56,"column":3},
+      sourceLocation: {"file":"packages/cron/src/remote.ts","line":59,"column":3},
     },
     {
       id: 'dsh-cron#cron/history',
@@ -337,7 +337,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: 'dsh-cron/remote-types#CronHistoryResult',
         schema: dsh_cron_cron_history_result$schema,
       },
-      sourceLocation: {"file":"packages/cron/src/remote.ts","line":28,"column":3},
+      sourceLocation: {"file":"packages/cron/src/remote.ts","line":29,"column":3},
     },
     {
       id: 'dsh-cron#cron/list',
@@ -362,7 +362,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: 'dsh-cron/remote-types#CronListResult',
         schema: dsh_cron_cron_list_result$schema,
       },
-      sourceLocation: {"file":"packages/cron/src/remote.ts","line":23,"column":3},
+      sourceLocation: {"file":"packages/cron/src/remote.ts","line":24,"column":3},
     },
     {
       id: 'dsh-cron#cron/pause',
@@ -387,7 +387,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: 'dsh-cron/remote-types#CronMutationResult',
         schema: dsh_cron_cron_pause_result$schema,
       },
-      sourceLocation: {"file":"packages/cron/src/remote.ts","line":46,"column":3},
+      sourceLocation: {"file":"packages/cron/src/remote.ts","line":49,"column":3},
     },
     {
       id: 'dsh-cron#cron/resume',
@@ -412,7 +412,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: 'dsh-cron/remote-types#CronMutationResult',
         schema: dsh_cron_cron_resume_result$schema,
       },
-      sourceLocation: {"file":"packages/cron/src/remote.ts","line":51,"column":3},
+      sourceLocation: {"file":"packages/cron/src/remote.ts","line":54,"column":3},
     },
     {
       id: 'dsh-cron#cron/update',
@@ -437,7 +437,7 @@ export const TYPERT_REMOTE = {
         typeSymbol: 'dsh-cron/remote-types#CronMutationResult',
         schema: dsh_cron_cron_update_result$schema,
       },
-      sourceLocation: {"file":"packages/cron/src/remote.ts","line":40,"column":3},
+      sourceLocation: {"file":"packages/cron/src/remote.ts","line":43,"column":3},
     },
   ],
 }

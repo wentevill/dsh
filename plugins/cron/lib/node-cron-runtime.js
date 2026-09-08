@@ -19,10 +19,19 @@ export class CronLibrary {
             return { ok: false, code: 'invalid_timezone' };
         }
     }
-    start(definition, onOccurrence) {
+    async start(definition, onOccurrence) {
         const task = cron.createTask(definition.expression, async (context) => onOccurrence(context.date), { name: definition.id, timezone: definition.timezone });
-        void task.start();
-        return liveTask(task);
+        try {
+            await task.start();
+            return liveTask(task);
+        }
+        catch (error) {
+            try {
+                await task.destroy();
+            }
+            catch { }
+            throw error;
+        }
     }
 }
 function liveTask(task) {

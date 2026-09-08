@@ -2,6 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { CronId } from './brand.ts'
 import type { CronCommandService } from './commands.ts'
+import { CronFailure, cronFailure } from './errors.ts'
 import type {
   CronCreateRequest,
   CronHistoryResult,
@@ -21,40 +22,51 @@ export class CronRemote extends TypertRemoteService {
 
   @Remote('list')
   list(request: CronListRequest): Promise<CronListResult> {
-    return this.commands.list(request.sessionId, request.scope)
+    return bounded(() => this.commands.list(request.sessionId, request.scope))
   }
 
   @Remote('history')
-  history(request: CronHistoryRequest): CronHistoryResult {
+  history(request: CronHistoryRequest): Promise<CronHistoryResult> {
     const { sessionId, cronId, cursor, limit } = request
-    return this.commands.history(sessionId, CronId(cronId), compact({ cursor, limit }))
+    return bounded(() => this.commands.history(
+      sessionId, CronId(cronId), compact({ cursor, limit }),
+    ))
   }
 
   @Remote('create')
   create(request: CronCreateRequest): Promise<CronMutationResult> {
     const { sessionId, ...input } = request
-    return this.commands.create(sessionId, input)
+    return bounded(() => this.commands.create(sessionId, input))
   }
 
   @Remote('update')
   update(request: CronUpdateRequest): Promise<CronMutationResult> {
     const { sessionId, cronId, expectedRevision, ...input } = request
-    return this.commands.update(sessionId, CronId(cronId), expectedRevision, input)
+    return bounded(() => this.commands.update(sessionId, CronId(cronId), expectedRevision, input))
   }
 
   @Remote('pause')
   pause(request: CronIdRequest): Promise<CronMutationResult> {
-    return this.commands.pause(request.sessionId, CronId(request.cronId))
+    return bounded(() => this.commands.pause(request.sessionId, CronId(request.cronId)))
   }
 
   @Remote('resume')
   resume(request: CronIdRequest): Promise<CronMutationResult> {
-    return this.commands.resume(request.sessionId, CronId(request.cronId))
+    return bounded(() => this.commands.resume(request.sessionId, CronId(request.cronId)))
   }
 
   @Remote('delete')
   delete(request: CronIdRequest): Promise<CronMutationResult> {
-    return this.commands.delete(request.sessionId, CronId(request.cronId))
+    return bounded(() => this.commands.delete(request.sessionId, CronId(request.cronId)))
+  }
+}
+
+async function bounded<T>(operation: () => T | Promise<T>): Promise<T> {
+  try {
+    return await operation()
+  } catch (error) {
+    if (error instanceof CronFailure) throw error
+    throw cronFailure('internal_error')
   }
 }
 

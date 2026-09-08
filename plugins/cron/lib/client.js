@@ -5442,7 +5442,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/cron/src/remote.ts",
-						"line": 34,
+						"line": 37,
 						"column": 3
 					}
 				},
@@ -5469,7 +5469,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/cron/src/remote.ts",
-						"line": 56,
+						"line": 59,
 						"column": 3
 					}
 				},
@@ -5496,7 +5496,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/cron/src/remote.ts",
-						"line": 28,
+						"line": 29,
 						"column": 3
 					}
 				},
@@ -5523,7 +5523,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/cron/src/remote.ts",
-						"line": 23,
+						"line": 24,
 						"column": 3
 					}
 				},
@@ -5550,7 +5550,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/cron/src/remote.ts",
-						"line": 46,
+						"line": 49,
 						"column": 3
 					}
 				},
@@ -5577,7 +5577,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/cron/src/remote.ts",
-						"line": 51,
+						"line": 54,
 						"column": 3
 					}
 				},
@@ -5604,7 +5604,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					},
 					sourceLocation: {
 						"file": "packages/cron/src/remote.ts",
-						"line": 40,
+						"line": 43,
 						"column": 3
 					}
 				}

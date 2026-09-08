@@ -1,6 +1,7 @@
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -20,6 +21,7 @@ const upstream = join(checkoutRoot, 'deepseek-harness-source')
 const pinnedRevision = (JSON.parse(readFileSync(join(repositoryRoot, 'upstream.lock.json'), 'utf8')) as {
   revision: string
 }).revision
+const requireFromPlugin = createRequire(join(pluginRoot, 'package.json'))
 
 interface WebHandle {
   readonly child: ChildProcessWithoutNullStreams
@@ -173,6 +175,34 @@ function boundedLogs(stdout: string, stderr: string): string {
     .replace(/token=[^\s]+/gu, 'token=<redacted>')
 }
 
+function loadClientBundle(source: string): Record<string, unknown> {
+  const factories = new Map<string, (require: NodeJS.Require) => unknown>()
+  const modules = new Map<string, unknown>()
+  const loader = {
+    load(entry: { id: string; factory: (require: NodeJS.Require) => unknown }) {
+      factories.set(entry.id, entry.factory)
+    },
+  }
+  ;(globalThis as unknown as { window: unknown }).window = { __ModuleLoader__: loader }
+  try {
+    Function(source)()
+  } finally {
+    delete (globalThis as unknown as { window?: unknown }).window
+  }
+  const requireBatch = ((id: string) => {
+    if (modules.has(id)) return modules.get(id)
+    const factory = factories.get(id)
+    const value = factory === undefined ? requireFromPlugin(id) : factory(requireBatch)
+    modules.set(id, value)
+    return value
+  }) as NodeJS.Require
+  const exported = requireBatch('dsh-cron')
+  if (typeof exported !== 'object' || exported === null) {
+    throw new Error('Cron Client bundle did not export a plugin')
+  }
+  return exported as Record<string, unknown>
+}
+
 describe('packaged Cron composition canary', () => {
   it('installs the archive and runs fixed and fresh Session tasks through real DSH', {
     timeout: 180_000,
@@ -211,6 +241,9 @@ describe('packaged Cron composition canary', () => {
       web = await bootWeb(env)
       expect(web.html).toContain('"id":"dsh-cron"')
       expect(web.client).toContain('dsh-cron')
+      expect(loadClientBundle(web.client)).toMatchObject({
+        name: 'cron-client', inject: ['remote'], apply: expect.any(Function),
+      })
       expect(web.logs()).not.toMatch(/failed to apply loader entry|did not activate/u)
 
       const workspace = await rpc<{

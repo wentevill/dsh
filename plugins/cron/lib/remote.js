@@ -34,6 +34,7 @@ var __esDecorate = (this && this.__esDecorate) || function (ctor, descriptorIn, 
 };
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import { CronId } from "./brand.js";
+import { CronFailure, cronFailure } from "./errors.js";
 /** Browser Remote facade; every operation delegates Workspace authorization to commands. */
 let CronRemote = (() => {
     let _classSuper = TypertRemoteService;
@@ -70,32 +71,42 @@ let CronRemote = (() => {
             this.commands = commands;
         }
         list(request) {
-            return this.commands.list(request.sessionId, request.scope);
+            return bounded(() => this.commands.list(request.sessionId, request.scope));
         }
         history(request) {
             const { sessionId, cronId, cursor, limit } = request;
-            return this.commands.history(sessionId, CronId(cronId), compact({ cursor, limit }));
+            return bounded(() => this.commands.history(sessionId, CronId(cronId), compact({ cursor, limit })));
         }
         create(request) {
             const { sessionId, ...input } = request;
-            return this.commands.create(sessionId, input);
+            return bounded(() => this.commands.create(sessionId, input));
         }
         update(request) {
             const { sessionId, cronId, expectedRevision, ...input } = request;
-            return this.commands.update(sessionId, CronId(cronId), expectedRevision, input);
+            return bounded(() => this.commands.update(sessionId, CronId(cronId), expectedRevision, input));
         }
         pause(request) {
-            return this.commands.pause(request.sessionId, CronId(request.cronId));
+            return bounded(() => this.commands.pause(request.sessionId, CronId(request.cronId)));
         }
         resume(request) {
-            return this.commands.resume(request.sessionId, CronId(request.cronId));
+            return bounded(() => this.commands.resume(request.sessionId, CronId(request.cronId)));
         }
         delete(request) {
-            return this.commands.delete(request.sessionId, CronId(request.cronId));
+            return bounded(() => this.commands.delete(request.sessionId, CronId(request.cronId)));
         }
     };
 })();
 export { CronRemote };
+async function bounded(operation) {
+    try {
+        return await operation();
+    }
+    catch (error) {
+        if (error instanceof CronFailure)
+            throw error;
+        throw cronFailure('internal_error');
+    }
+}
 function compact(value) {
     return Object.fromEntries(Object.entries(value).filter(([, field]) => field !== undefined));
 }
