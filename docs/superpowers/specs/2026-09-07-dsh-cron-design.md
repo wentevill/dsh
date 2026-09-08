@@ -302,6 +302,11 @@ authorization, so they do not enter a second Agent approval flow. All tool and
 Remote mutations nevertheless call the same `CronCommandService` and share
 validation, serialization, audit, and persistence behavior.
 
+Typert Remote DTOs use plain JSON strings for Cron, execution, Session,
+Workspace, and preset identifiers. Internal TypeScript brands never cross the
+wire; `CronRemote` restores plugin-owned Cron brands before calling the command
+service. This keeps generated codecs valid for ordinary browser JSON values.
+
 ## Workspace and Validation Boundary
 
 The model and Client cannot provide an authoritative Workspace ID, fixed target

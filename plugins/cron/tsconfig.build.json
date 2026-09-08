@@ -20,6 +20,8 @@
     "src/execution.ts",
     "src/domain.ts",
     "src/node-cron-runtime.ts",
+    "src/remote-types.ts",
+    "src/remote.ts",
     "src/runtime.ts",
     "src/state-machine.ts",
     "src/store.ts",
