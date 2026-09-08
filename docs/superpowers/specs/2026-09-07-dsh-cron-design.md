@@ -351,8 +351,9 @@ to that fixed Session. Deleted definitions are read-only.
 
 The Client renders Host snapshots and stable failure states. It does not infer
 active execution state from local timers or optimistically invent durable
-history. Live updates replace snapshots by revision so an older response cannot
-overwrite a newer command result.
+history. The controller assigns list and history requests a monotonic local
+revision so an older response cannot overwrite a newer scope or selection.
+Definition mutations additionally compare the durable per-Cron revision.
 
 ## Relationship to `dsh-schedule`
 
