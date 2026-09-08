@@ -12,6 +12,8 @@
     "wecom:pack": "corepack pnpm --dir plugins/wecom pack --pack-destination .",
     "confluence:pack": "corepack pnpm --dir plugins/confluence pack --pack-destination .",
     "nextcloud:pack": "corepack pnpm --dir plugins/nextcloud pack --pack-destination .",
+    "cron:test": "corepack pnpm --dir plugins/cron test",
+    "cron:pack": "corepack pnpm --dir plugins/cron pack --pack-destination .",
     "mail:test": "vitest run plugins/mail/tests",
     "verify:upstream": "node --experimental-strip-types packaging/assert-upstream.ts",
     "test": "vitest run packaging",
