@@ -108,7 +108,7 @@ async function authenticate(
     if (!response.ok) throw new Error(`Web root returned HTTP ${response.status}`)
     return response.text()
   })
-  const graphSource = /globalThis\["__DSH_BOOT__"\] = (.+)<\/script>/u.exec(html)?.[1]
+  const graphSource = /globalThis\["__DSH_BOOT__"\] = ([\s\S]*?)<\/script>/u.exec(html)?.[1]
   if (graphSource === undefined) throw new Error('Web root did not carry __DSH_BOOT__')
   const graph = JSON.parse(graphSource) as { batches?: Array<{ url?: unknown; entries?: unknown }> }
   const clientUrl = graph.batches?.find(batch =>
@@ -191,6 +191,11 @@ function loadClientBundle(source: string): Record<string, unknown> {
   }
   const requireBatch = ((id: string) => {
     if (modules.has(id)) return modules.get(id)
+    if (id === '@deepseek-ai/dsh-client-ui-primitives') {
+      const primitives = {}
+      modules.set(id, primitives)
+      return primitives
+    }
     const factory = factories.get(id)
     const value = factory === undefined ? requireFromPlugin(id) : factory(requireBatch)
     modules.set(id, value)
@@ -222,7 +227,8 @@ describe('packaged Cron composition canary', () => {
       execFileSync('corepack', ['pnpm', 'pack', '--pack-destination', packs], {
         cwd: pluginRoot, stdio: 'pipe',
       })
-      const archive = join(packs, 'dsh-cron-0.1.0.tgz')
+      const manifest = JSON.parse(readFileSync(join(pluginRoot, 'package.json'), 'utf8')) as { version: string }
+      const archive = join(packs, `dsh-cron-${manifest.version}.tgz`)
       const env = buildHermeticEnvironment({
         root: join(sandbox, 'environment'), dshHome: home,
         nodeBin: dirname(node), packageBin, offline: true,
@@ -332,11 +338,10 @@ describe('packaged Cron composition canary', () => {
       const deletedList = await rpc<readonly CronDefinitionWire[]>(web, 'cron/list', 'request', {
         sessionId: session.sessionId, scope: 'deleted',
       })
-      expect(deletedList.map(item => item.id)).toContain(fresh.id)
-      const reopenedHistory = await rpc<{ items: readonly CronExecutionWire[] }>(
+      expect(deletedList.map(item => item.id)).not.toContain(fresh.id)
+      await expect(rpc<{ items: readonly CronExecutionWire[] }>(
         web, 'cron/history', 'request', { sessionId: session.sessionId, cronId: fresh.id, limit: 10 },
-      )
-      expect(reopenedHistory.items).not.toHaveLength(0)
+      )).rejects.toThrow('cron/history failed')
     } catch (error) {
       if (web !== undefined) {
         throw new Error(`${error instanceof Error ? error.message : String(error)}\n${web.logs()}`)

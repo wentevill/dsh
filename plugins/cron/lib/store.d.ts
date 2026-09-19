@@ -44,6 +44,8 @@ export declare class CronStore {
     }): Promise<CronStore>;
     createDefinition(definition: CronDefinition): Promise<CronDefinition>;
     updateDefinition(id: CronId, expectedRevision: number, change: (current: CronDefinition) => CronDefinition): Promise<CronDefinition>;
+    /** Permanently remove a definition and its scheduler checkpoint. */
+    deleteDefinition(id: CronId): Promise<boolean>;
     putRuntime(runtime: CronRuntimeState): Promise<CronRuntimeState>;
     beginExecution(execution: CronExecution): Promise<CronExecution>;
     updateExecution(id: CronExecutionId, change: (current: CronExecution) => CronExecution): Promise<CronExecution>;

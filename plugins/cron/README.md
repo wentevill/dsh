@@ -20,11 +20,15 @@ does not modify or fork DeepSeek Harness.
   Pause and queries do not. Buttons in the expanded conversation manager are
   explicit user gestures and call the same Host command path directly.
 - Pause stops future triggers but does not cancel an active Session run. Delete
-  is terminal and also leaves an already active run alone.
+  permanently removes the task definition and scheduler checkpoint, cannot be
+  restored, and leaves an already active Session run alone.
 - After Harness downtime, an overdue active task produces at most one delayed
   catch-up execution. Missed intervals are not replayed as a backlog.
-- Version 0.1 keeps execution history without a retention limit. History is
-  read through bounded cursor pages.
+- Version 0.1 keeps execution history for retained tasks without a retention
+  limit. History is read through bounded cursor pages.
+- The installed plugin page renders the current Workspace's Cron manager
+  directly below Components. It uses the selected main Session as the
+  Workspace authority and keeps the existing conversation manager available.
 
 This plugin has no offline or detached execution mode. Cron tasks run only
 while the Harness Host process is running.

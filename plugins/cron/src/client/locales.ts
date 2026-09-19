@@ -7,6 +7,9 @@ export const zh = {
   timezone: '时区', mode: '执行模式', existingSession: '当前 Session', newSession: '每次新建 Session',
   create: '创建', cancel: '取消', pause: '暂停', resume: '恢复', edit: '编辑', save: '保存', remove: '删除',
   readonly: '只读', moreHistory: '更多历史', openSession: '打开执行 Session', noItems: '暂无 Cron',
+  noCurrentSession: '请先打开一个 Workspace 会话',
+  enable: '启用', editTitle: '修改', close: '关闭', confirmDeleteTitle: '删除',
+  confirmDeleteDescription: '该 Cron 任务将被永久删除，此操作无法撤销。',
 } as const
 
 export const en: Record<keyof typeof zh, string> = {
@@ -16,6 +19,9 @@ export const en: Record<keyof typeof zh, string> = {
   timezone: 'Timezone', mode: 'Execution mode', existingSession: 'Current Session', newSession: 'New Session each run',
   create: 'Create', cancel: 'Cancel', pause: 'Pause', resume: 'Resume', edit: 'Edit', save: 'Save', remove: 'Delete',
   readonly: 'Read only', moreHistory: 'More history', openSession: 'Open execution Session', noItems: 'No Cron tasks',
+  noCurrentSession: 'Open a Workspace session to manage Cron tasks',
+  enable: 'Enable', editTitle: 'Edit', close: 'Close', confirmDeleteTitle: 'Delete',
+  confirmDeleteDescription: 'This Cron task will be permanently deleted and cannot be restored.',
 }
 
 export type CronLocaleKey = keyof typeof zh

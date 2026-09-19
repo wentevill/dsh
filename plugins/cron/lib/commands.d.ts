@@ -20,6 +20,7 @@ interface AgentPresetsPort {
 interface CronStorePort {
     createDefinition(value: CronDefinition): Promise<CronDefinition>;
     updateDefinition(id: CronId, revision: number, change: (value: CronDefinition) => CronDefinition): Promise<CronDefinition>;
+    deleteDefinition(id: CronId): Promise<boolean>;
     listDefinitions(): readonly CronDefinition[];
     listHistory(query?: HistoryQuery): HistoryPage;
 }

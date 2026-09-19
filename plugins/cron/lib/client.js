@@ -28,6 +28,7 @@ window.__ModuleLoader__.load({
 		//#endregion
 		let react = require("react");
 		react = __toESM(react, 1);
+		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		//#region node_modules/zod/v4/core/util.js
 		function getEnumValues(entries) {
@@ -5640,7 +5641,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			readonly: "只读",
 			moreHistory: "更多历史",
 			openSession: "打开执行 Session",
-			noItems: "暂无 Cron"
+			noItems: "暂无 Cron",
+			noCurrentSession: "请先打开一个 Workspace 会话",
+			enable: "启用",
+			editTitle: "修改",
+			close: "关闭",
+			confirmDeleteTitle: "删除",
+			confirmDeleteDescription: "该 Cron 任务将被永久删除，此操作无法撤销。"
 		};
 		const en = {
 			manager: "Cron manager",
@@ -5670,7 +5677,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			readonly: "Read only",
 			moreHistory: "More history",
 			openSession: "Open execution Session",
-			noItems: "No Cron tasks"
+			noItems: "No Cron tasks",
+			noCurrentSession: "Open a Workspace session to manage Cron tasks",
+			enable: "Enable",
+			editTitle: "Edit",
+			close: "Close",
+			confirmDeleteTitle: "Delete",
+			confirmDeleteDescription: "This Cron task will be permanently deleted and cannot be restored."
 		};
 		const zhTranslate = (key) => zh[key];
 		//#endregion
@@ -5859,12 +5872,21 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		const css = {
 			shell: "dsh-cron-shell",
 			toolbar: "dsh-cron-toolbar",
-			body: "dsh-cron-body",
+			toolbarActions: "dsh-cron-toolbar-actions",
 			list: "dsh-cron-list",
-			details: "dsh-cron-details",
+			row: "dsh-cron-row",
+			rowMain: "dsh-cron-row-main",
+			rowOpen: "dsh-cron-row-open",
+			rowActions: "dsh-cron-row-actions",
+			readonly: "dsh-cron-readonly",
 			form: "dsh-cron-form",
-			actions: "dsh-cron-actions",
 			history: "dsh-cron-history",
+			historySection: "dsh-cron-history-section",
+			dialog: "dsh-cron-dialog",
+			dialogContent: "dsh-cron-dialog-content",
+			modeButton: "dsh-cron-mode-button",
+			danger: "dsh-cron-danger",
+			dangerButton: "dsh-cron-danger-button",
 			notice: "dsh-cron-notice",
 			compact: "dsh-cron-compact"
 		};
@@ -5873,10 +5895,22 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			const style = document.createElement("style");
 			style.id = STYLE_ID;
 			style.textContent = `
-.dsh-cron-shell{border:1px solid color-mix(in srgb,currentColor 16%,transparent);border-radius:10px;padding:12px;display:grid;gap:12px;max-width:760px}
-.dsh-cron-toolbar,.dsh-cron-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.dsh-cron-body{display:grid;grid-template-columns:minmax(150px,1fr) minmax(260px,2fr);gap:12px}
-.dsh-cron-list,.dsh-cron-history{list-style:none;margin:0;padding:0;display:grid;gap:6px}.dsh-cron-list button{width:100%;text-align:left}.dsh-cron-details{display:grid;gap:8px;min-width:0}.dsh-cron-form{display:grid;gap:8px}.dsh-cron-form label{display:grid;gap:4px}.dsh-cron-form input,.dsh-cron-form textarea,.dsh-cron-form select{font:inherit;padding:6px}.dsh-cron-notice{opacity:.72}.dsh-cron-compact{display:flex;gap:8px;align-items:center;padding:8px 0}
-@media(max-width:640px){.dsh-cron-body{grid-template-columns:1fr}}
+.dsh-cron-shell{display:grid;gap:12px;color:var(--dsw-alias-label-primary)}
+.dsh-cron-toolbar,.dsh-cron-toolbar-actions,.dsh-cron-row-actions{display:flex;gap:8px;align-items:center}.dsh-cron-toolbar{justify-content:flex-end;flex-wrap:wrap}
+.dsh-cron-list,.dsh-cron-history{list-style:none;margin:0;padding:0}.dsh-cron-list{display:flex;flex-direction:column;gap:2px}
+.dsh-cron-row{display:flex;align-items:center;gap:16px;min-width:0;margin:0 -8px;padding:8px;border-radius:12px}.dsh-cron-row:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.dsh-cron-row-main,.dsh-cron-row-open{display:grid;grid-template-columns:minmax(140px,220px) minmax(0,1fr);align-items:center;gap:16px;min-width:0;flex:1}
+.dsh-cron-row-open{padding:0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}.dsh-cron-row-open:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;border-radius:6px}
+.dsh-cron-row code,.dsh-cron-history code{font-size:13px;color:var(--dsw-alias-label-secondary)}.dsh-cron-row-open span,.dsh-cron-row-main span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500}
+.dsh-cron-row-actions{justify-content:flex-end;flex:none}.dsh-cron-readonly,.dsh-cron-notice{font-size:13px;color:var(--dsw-alias-label-tertiary)}
+.dsh-cron-danger{color:var(--dsw-alias-state-error-primary)}.dsh-cron-danger-button{background:var(--dsw-alias-state-error-primary)}
+.dsh-cron-dialog{width:min(720px,calc(100vw - 32px));max-width:720px}.dsh-cron-dialog-content{max-height:min(76vh,760px)}.dsh-cron-form{display:grid;gap:12px}.dsh-cron-form label{display:grid;gap:6px;font-size:13px;color:var(--dsw-alias-label-secondary)}
+.dsh-cron-form label>span{width:100%}.dsh-cron-form textarea{box-sizing:border-box;width:100%;min-height:120px;padding:8px;border:.5px solid var(--dsw-alias-border-l4);border-radius:8px;background-color:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;resize:vertical}.dsh-cron-form textarea:focus{outline:1px solid var(--dsw-alias-brand-primary)}.dsh-cron-mode-button{display:flex;width:100%;justify-content:space-between}
+.dsh-cron-history-section{display:grid;gap:6px;margin-top:16px;padding-top:12px;border-top:.5px solid var(--dsw-alias-border-l4)}.dsh-cron-history{display:grid;gap:4px}.dsh-cron-history li{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.dsh-cron-compact{display:flex;gap:8px;align-items:center;padding:8px 0}
+[data-plugin-detail="dsh-cron"] [data-plugin-rows]{order:1}
+[data-plugin-detail="dsh-cron"] [data-plugin-config]{order:2}
+@media(max-width:640px){.dsh-cron-row-main,.dsh-cron-row-open{grid-template-columns:1fr;gap:2px}.dsh-cron-row{align-items:flex-start}.dsh-cron-row-actions{padding-top:4px}}
 `;
 			document.head.append(style);
 		}
@@ -5884,211 +5918,271 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		//#region src/client/manager.tsx
 		function CronManager(props) {
 			ensureCronStyles();
-			const owned = (0, react.useRef)(void 0);
-			owned.current ??= new CronManagerController(props.sessionId, props.remote, props.initial.scope);
-			const controller = props.controller ?? owned.current;
+			const owned = (0, react.useMemo)(() => new CronManagerController(props.sessionId, props.remote, props.initial.scope), [
+				props.initial.scope,
+				props.remote,
+				props.sessionId
+			]);
+			const controller = props.controller ?? owned;
 			const snapshot = (0, react.useSyncExternalStore)(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
 			const t = props.t ?? zhTranslate;
 			const [creating, setCreating] = (0, react.useState)(false);
-			const [editing, setEditing] = (0, react.useState)(false);
-			const selected = snapshot.items.find((item) => item.id === snapshot.selectedCronId);
+			const [editingId, setEditingId] = (0, react.useState)(null);
+			const [deletingId, setDeletingId] = (0, react.useState)(null);
+			const editing = snapshot.items.find((item) => item.id === editingId);
+			const deleting = snapshot.items.find((item) => item.id === deletingId);
 			(0, react.useEffect)(() => {
 				controller.initialize();
 			}, [controller]);
+			const openEditor = (item) => {
+				setEditingId(item.id);
+				if (snapshot.selectedCronId !== item.id) controller.select(item.id);
+			};
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("section", {
 				className: css.shell,
 				role: "region",
 				"aria-label": t("manager"),
 				children: [
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 						className: css.toolbar,
-						children: [
-							[
-								"related",
-								"all",
-								"deleted"
-							].map((scope) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								disabled: snapshot.busy || snapshot.scope === scope,
-								onClick: () => void controller.load(scope),
-								children: t(scope)
-							}, scope)),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: css.toolbarActions,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+								size: "sm",
+								variant: "primary",
 								onClick: () => setCreating(true),
 								children: t("createCron")
-							}),
-							props.onCollapse && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
+							}), props.onCollapse && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+								size: "sm",
+								variant: "ghost",
 								onClick: props.onCollapse,
 								children: t("collapse")
-							})
-						]
+							})]
+						})
 					}),
 					snapshot.error && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: css.notice,
 						role: "status",
 						children: t("loadFailed")
 					}),
-					creating && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(DefinitionForm, {
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("ul", {
+						className: css.list,
+						children: [snapshot.items.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
+							className: css.row,
+							children: [item.state === "deleted" ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: css.rowMain,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", { children: item.expression }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: item.name })]
+							}) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+								type: "button",
+								className: css.rowOpen,
+								"aria-label": `${t("edit")} ${item.name}`,
+								onClick: () => openEditor(item),
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", { children: item.expression }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: item.name })]
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: css.rowActions,
+								children: item.state === "deleted" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: css.readonly,
+									children: t("readonly")
+								}) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Switch, {
+									checked: item.state === "active",
+									disabled: snapshot.busy,
+									label: `${t("enable")} ${item.name}`,
+									onChange: (enabled) => void (enabled ? controller.resume(item.id) : controller.pause(item.id))
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									variant: "outline",
+									size: "sm",
+									className: css.danger,
+									icon: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconTrashOutline16, { size: 13 }),
+									"aria-label": `${t("remove")} ${item.name}`,
+									disabled: snapshot.busy,
+									onClick: () => setDeletingId(item.id),
+									children: t("remove")
+								})] })
+							})]
+						}, item.id)), !snapshot.busy && snapshot.items.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", {
+							className: css.notice,
+							children: t("noItems")
+						})]
+					}),
+					creating && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(DefinitionDialog, {
 						t,
+						title: t("createCron"),
 						submitLabel: t("create"),
 						onCancel: () => setCreating(false),
 						onSubmit: async (value) => {
 							await controller.create(value);
 							setCreating(false);
 						}
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: css.body,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("ul", {
-							className: css.list,
-							children: [snapshot.items.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								"aria-pressed": item.id === snapshot.selectedCronId,
-								onClick: () => void controller.select(item.id),
-								children: item.name
-							}) }, item.id)), !snapshot.busy && snapshot.items.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", {
-								className: css.notice,
-								children: t("noItems")
-							})]
-						}), selected && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-							className: css.details,
-							children: [
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("strong", { children: selected.name }),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", { children: selected.expression }),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: selected.timezone }),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: selected.executionMode === "existing_session" ? t("existingSession") : t("newSession") }),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", { children: selected.prompt }),
-								selected.state === "deleted" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("readonly") }) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-									className: css.actions,
-									children: [
-										selected.state === "active" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											disabled: snapshot.busy,
-											onClick: () => void controller.pause(selected.id),
-											children: t("pause")
-										}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											disabled: snapshot.busy,
-											onClick: () => void controller.resume(selected.id),
-											children: t("resume")
-										}),
-										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											disabled: snapshot.busy,
-											onClick: () => setEditing(true),
-											children: t("edit")
-										}),
-										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											disabled: snapshot.busy,
-											onClick: () => void controller.delete(selected.id),
-											children: t("remove")
-										})
-									]
-								}), editing && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(DefinitionForm, {
-									t,
-									initial: selected,
-									submitLabel: t("save"),
-									onCancel: () => setEditing(false),
-									onSubmit: async (value) => {
-										await controller.update(selected.id, selected.revision, value);
-										setEditing(false);
-									}
-								})] }),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("ul", {
-									className: css.history,
-									children: snapshot.history.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", { children: [
-										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", { children: item.id }),
-										" · ",
-										item.state,
-										item.sessionId && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											"aria-label": t("openSession"),
-											onClick: () => props.sessions.open(item.sessionId),
-											children: t("openSession")
-										})
-									] }, item.id))
-								}),
-								snapshot.historyCursor && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									onClick: () => void controller.loadHistory(),
-									children: t("moreHistory")
-								})
-							]
-						})]
+					}, "create"),
+					editing && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(DefinitionDialog, {
+						t,
+						title: `${t("editTitle")}「${editing.name}」`,
+						initial: editing,
+						submitLabel: t("save"),
+						onCancel: () => setEditingId(null),
+						onSubmit: async (value) => {
+							await controller.update(editing.id, editing.revision, value);
+							setEditingId(null);
+						},
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ExecutionHistory, {
+							snapshot,
+							controller,
+							sessions: props.sessions,
+							t
+						})
+					}, editing.id),
+					deleting && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Modal, {
+						open: true,
+						onClose: () => setDeletingId(null),
+						title: `${t("confirmDeleteTitle")}「${deleting.name}」？`,
+						closeLabel: t("close"),
+						description: t("confirmDeleteDescription"),
+						footer: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							variant: "outline",
+							onClick: () => setDeletingId(null),
+							children: t("cancel")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							variant: "primary",
+							className: css.dangerButton,
+							onClick: () => {
+								setDeletingId(null);
+								controller.delete(deleting.id);
+							},
+							children: t("remove")
+						})] })
 					})
 				]
 			});
 		}
-		function DefinitionForm(props) {
+		function ExecutionHistory(props) {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: css.historySection,
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("ul", {
+					className: css.history,
+					children: props.snapshot.history.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", { children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", { children: item.id }),
+						" · ",
+						item.state,
+						item.sessionId && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							size: "sm",
+							variant: "ghost",
+							"aria-label": props.t("openSession"),
+							onClick: () => props.sessions.open(item.sessionId),
+							children: props.t("openSession")
+						})
+					] }, item.id))
+				}), props.snapshot.historyCursor && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+					size: "sm",
+					variant: "ghost",
+					onClick: () => void props.controller.loadHistory(),
+					children: props.t("moreHistory")
+				})]
+			});
+		}
+		function DefinitionDialog(props) {
+			const formId = (0, react.useId)();
 			const [name, setName] = (0, react.useState)(props.initial?.name ?? "");
 			const [expression, setExpression] = (0, react.useState)(props.initial?.expression ?? "");
 			const [timezone, setTimezone] = (0, react.useState)(props.initial?.timezone ?? browserTimezone());
 			const [prompt, setPrompt] = (0, react.useState)(props.initial?.prompt ?? "");
 			const [executionMode, setExecutionMode] = (0, react.useState)(props.initial?.executionMode ?? "existing_session");
-			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("form", {
-				className: css.form,
-				onSubmit: (event) => {
-					event.preventDefault();
-					props.onSubmit({
-						name,
-						expression,
-						timezone,
-						prompt,
-						executionMode
-					});
+			const [submitting, setSubmitting] = (0, react.useState)(false);
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.Modal, {
+				open: true,
+				onClose: props.onCancel,
+				title: props.title,
+				closeLabel: props.t("close"),
+				className: css.dialog,
+				contentClassName: css.dialogContent,
+				footer: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+					variant: "outline",
+					disabled: submitting,
+					onClick: props.onCancel,
+					children: props.t("cancel")
+				}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+					variant: "primary",
+					disabled: submitting,
+					type: "submit",
+					form: formId,
+					children: props.submitLabel
+				})] }),
+				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("form", {
+					id: formId,
+					className: css.form,
+					onSubmit: (event) => {
+						event.preventDefault();
+						setSubmitting(true);
+						props.onSubmit({
+							name,
+							expression,
+							timezone,
+							prompt,
+							executionMode
+						}).finally(() => setSubmitting(false));
+					},
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [props.t("name"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+							"aria-label": props.t("name"),
+							value: name,
+							onChange: (event) => setName(event.target.value),
+							required: true
+						})] }),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [props.t("expression"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+							"aria-label": props.t("expression"),
+							value: expression,
+							onChange: (event) => setExpression(event.target.value),
+							required: true
+						})] }),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [props.t("timezone"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+							"aria-label": props.t("timezone"),
+							value: timezone,
+							onChange: (event) => setTimezone(event.target.value),
+							required: true
+						})] }),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [props.t("prompt"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
+							"aria-label": props.t("prompt"),
+							value: prompt,
+							onChange: (event) => setPrompt(event.target.value),
+							required: true
+						})] }),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [props.t("mode"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ExecutionModeMenu, {
+							value: executionMode,
+							onChange: setExecutionMode,
+							t: props.t
+						})] })
+					]
+				}), props.children]
+			});
+		}
+		function ExecutionModeMenu(props) {
+			const [open, setOpen] = (0, react.useState)(false);
+			const labels = {
+				existing_session: props.t("existingSession"),
+				new_session: props.t("newSession")
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Menu, {
+				open,
+				selectedId: props.value,
+				portal: true,
+				items: Object.entries(labels).map(([id, label]) => ({
+					id,
+					label
+				})),
+				onClose: () => setOpen(false),
+				onSelect: (id) => {
+					props.onChange(id);
+					setOpen(false);
 				},
-				children: [
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [props.t("name"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-						"aria-label": props.t("name"),
-						value: name,
-						onChange: (event) => setName(event.target.value),
-						required: true
-					})] }),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [props.t("expression"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-						"aria-label": props.t("expression"),
-						value: expression,
-						onChange: (event) => setExpression(event.target.value),
-						required: true
-					})] }),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [props.t("timezone"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-						"aria-label": props.t("timezone"),
-						value: timezone,
-						onChange: (event) => setTimezone(event.target.value),
-						required: true
-					})] }),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [props.t("prompt"), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
-						"aria-label": props.t("prompt"),
-						value: prompt,
-						onChange: (event) => setPrompt(event.target.value),
-						required: true
-					})] }),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", { children: [props.t("mode"), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
-						"aria-label": props.t("mode"),
-						value: executionMode,
-						onChange: (event) => setExecutionMode(event.target.value),
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-							value: "existing_session",
-							children: props.t("existingSession")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-							value: "new_session",
-							children: props.t("newSession")
-						})]
-					})] }),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: css.actions,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-							type: "submit",
-							children: props.submitLabel
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-							type: "button",
-							onClick: props.onCancel,
-							children: props.t("cancel")
-						})]
-					})
-				]
+				anchor: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+					type: "button",
+					variant: "outline",
+					className: css.modeButton,
+					"aria-label": props.t("mode"),
+					"aria-haspopup": "menu",
+					"aria-expanded": open,
+					onClick: () => setOpen((value) => !value),
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: labels[props.value] }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, { size: 14 })]
+				})
 			});
 		}
 		function browserTimezone() {
@@ -6146,9 +6240,26 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		}
 		//#endregion
 		//#region src/client/index.tsx
+		function CronBundleManager(props) {
+			ensureCronStyles();
+			const sessionId = props.useSessions((state) => state.current);
+			if (props.view !== "page") return null;
+			if (sessionId === void 0) return /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+				className: css.notice,
+				role: "status",
+				children: props.t("noCurrentSession")
+			});
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsx)(CronManager, {
+				sessionId,
+				initial: { scope: "all" },
+				remote: props.remote,
+				sessions: props.sessions,
+				t: props.t
+			});
+		}
 		const name = "cron-client";
 		const inject = ["remote"];
-		/** Mount generated Remote first, then one injected keyed Tool row contribution. */
+		/** Mount generated Remote first, then the conversation and plugin-page contributions. */
 		async function apply(base) {
 			const ctx = base;
 			const disposeRemote = await ctx.remote.$mount(TYPERT_REMOTE);
@@ -6163,6 +6274,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					key: "cron_open_manager",
 					locale: "cron"
 				}, (props) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(CronManagerToolRow, {
+					...props,
+					remote: child.remote.cron,
+					sessions: child.sessions
+				})));
+				child.slots.inject("plugins.bundle.config", () => child.slots.register({
+					name: "plugins.bundle.config",
+					key: "dsh-cron",
+					locale: "cron"
+				}, (props) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(CronBundleManager, {
 					...props,
 					remote: child.remote.cron,
 					sessions: child.sessions

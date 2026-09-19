@@ -20,7 +20,7 @@ describe('standalone Cron plugin manifest', () => {
     }
 
     expect(manifest).toMatchObject({
-      name: 'dsh-cron', version: '0.1.0', engines: { node: '^22.19.0 || >=24.0.0' },
+      name: 'dsh-cron', version: '0.1.1', engines: { node: '^22.19.0 || >=24.0.0' },
       files: ['lib', 'cordis.patch.yml', 'README.md', 'LICENSE'],
       bundledDependencies: ['node-cron', 'zod'],
       dsh: { bundle: { patch: './cordis.patch.yml' }, client: { platform: 'web' } },
@@ -44,7 +44,7 @@ describe('standalone Cron plugin manifest', () => {
       execFileSync('corepack', ['pnpm', 'pack', '--pack-destination', destination], {
         cwd: pluginRoot, stdio: 'pipe',
       })
-      const archive = join(destination, 'dsh-cron-0.1.0.tgz')
+      const archive = join(destination, 'dsh-cron-0.1.1.tgz')
       const files = execFileSync('tar', ['-tzf', archive], { encoding: 'utf8' }).trim().split('\n')
       expect(files).toEqual(expect.arrayContaining([
         'package/lib/index.js', 'package/lib/index.d.ts', 'package/lib/client.js',

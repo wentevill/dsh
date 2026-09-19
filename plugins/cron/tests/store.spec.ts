@@ -133,17 +133,15 @@ describe('CronStore', () => {
     await store.close()
   })
 
-  it('makes deletion terminal', async () => {
+  it('permanently removes a definition and its runtime checkpoint', async () => {
     const { store } = await openStore()
     const created = await store.createDefinition(fixedDefinition())
-    const deleted = await store.updateDefinition(created.id, 1, value => ({
-      ...value, state: 'deleted', deletedAt: at(1), updatedAt: at(1),
-    }))
+    await store.putRuntime({ cronId: created.id, observedAt: at(1) })
 
-    await expect(store.updateDefinition(deleted.id, 2, value => ({
-      ...value, state: 'active', deletedAt: undefined, updatedAt: at(2),
-    }))).rejects.toMatchObject({ code: 'definition_deleted' })
-    expect(store.listDefinitions('deleted')).toEqual([deleted])
+    await expect(store.deleteDefinition(created.id)).resolves.toBe(true)
+    expect(store.listDefinitions()).toEqual([])
+    expect(store.recover()).toMatchObject({ runtime: [], activeDefinitions: [] })
+    await expect(store.deleteDefinition(created.id)).resolves.toBe(false)
     await store.close()
   })
 

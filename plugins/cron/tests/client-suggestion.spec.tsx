@@ -5,6 +5,8 @@ import React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CronManagerToolRow } from '../src/client/suggestion-row.tsx'
 
+vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => import('./ui-primitives.mock.tsx'))
+
 const SESSION = 'session-1' as SessionId
 
 afterEach(cleanup)

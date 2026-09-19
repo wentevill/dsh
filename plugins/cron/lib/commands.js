@@ -72,7 +72,18 @@ export class CronCommandService {
         return this.enqueue(id, () => this.changeState(sessionId, id, 'active', false));
     }
     delete(sessionId, id) {
-        return this.enqueue(id, () => this.changeState(sessionId, id, 'deleted', true));
+        return this.enqueue(id, async () => {
+            const current = this.definitionFor(sessionId, id);
+            const timestamp = this.now().toISOString();
+            const removed = {
+                ...current, state: 'deleted', revision: current.revision + 1,
+                updatedAt: timestamp, deletedAt: timestamp,
+            };
+            await this.lifecycle.changed(current, removed, { clearPending: true });
+            if (!await this.dependencies.store.deleteDefinition(id))
+                throw cronFailure('cron_not_found');
+            return removed;
+        });
     }
     async list(sessionId, scope) {
         const workspace = workspaceForSession(this.dependencies.workspaceRegistry, sessionId);

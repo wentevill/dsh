@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CronManagerController } from '../src/client/controller.ts'
 import { CronManager } from '../src/client/manager.tsx'
+import { ensureCronStyles } from '../src/client/styles.ts'
 import type { CronDefinitionWire } from '../src/remote-types.ts'
+
+vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => import('./ui-primitives.mock.tsx'))
 
 const SESSION = 'session-1' as SessionId
 const ok = <T,>(value: T) => Promise.resolve({ ok: true as const, value })
@@ -40,21 +43,30 @@ function remote(items: readonly CronDefinitionWire[] = [definition()]) {
 }
 
 describe('CronManager', () => {
-  it('loads related, exposes exact filters, and pauses through Remote without Agent approval', async () => {
+  it('places the inline bundle manager after the Components section on the plugin page', () => {
+    ensureCronStyles()
+    render(<div data-plugin-detail="dsh-cron"><div>
+      <section data-plugin-config data-testid="cron-config" />
+      <section data-plugin-rows data-testid="components" />
+    </div></div>)
+
+    expect(getComputedStyle(screen.getByTestId('components')).order).toBe('1')
+    expect(getComputedStyle(screen.getByTestId('cron-config')).order).toBe('2')
+  })
+
+  it('renders one standard row per task and toggles it through Remote without Agent approval', async () => {
     const api = remote()
     const approvalPrompt = vi.fn()
     render(<CronManager sessionId={SESSION} initial={{ scope: 'related' }} remote={api} sessions={{ open: vi.fn() }} />)
 
-    expect(await screen.findByRole('button', { name: '日报' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: '编辑 日报' })).toBeTruthy()
+    expect(screen.getByText('0 9 * * *')).toBeTruthy()
     expect(api.list).toHaveBeenCalledWith({ sessionId: SESSION, scope: 'related' })
-    fireEvent.click(screen.getByRole('button', { name: '暂停' }))
+    fireEvent.click(screen.getByRole('switch', { name: '启用 日报' }))
     await waitFor(() => expect(api.pause).toHaveBeenCalledWith({ sessionId: SESSION, cronId: 'cron-1' }))
     expect(approvalPrompt).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: '全部' }))
-    await waitFor(() => expect(api.list).toHaveBeenCalledWith({ sessionId: SESSION, scope: 'all' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: '已删除' }).hasAttribute('disabled')).toBe(false))
-    fireEvent.click(screen.getByRole('button', { name: '已删除' }))
-    await waitFor(() => expect(api.list).toHaveBeenCalledWith({ sessionId: SESSION, scope: 'deleted' }))
+    expect(screen.queryByRole('button', { name: '全部' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '已删除' })).toBeNull()
   })
 
   it('opens execution Sessions, paginates history, and omits links without a Session id', async () => {
@@ -71,14 +83,16 @@ describe('CronManager', () => {
     const sessions = { open: vi.fn() }
     render(<CronManager sessionId={SESSION} initial={{ scope: 'related' }} remote={api} sessions={sessions} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: '打开执行 Session' }))
+    fireEvent.click(await screen.findByRole('button', { name: '编辑 日报' }))
+    const dialog = await screen.findByRole('dialog', { name: '修改「日报」' })
+    fireEvent.click(within(dialog).getByRole('button', { name: '打开执行 Session' }))
     await waitFor(() => expect(sessions.open).toHaveBeenCalledWith('execution-session'))
     fireEvent.click(screen.getByRole('button', { name: '更多历史' }))
     await screen.findByText('execution-2')
     expect(api.history).toHaveBeenLastCalledWith({
       sessionId: SESSION, cronId: 'cron-1', cursor: 'next', limit: 50,
     })
-    expect(screen.getAllByRole('button', { name: '打开执行 Session' })).toHaveLength(1)
+    expect(within(dialog).getAllByRole('button', { name: '打开执行 Session' })).toHaveLength(1)
   })
 
   it('uses the browser timezone explicitly when creating without editing it', async () => {
@@ -104,14 +118,38 @@ describe('CronManager', () => {
     const api = remote([definition({ state: 'paused' })])
     render(<CronManager sessionId={SESSION} initial={{ scope: 'related' }} remote={api} sessions={{ open: vi.fn() }} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: '恢复' }))
+    fireEvent.click(await screen.findByRole('switch', { name: '启用 日报' }))
     await waitFor(() => expect(api.resume).toHaveBeenCalledWith({ sessionId: SESSION, cronId: 'cron-1' }))
-    fireEvent.click(await screen.findByRole('button', { name: '编辑' }))
+    fireEvent.click(await screen.findByRole('button', { name: '编辑 日报' }))
     fireEvent.change(screen.getByLabelText('名称'), { target: { value: '新日报' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
     await waitFor(() => expect(api.update).toHaveBeenCalledWith(expect.objectContaining({
       sessionId: SESSION, cronId: 'cron-1', expectedRevision: 1, name: '新日报',
     })))
+  })
+
+  it('uses a wide edit dialog and the official execution-mode menu', async () => {
+    const api = remote()
+    render(<CronManager sessionId={SESSION} initial={{ scope: 'related' }} remote={api} sessions={{ open: vi.fn() }} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: '编辑 日报' }))
+    const dialog = screen.getByRole('dialog', { name: '修改「日报」' })
+    expect(getComputedStyle(dialog).maxWidth).toBe('720px')
+    const trigger = screen.getByRole('button', { name: '执行模式' })
+    fireEvent.click(trigger)
+    fireEvent.click(screen.getByRole('menuitem', { name: '每次新建 Session' }))
+    expect(trigger.textContent).toContain('每次新建 Session')
+  })
+
+  it('confirms permanent task deletion from the trailing official-style action', async () => {
+    const api = remote()
+    render(<CronManager sessionId={SESSION} initial={{ scope: 'related' }} remote={api} sessions={{ open: vi.fn() }} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: '删除 日报' }))
+    const dialog = screen.getByRole('dialog', { name: '删除「日报」？' })
+    expect(api.delete).not.toHaveBeenCalled()
+    fireEvent.click(within(dialog).getByRole('button', { name: /^删除$/ }))
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith({ sessionId: SESSION, cronId: 'cron-1' }))
   })
 
   it('keeps deleted definitions read-only and reports bounded Remote failures', async () => {

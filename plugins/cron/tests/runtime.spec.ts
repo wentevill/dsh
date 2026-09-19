@@ -91,6 +91,19 @@ describe('CronRuntime', () => {
     expect(library.live.get('active')!.destroy).toHaveBeenCalledOnce()
   })
 
+  it('forgets deleted tasks so a late execution completion cannot recreate runtime state', async () => {
+    const { runtime, store } = harness()
+    const active = definition('active')
+    await runtime.definitionChanged(undefined, active, { clearPending: false })
+    const writesBeforeDelete = store.runtime.length
+
+    await runtime.definitionChanged(active, definition('active', 'deleted'), { clearPending: true })
+    await runtime.executionFinished(active.id, CronExecutionId('execution-1'))
+
+    expect(store.runtime).toHaveLength(writesBeforeDelete)
+    await runtime.dispose()
+  })
+
   it('isolates one stored definition registration failure and continues loading', async () => {
     const { library, registrationFailed, runtime, store } = harness()
     const broken = definition('broken')

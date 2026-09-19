@@ -155,6 +155,11 @@ export class CronRuntime implements CronLifecyclePort {
     const transition = reduceCronRuntime(current, event)
     this.states.set(next.id, transition.next)
     await this.applyControlEffects(next, transition.effects)
+    if (next.state === 'deleted') {
+      this.definitions.delete(next.id)
+      this.states.delete(next.id)
+      return
+    }
     await this.dependencies.store.putRuntime(compactRuntime(transition.next.runtime))
   }
 

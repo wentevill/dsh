@@ -46,6 +46,11 @@ class MemoryCommandStore {
     return next
   }
 
+  async deleteDefinition(id: ReturnType<typeof CronId>) {
+    this.runtime.delete(id)
+    return this.definitions.delete(id)
+  }
+
   listDefinitions() {
     return [...this.definitions.values()]
   }
@@ -141,8 +146,8 @@ describe('CronCommandService', () => {
     expect(switched).not.toHaveProperty('targetSessionId')
   })
 
-  it('pauses and deletes with pending-clear requests and never resumes deleted definitions', async () => {
-    const { commands, lifecycle } = harness()
+  it('pauses and permanently deletes with pending-clear requests', async () => {
+    const { commands, lifecycle, store } = harness()
     const created = await commands.create(A, input)
     const paused = await commands.pause(A, created.id)
     expect(paused.state).toBe('paused')
@@ -153,6 +158,7 @@ describe('CronCommandService', () => {
     const deleted = await commands.delete(A, resumed.id)
     expect(deleted).toMatchObject({ state: 'deleted', deletedAt: expect.any(String) })
     expect(lifecycle.changed).toHaveBeenLastCalledWith(resumed, deleted, { clearPending: true })
+    expect(store.definitions.has(deleted.id)).toBe(false)
     await expect(commands.resume(A, deleted.id)).rejects.toMatchObject({ code: 'cron_not_found' })
   })
 
@@ -179,7 +185,7 @@ describe('CronCommandService', () => {
     const { commands, store } = harness()
     const fromA = await commands.create(A, input)
     const fromB = await commands.create(B, { ...input, name: 'B task' })
-    const deleted = await commands.delete(B, fromB.id)
+    await commands.delete(B, fromB.id)
     const historyOnly = await commands.create(B, { ...input, name: 'history task' })
     store.executions.push({
       id: CronExecutionId('execution-1'), cronId: historyOnly.id, trigger: 'on_time',
@@ -190,6 +196,6 @@ describe('CronCommandService', () => {
     expect((await commands.list(A, 'related')).map(value => value.id)).toEqual([fromA.id])
     expect((await commands.list(C, 'related')).map(value => value.id)).toEqual([historyOnly.id])
     expect((await commands.list(A, 'all')).map(value => value.id)).toEqual([fromA.id, historyOnly.id])
-    expect((await commands.list(A, 'deleted')).map(value => value.id)).toEqual([deleted.id])
+    expect((await commands.list(A, 'deleted')).map(value => value.id)).toEqual([])
   })
 })

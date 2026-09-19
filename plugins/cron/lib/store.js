@@ -55,6 +55,14 @@ export class CronStore {
             });
         });
     }
+    /** Permanently remove a definition and its scheduler checkpoint. */
+    async deleteDefinition(id) {
+        const removed = await this.definitions.delete(id);
+        if (!removed)
+            return false;
+        await this.runtime.delete(id);
+        return true;
+    }
     async putRuntime(runtime) {
         const value = cronRuntimeStateSchema.parse(runtime);
         await this.runtime.put(value.cronId, value);
