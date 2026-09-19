@@ -19,7 +19,6 @@ export const en = {
   mailDescription: 'Configure the account used to receive and send email; the password lives in key management.',
   mailReceiveStatus: 'Receive',
   mailSendStatus: 'Send',
-  mailDeleteStatus: 'Permanent delete',
   mailStatusEnabled: 'Enabled',
   mailStatusDisabled: 'Disabled',
   // account
@@ -29,8 +28,6 @@ export const en = {
   mailMailboxHint: 'IMAP folder to read, normally INBOX.',
   mailArchiveMailbox: 'Archive mailbox',
   mailArchiveMailboxHint: 'IMAP folder where archived messages are moved.',
-  mailAllowDelete: 'Allow permanent deletion',
-  mailAllowDeleteHint: 'Allow a permanent, irreversible delete of messages from this account.',
   // receive endpoint
   mailImapHost: 'IMAP server',
   mailImapHostHint: 'The IMAP receive server.',
@@ -69,7 +66,6 @@ export const zh = {
   mailDescription: '配置用于收发邮件的账号；密码保存在密钥管理中。',
   mailReceiveStatus: '接收',
   mailSendStatus: '发送',
-  mailDeleteStatus: '永久删除',
   mailStatusEnabled: '已启用',
   mailStatusDisabled: '已禁用',
   mailUsername: '邮箱账号',
@@ -78,8 +74,6 @@ export const zh = {
   mailMailboxHint: '要读取的 IMAP 文件夹，通常为 INBOX。',
   mailArchiveMailbox: '归档邮箱',
   mailArchiveMailboxHint: '归档邮件要移动到的 IMAP 文件夹。',
-  mailAllowDelete: '允许永久删除',
-  mailAllowDeleteHint: '允许永久、不可恢复地删除此账号中的邮件。',
   mailImapHost: 'IMAP 服务器',
   mailImapHostHint: '接收邮件的 IMAP 服务器。',
   mailImapPort: 'IMAP 端口',

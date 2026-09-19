@@ -7,11 +7,22 @@ import { auditRuntime } from './audit-runtime.ts'
 export interface AppAuditAdapters {
   architectures(binary: string): string[]
   runtime(root: string): void
+  signature(app: string): void
 }
 
 const defaultAdapters: AppAuditAdapters = {
   architectures: binary => execFileSync('lipo', ['-archs', binary], { encoding: 'utf8' }).trim().split(/\s+/),
   runtime: auditRuntime,
+  signature: app => execFileSync('codesign', ['--verify', '--deep', '--strict', app], { stdio: 'pipe' }),
+}
+
+export type AppSignRunner = (command: string, args: string[]) => void
+
+export function signApp(
+  appPath: string,
+  run: AppSignRunner = (command, args) => execFileSync(command, args, { stdio: 'inherit' }),
+): void {
+  run('codesign', ['--force', '--deep', '--sign', '-', appPath])
 }
 
 export function auditApp(appPath: string, adapters: AppAuditAdapters = defaultAdapters): void {
@@ -28,10 +39,13 @@ export function auditApp(appPath: string, adapters: AppAuditAdapters = defaultAd
     throw new Error(`Application executable must be arm64-only, got: ${architectures.join(' ')}`)
   }
   adapters.runtime(join(appPath, 'Contents/Resources/runtime'))
+  adapters.signature(appPath)
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const appPath = process.argv[2]
-  if (!appPath) throw new Error('usage: audit-app.ts <path-to-app>')
+  const sign = process.argv[2] === '--sign'
+  const appPath = process.argv[sign ? 3 : 2]
+  if (!appPath) throw new Error('usage: audit-app.ts [--sign] <path-to-app>')
+  if (sign) signApp(resolve(appPath))
   auditApp(resolve(appPath))
 }

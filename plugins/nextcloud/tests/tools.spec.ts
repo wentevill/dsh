@@ -10,7 +10,7 @@ function execution(name: string, arguments_: unknown, cwd = '/workspace') {
   return { callId: '1', rootCallId: '1', name, arguments: arguments_, token: Symbol(name), signal: new AbortController().signal, agent: { session: { header: { cwd } } } }
 }
 
-function fixture(allowDelete = false) {
+function fixture(component: 'standard' | 'delete' = 'standard') {
   const tools = new FakeTools()
   const service = {
     list: vi.fn(async () => ({ entries: [], truncated: false })), stat: vi.fn(async (path: string) => ({ path, etag: 'v1', size: 4, type: 'file' })),
@@ -29,37 +29,29 @@ function fixture(allowDelete = false) {
   }
   let fingerprint = 'settings:v1'
   const resolve = vi.fn(async (): Promise<ServiceSnapshot> => ({ service: service as never, sharing: sharing as never, fingerprint }))
-  const manager = new NextcloudToolManager({ tools } as never, resolve, allowDelete)
+  const manager = new NextcloudToolManager({ tools } as never, resolve, component)
   return { tools, service, sharing, manager, resolve, changeFingerprint: () => { fingerprint = 'settings:v2' } }
 }
 
 describe('Nextcloud tools and approval', () => {
-  it('registers the read/write catalog and gates delete on settings', () => {
-    expect([...fixture(false).tools.definitions.keys()].sort()).toEqual([
+  it('keeps file deletion in its own component catalog', () => {
+    expect([...fixture('standard').tools.definitions.keys()].sort()).toEqual([
       'nextcloud_download', 'nextcloud_list', 'nextcloud_mkdir', 'nextcloud_move',
       'nextcloud_read', 'nextcloud_search', 'nextcloud_share_create', 'nextcloud_share_delete',
       'nextcloud_share_get', 'nextcloud_share_list', 'nextcloud_share_update', 'nextcloud_sharee_search',
       'nextcloud_stat', 'nextcloud_upload',
     ])
-    expect([...fixture(true).tools.definitions.keys()].sort()).toContain('nextcloud_delete')
+    expect([...fixture('delete').tools.definitions.keys()]).toEqual(['nextcloud_delete'])
   })
 
-  it('delegates read-only tools and asks freshly for every remote mutation', async () => {
-    const { manager, tools, service } = fixture(true)
+  it('lets unrelated tools pass and asks freshly for file deletion', async () => {
+    const { manager } = fixture('delete')
     const policy = createNextcloudApprovalPolicy(manager)
     const next = vi.fn(async () => ({ kind: 'allow' as const }))
     expect(await policy(execution('nextcloud_list', {}) as never, next)).toEqual({ kind: 'allow' })
-    const listExec = execution('nextcloud_list', {})
-    await tools.definitions.get('nextcloud_list').execute(listExec.arguments, listExec)
-    expect(service.list).toHaveBeenCalledWith(undefined, undefined, listExec.signal)
-    for (const [name, args] of [
-      ['nextcloud_mkdir', { path: '/AI/new' }],
-      ['nextcloud_move', { source: '/AI/a', destination: '/AI/b' }],
-      ['nextcloud_delete', { path: '/AI/a' }],
-    ] as const) {
-      expect(await policy(execution(name, args) as never, next)).toMatchObject({ kind: 'ask' })
-    }
-    expect(next).toHaveBeenCalledTimes(1)
+    expect(await policy(execution('nextcloud_mkdir', { path: '/AI/new' }) as never, next)).toEqual({ kind: 'allow' })
+    expect(await policy(execution('nextcloud_delete', { path: '/AI/a' }) as never, next)).toMatchObject({ kind: 'ask' })
+    expect(next).toHaveBeenCalledTimes(2)
   })
 
   it('rejects a write when settings or credentials changed after approval', async () => {

@@ -42,14 +42,21 @@ describe('Desktop Make commands', () => {
     expect(dryRun('pack-plugin', ['PLUGIN=confluence'])).toContain('corepack pnpm confluence:pack')
   })
 
-  it('installs the selected WeCom archive into the requested profile', () => {
-    const manifest = JSON.parse(readFileSync(resolve(root, 'plugins/wecom/package.json'), 'utf8')) as { version: string }
-    const output = dryRun('install-plugin', [
-      'PLUGIN=wecom', 'PROFILE=custom', 'APP_PATH=/tmp/DeepSeek Harness.app',
-    ])
-    expect(output).toContain(`plugins/wecom/dsh-wecom-${manifest.version}.tgz`)
-    expect(output).toContain('plugin --profile "custom" add')
-    expect(output.match(/plugin --profile/g)).toHaveLength(1)
+  it('installs every non-Mail plugin archive through the official CLI', () => {
+    for (const [plugin, packageName] of [
+      ['wecom', 'dsh-wecom'],
+      ['confluence', 'dsh-confluence'],
+      ['nextcloud', 'dsh-nextcloud'],
+      ['cron', 'dsh-cron'],
+    ] as const) {
+      const manifest = JSON.parse(readFileSync(resolve(root, `plugins/${plugin}/package.json`), 'utf8')) as { version: string }
+      const output = dryRun('install-plugin', [
+        `PLUGIN=${plugin}`, 'PROFILE=custom', 'APP_PATH=/tmp/DeepSeek Harness.app',
+      ])
+      expect(output).toContain(`plugins/${plugin}/${packageName}-${manifest.version}.tgz`)
+      expect(output).toContain('plugin --profile "custom" add')
+      expect(output.match(/plugin --profile/g)).toHaveLength(1)
+    }
   })
 
   it('installs mail with only the installed app runtime and Desktop profile home', () => {
@@ -108,9 +115,11 @@ describe('Desktop Make commands', () => {
   })
 
   it('rejects unsupported plugin packages', () => {
-    const result = spawnSync('make', ['-n', 'pack-plugin', 'PLUGIN=unknown'], { cwd: root, encoding: 'utf8' })
-    expect(result.status).not.toBe(0)
-    expect(`${result.stdout}${result.stderr}`).toContain('unsupported PLUGIN=unknown')
-    expect(`${result.stdout}${result.stderr}`).toContain('supported plugins: mail wecom confluence manager')
+    for (const plugin of ['manager', 'unknown']) {
+      const result = spawnSync('make', ['-n', 'pack-plugin', `PLUGIN=${plugin}`], { cwd: root, encoding: 'utf8' })
+      expect(result.status).not.toBe(0)
+      expect(`${result.stdout}${result.stderr}`).toContain(`unsupported PLUGIN=${plugin}`)
+      expect(`${result.stdout}${result.stderr}`).toContain('supported plugins: mail wecom confluence nextcloud cron')
+    }
   })
 })

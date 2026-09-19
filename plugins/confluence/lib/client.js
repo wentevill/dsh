@@ -28,7 +28,6 @@ window.__ModuleLoader__.load({
 		//#endregion
 		let react = require("react");
 		react = __toESM(react, 1);
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		//#region node_modules/zod/v4/core/core.js
 		var _a$1;
@@ -4223,8 +4222,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		//#endregion
 		//#region src/client/slot-options.ts
 		const CONFLUENCE_CARD_SLOT_OPTIONS = {
-			name: "settings.plugin.item",
-			key: "confluence",
+			name: "plugins.bundle.config",
+			key: "dsh-confluence",
 			locale: "settings.plugins.confluence"
 		};
 		//#endregion
@@ -4357,7 +4356,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			const [spaces, setSpaces] = (0, react.useState)("");
 			const [status, setStatus] = (0, react.useState)("unconfigured");
 			const [busy, setBusy] = (0, react.useState)(false);
-			const [open, setOpen] = (0, react.useState)(false);
 			ensureCardCSS();
 			(0, react.useEffect)(() => {
 				initialRemote.current.load().then((response) => {
@@ -4419,112 +4417,93 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				setStatus("discarded");
 			};
 			const dirty = pat !== "" || JSON.stringify(pendingSettings()) !== JSON.stringify(savedSettings);
-			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
-				className: `${css.card}${open ? ` ${css.open}` : ""}`,
-				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
-					type: "button",
-					className: css.header,
-					"aria-expanded": open,
-					"aria-label": `${t(open ? "collapse" : "expand")}: ${t("title")}`,
-					onClick: () => setOpen((value) => !value),
-					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
-							className: css.headText,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: css.name,
-								children: t("title")
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: css.description,
-								children: t("description")
-							})]
-						}),
-						dirty && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: css.pending,
-							children: t("unsaved")
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, { className: `${css.chevron}${open ? ` ${css.chevronOpen}` : ""}` })
-					]
-				}), open && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-					className: css.body,
-					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-							className: css.field,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: css.label,
-								children: t("baseUrl")
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-								className: css.input,
-								value: settings.baseUrl,
-								placeholder: "https://wiki.example.com/confluence",
-								onChange: (event) => update({ baseUrl: event.target.value })
-							})]
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-							className: css.field,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: css.label,
-								children: t("token")
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-								className: css.input,
-								type: "password",
-								autoComplete: "off",
-								value: pat,
-								onChange: (event) => setPat(event.target.value)
-							})]
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-							className: css.check,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-								type: "checkbox",
-								checked: settings.allowAllSpaces,
-								onChange: (event) => update({ allowAllSpaces: event.target.checked })
-							}), t("allowAll")]
-						}),
-						!settings.allowAllSpaces && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-							className: css.field,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: css.label,
-								children: t("spaces")
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
-								className: css.textarea,
-								rows: 4,
-								value: spaces,
-								onChange: (event) => setSpaces(event.target.value)
-							})]
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-							className: css.status,
-							role: "status",
-							children: status in en ? t(status) : status
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-							className: css.footer,
-							children: [
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: css.discard,
-									disabled: !dirty || busy,
-									onClick: discard,
-									children: t("discard")
-								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: css.test,
-									disabled: busy,
-									onClick: () => void test(),
-									children: t("test")
-								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: css.save,
-									disabled: !dirty || busy,
-									onClick: () => void save(),
-									children: t("save")
-								})
-							]
-						})
-					]
-				})]
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: css.body,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+						className: css.field,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: css.label,
+							children: t("baseUrl")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							className: css.input,
+							value: settings.baseUrl,
+							placeholder: "https://wiki.example.com/confluence",
+							onChange: (event) => update({ baseUrl: event.target.value })
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+						className: css.field,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: css.label,
+							children: t("token")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							className: css.input,
+							type: "password",
+							autoComplete: "off",
+							value: pat,
+							onChange: (event) => setPat(event.target.value)
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+						className: css.check,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							type: "checkbox",
+							checked: settings.allowAllSpaces,
+							onChange: (event) => update({ allowAllSpaces: event.target.checked })
+						}), t("allowAll")]
+					}),
+					!settings.allowAllSpaces && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+						className: css.field,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: css.label,
+							children: t("spaces")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
+							className: css.textarea,
+							rows: 4,
+							value: spaces,
+							onChange: (event) => setSpaces(event.target.value)
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: css.status,
+						role: "status",
+						children: status in en ? t(status) : status
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: css.footer,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: css.discard,
+								disabled: !dirty || busy,
+								onClick: discard,
+								children: t("discard")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: css.test,
+								disabled: busy,
+								onClick: () => void test(),
+								children: t("test")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: css.save,
+								disabled: !dirty || busy,
+								onClick: () => void save(),
+								children: t("save")
+							})
+						]
+					})
+				]
+			});
+		}
+		function renderConfluenceConfig(props, remoteApi, credentials) {
+			return props.view === "summary" ? props.t("description") : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ConfluenceCard, {
+				remoteApi,
+				credentials,
+				t: props.t
 			});
 		}
 		const name = "confluence-client";
@@ -4536,12 +4515,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					zh,
 					en
 				}), "confluence-client: dictionaries");
-				child.slots.inject("settings.plugin.item", function* () {
-					yield child.slots.register(CONFLUENCE_CARD_SLOT_OPTIONS, (props) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ConfluenceCard, {
-						remoteApi: child.remote.confluenceSettings,
-						credentials: child.remote.credentials,
-						t: props.t
-					}));
+				child.slots.inject("plugins.bundle.config", function* () {
+					yield child.slots.register(CONFLUENCE_CARD_SLOT_OPTIONS, (props) => renderConfluenceConfig(props, child.remote.confluenceSettings, child.remote.credentials));
 				});
 			}, { inject: [
 				"slots",
@@ -4560,6 +4535,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		exports.apply = apply;
 		exports.inject = inject;
 		exports.name = name;
+		exports.renderConfluenceConfig = renderConfluenceConfig;
 		exports.storeConfluenceCredential = storeConfluenceCredential;
 		return module.exports;
 	}

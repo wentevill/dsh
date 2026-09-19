@@ -6,6 +6,8 @@
         username: ""
         accessMode: all
         allowedRoots: []
-        allowDelete: false
         allowHttp: false
         skipTlsVerify: false
+    - id: nextcloud-delete
+      name: dsh-nextcloud/delete
+      disabled: true

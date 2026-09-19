@@ -1,5 +1,5 @@
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
+import type { PluginConfigViewProps } from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
@@ -48,8 +48,7 @@ function WeComCard({ api, t }: { api: any; t: (key: WeComLocaleKey) => string })
     finally { setBusy(false) }
   }
   const authorized = ['authorized', 'refreshing_schema', 'ready', 'sync_failed'].includes(snapshot.state)
-  return <li className={css.card}>
-    <div className={css.heading}><h3 className={css.title}>{t('title')}</h3><p className={css.description}>{t('description')}</p></div>
+  return <div className={css.card}>
     <p className={css.status} role="status"><strong>{t(snapshot.state)}</strong>
       {'botId' in snapshot && snapshot.botId ? ` · ${t('botId').replace('{id}', snapshot.botId)}` : ''}
       {snapshot.state === 'ready' ? ` · ${t('toolCount').replace('{count}', String(snapshot.toolCount))}` : ''}
@@ -72,7 +71,14 @@ function WeComCard({ api, t }: { api: any; t: (key: WeComLocaleKey) => string })
         if (globalThis.confirm(t('deleteConfirm'))) void run(() => api.deleteAuthorization(true))
       }}>{t('remove')}</button></>}
     </div>
-  </li>
+  </div>
+}
+
+export function renderWeComConfig(
+  props: PluginConfigViewProps & { t: (key: WeComLocaleKey) => string },
+  api: any,
+): React.ReactNode {
+  return props.view === 'summary' ? props.t('description') : <WeComCard api={api} t={props.t} />
 }
 
 export const name = 'wecom-client'
@@ -82,9 +88,9 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const disposeRemote = await ctx.remote.$mount(remote)
   const feature = ctx.plugin(Object.assign(async (child: ClientContext) => {
     child.effect(() => child.locale.register(NS, { zh, en }), 'wecom-client: dictionaries')
-    child.slots.inject('settings.plugin.item', function* () {
+    child.slots.inject('plugins.bundle.config', function* () {
       yield child.slots.register(WECOM_CARD_SLOT_OPTIONS,
-        (props: { t: (key: WeComLocaleKey) => string }) => <WeComCard api={child.remote.wecomAuth} t={props.t} />)
+        (props: PluginConfigViewProps & { t: (key: WeComLocaleKey) => string }) => renderWeComConfig(props, child.remote.wecomAuth))
     })
   }, { inject: ['slots', 'locale', 'remote', 'remote.wecomAuth'] }))
   await feature

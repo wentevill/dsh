@@ -61,16 +61,9 @@ export function apply(ctx: Context, config: Config): void {
     scope = settingsCtx.settings.register(NEXTCLOUD_SETTINGS_NAMESPACE, NextcloudSettingsSchema, { applies: 'live', base: config })
     const attachedScope = scope
     const resolver = createServiceResolver(attachedScope, ctx.credentials)
-    const installManager = () => {
-      manager?.dispose()
-      manager = new NextcloudToolManager(settingsCtx, resolver, attachedScope.get().allowDelete)
-    }
-    installManager()
-    const unwatch = attachedScope.watch((next, previous) => {
-      if (next.allowDelete !== previous.allowDelete) installManager()
-    })
+    settingsCtx.provide('nextcloudRuntime', { resolve: resolver })
+    manager = new NextcloudToolManager(settingsCtx, resolver, 'standard')
     settingsCtx.effect(() => () => {
-      unwatch()
       manager?.dispose()
       manager = undefined
       if (scope === attachedScope) scope = undefined
@@ -89,5 +82,5 @@ export { NextcloudFileService } from './service.ts'
 export { NextcloudSharingService } from './sharing-service.ts'
 export type * from './sharing-types.ts'
 export { createNextcloudTransport, NextcloudTransport } from './transport.ts'
-export { createNextcloudApprovalPolicy, NextcloudToolManager } from './tools.ts'
+export { createNextcloudApprovalPolicy, mountNextcloudDeleteComponent, NextcloudToolManager } from './tools.ts'
 export type * from './remote-types.ts'

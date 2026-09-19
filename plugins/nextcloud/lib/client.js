@@ -3752,7 +3752,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			"username": string().readonly(),
 			"accessMode": union([literal("all"), literal("allowlist")]).readonly(),
 			"allowedRoots": array(string()).readonly(),
-			"allowDelete": boolean().readonly(),
 			"allowHttp": boolean().readonly(),
 			"skipTlsVerify": boolean().readonly()
 		}).readonly() });
@@ -3761,7 +3760,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			"username": string().readonly(),
 			"accessMode": union([literal("all"), literal("allowlist")]).readonly(),
 			"allowedRoots": array(string()).readonly(),
-			"allowDelete": boolean().readonly(),
 			"allowHttp": boolean().readonly(),
 			"skipTlsVerify": boolean().readonly()
 		}).readonly() });
@@ -3770,7 +3768,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			"username": string().readonly(),
 			"accessMode": union([literal("all"), literal("allowlist")]).readonly(),
 			"allowedRoots": array(string()).readonly(),
-			"allowDelete": boolean().readonly(),
 			"allowHttp": boolean().readonly(),
 			"skipTlsVerify": boolean().readonly()
 		}).readonly() });
@@ -3923,7 +3920,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			all: "All directories",
 			allowlist: "Configured directories only",
 			roots: "Allowed directories (one absolute path per line)",
-			allowDelete: "Allow recursive deletion",
 			allowHttp: "Allow cleartext HTTP (unsafe)",
 			skipTlsVerify: "Skip TLS certificate verification (unsafe)",
 			save: "Save",
@@ -3946,7 +3942,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			all: "全部目录",
 			allowlist: "仅配置的目录",
 			roots: "允许目录（每行一个绝对路径）",
-			allowDelete: "允许递归删除",
 			allowHttp: "允许明文 HTTP（不安全）",
 			skipTlsVerify: "跳过 TLS 证书校验（不安全）",
 			save: "保存",
@@ -3962,8 +3957,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		//#endregion
 		//#region src/client/slot-options.ts
 		const NEXTCLOUD_CARD_SLOT_OPTIONS = {
-			name: "settings.plugin.item",
-			key: "nextcloud",
+			name: "plugins.bundle.config",
+			key: "dsh-nextcloud",
 			locale: "settings.plugins.nextcloud"
 		};
 		//#endregion
@@ -3975,7 +3970,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			username: "",
 			accessMode: "all",
 			allowedRoots: [],
-			allowDelete: false,
 			allowHttp: false,
 			skipTlsVerify: false
 		};
@@ -4013,7 +4007,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			const [password, setPassword] = (0, react.useState)("");
 			const [busy, setBusy] = (0, react.useState)(false);
 			const [status, setStatus] = (0, react.useState)("");
-			const [open, setOpen] = (0, react.useState)(false);
 			ensureCardCSS();
 			(0, react.useEffect)(() => {
 				loadNextcloudCardSettings(initialRemote.current).then((saved) => {
@@ -4047,154 +4040,126 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					setPassword("");
 				}
 			}, "saved");
-			const cardClass = open ? `${css.card} ${css.cardOpen}` : css.card;
-			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
-				className: cardClass,
-				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
-					type: "button",
-					className: css.header,
-					"aria-expanded": open,
-					"aria-label": `${t(open ? "collapse" : "expand")}: ${t("title")}`,
-					onClick: () => setOpen((value) => !value),
-					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
-							className: css.headText,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: css.name,
-								children: t("title")
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: css.description,
-								children: t("description")
-							})]
-						}),
-						dirty ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: css.pending,
-							children: t("unsaved")
-						}) : null,
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							"aria-hidden": "true",
-							className: open ? `${css.chevron} ${css.chevronOpen}` : css.chevron,
-							children: "⌄"
-						})
-					]
-				}), open ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-					className: css.body,
-					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Field, {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: css.body,
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Field, {
+						id: "nextcloud-server",
+						label: t("serverUrl"),
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
 							id: "nextcloud-server",
-							label: t("serverUrl"),
-							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-								id: "nextcloud-server",
-								className: css.input,
-								value: settings.serverUrl,
-								placeholder: "https://cloud.example.com",
-								onChange: (e) => update("serverUrl", e.target.value)
-							})
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Field, {
-							id: "nextcloud-username",
-							label: t("username"),
-							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-								id: "nextcloud-username",
-								className: css.input,
-								value: settings.username,
-								autoComplete: "username",
-								onChange: (e) => update("username", e.target.value)
-							})
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Field, {
-							id: "nextcloud-password",
-							label: t("password"),
-							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-								id: "nextcloud-password",
-								className: css.input,
-								type: "password",
-								value: password,
-								autoComplete: "off",
-								placeholder: "••••••••",
-								onChange: (e) => setPassword(e.target.value)
-							})
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Field, {
-							id: "nextcloud-access",
-							label: t("accessMode"),
-							children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
-								id: "nextcloud-access",
-								className: css.input,
-								value: settings.accessMode,
-								onChange: (e) => update("accessMode", e.target.value),
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-									value: "all",
-									children: t("all")
-								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-									value: "allowlist",
-									children: t("allowlist")
-								})]
-							})
-						}),
-						settings.accessMode === "allowlist" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(Field, {
-							id: "nextcloud-roots",
-							label: t("roots"),
-							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
-								id: "nextcloud-roots",
-								className: css.input,
-								rows: 4,
-								value: settings.allowedRoots.join("\n"),
-								onChange: (e) => update("allowedRoots", e.target.value.split("\n").map((v) => v.trim()).filter(Boolean))
-							})
-						}) : null,
-						[
-							"allowDelete",
-							"allowHttp",
-							"skipTlsVerify"
-						].map((key) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-							className: css.check,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-								className: css.checkbox,
-								type: "checkbox",
-								checked: settings[key],
-								onChange: (e) => update(key, e.target.checked)
-							}), t(key)]
-						}, key)),
-						status ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-							className: `${css.status} ${status === "failed" ? css.failed : ""}`,
-							role: "status",
-							children: t(status)
-						}) : null,
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-							className: css.footer,
-							children: [
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: css.secondary,
-									disabled: busy,
-									onClick: () => void run(async () => {
-										unwrap(await remoteApi.testConnection());
-									}, "connected"),
-									children: t("test")
-								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: css.secondary,
-									disabled: busy || !dirty,
-									onClick: () => {
-										setSettings(baseline);
-										setPassword("");
-										setStatus("");
-									},
-									children: t("discard")
-								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: css.primary,
-									disabled: busy || !dirty,
-									onClick: () => void save(),
-									children: t("save")
-								})
-							]
+							className: css.input,
+							value: settings.serverUrl,
+							placeholder: "https://cloud.example.com",
+							onChange: (e) => update("serverUrl", e.target.value)
 						})
-					]
-				}) : null]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Field, {
+						id: "nextcloud-username",
+						label: t("username"),
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							id: "nextcloud-username",
+							className: css.input,
+							value: settings.username,
+							autoComplete: "username",
+							onChange: (e) => update("username", e.target.value)
+						})
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Field, {
+						id: "nextcloud-password",
+						label: t("password"),
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							id: "nextcloud-password",
+							className: css.input,
+							type: "password",
+							value: password,
+							autoComplete: "off",
+							placeholder: "••••••••",
+							onChange: (e) => setPassword(e.target.value)
+						})
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(Field, {
+						id: "nextcloud-access",
+						label: t("accessMode"),
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+							id: "nextcloud-access",
+							className: css.input,
+							value: settings.accessMode,
+							onChange: (e) => update("accessMode", e.target.value),
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+								value: "all",
+								children: t("all")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+								value: "allowlist",
+								children: t("allowlist")
+							})]
+						})
+					}),
+					settings.accessMode === "allowlist" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(Field, {
+						id: "nextcloud-roots",
+						label: t("roots"),
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("textarea", {
+							id: "nextcloud-roots",
+							className: css.input,
+							rows: 4,
+							value: settings.allowedRoots.join("\n"),
+							onChange: (e) => update("allowedRoots", e.target.value.split("\n").map((v) => v.trim()).filter(Boolean))
+						})
+					}) : null,
+					["allowHttp", "skipTlsVerify"].map((key) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+						className: css.check,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							className: css.checkbox,
+							type: "checkbox",
+							checked: settings[key],
+							onChange: (e) => update(key, e.target.checked)
+						}), t(key)]
+					}, key)),
+					status ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: `${css.status} ${status === "failed" ? css.failed : ""}`,
+						role: "status",
+						children: t(status)
+					}) : null,
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: css.footer,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: css.secondary,
+								disabled: busy,
+								onClick: () => void run(async () => {
+									unwrap(await remoteApi.testConnection());
+								}, "connected"),
+								children: t("test")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: css.secondary,
+								disabled: busy || !dirty,
+								onClick: () => {
+									setSettings(baseline);
+									setPassword("");
+									setStatus("");
+								},
+								children: t("discard")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: css.primary,
+								disabled: busy || !dirty,
+								onClick: () => void save(),
+								children: t("save")
+							})
+						]
+					})
+				]
+			});
+		}
+		function renderNextcloudConfig(props, remoteApi, credentials) {
+			return props.view === "summary" ? props.t("description") : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(Card, {
+				remoteApi,
+				credentials,
+				t: props.t
 			});
 		}
 		const name = "nextcloud-client";
@@ -4207,12 +4172,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					en
 				}), "nextcloud-client: dictionaries");
 				const remoteApi = child.remote.nextcloudSettings;
-				child.slots.inject("settings.plugin.item", function* () {
-					yield child.slots.register(NEXTCLOUD_CARD_SLOT_OPTIONS, (props) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(Card, {
-						remoteApi,
-						credentials: child.remote.credentials,
-						t: props.t
-					}));
+				child.slots.inject("plugins.bundle.config", function* () {
+					yield child.slots.register(NEXTCLOUD_CARD_SLOT_OPTIONS, (props) => renderNextcloudConfig(props, remoteApi, child.remote.credentials));
 				});
 			}, { inject: [
 				"slots",
@@ -4233,6 +4194,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		exports.inject = inject;
 		exports.loadNextcloudCardSettings = loadNextcloudCardSettings;
 		exports.name = name;
+		exports.renderNextcloudConfig = renderNextcloudConfig;
 		exports.storeNextcloudCredential = storeNextcloudCredential;
 		return module.exports;
 	}

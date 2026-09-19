@@ -31,9 +31,9 @@ async function renderedStatus(copy: typeof en) {
   const { MailCard } = await loadCard()
   const state = {
     available: true, writable: true, dirty: false, invalid: false, saving: false, failed: false,
-    capabilities: { imap: true, smtp: false, delete: true },
-    status: { receive: true, send: false, permanentDelete: true },
-    username: field, mailbox: field, archiveMailbox: field, allowDelete: field,
+    capabilities: { imap: true, smtp: false },
+    status: { receive: true, send: false },
+    username: field, mailbox: field, archiveMailbox: field,
     imapHost: field, imapPort: field, imapSecure: field,
     smtpHost: field, smtpPort: field, smtpSecure: field,
     password: field, passwordConfigured: false, passwordWritable: true,
@@ -48,19 +48,17 @@ async function renderedStatus(copy: typeof en) {
 }
 
 describe('mail card capability status rendering', () => {
-  it('renders the enabled and disabled receive/send/delete labels in English', async () => {
+  it('renders the enabled and disabled receive/send labels in English', async () => {
     await expect(renderedStatus(en)).resolves.toEqual([
       'Receive: Enabled',
       'Send: Disabled',
-      'Permanent delete: Enabled',
     ])
   })
 
-  it('renders the enabled and disabled receive/send/delete labels in Chinese', async () => {
+  it('renders the enabled and disabled receive/send labels in Chinese', async () => {
     await expect(renderedStatus(zh)).resolves.toEqual([
       '接收: 已启用',
       '发送: 已禁用',
-      '永久删除: 已启用',
     ])
   })
 })

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from "./attachment-loader.js";
 import { assertMailUid, isTrustedMailError, mailError, mailProviderFailure } from "./errors.js";
 import { MailSettingsValidationError, mailCapabilities } from "./mail-settings.js";
+import { createMailApprovalPolicy } from "./approval.js";
 const textOutput = {
     schema: { type: 'string' },
     render: (_args, value) => [{ type: 'text', text: value }],
@@ -72,7 +73,7 @@ function endpoint(value) {
 }
 function fingerprint(settings, kind) {
     return JSON.stringify(kind === 'delete'
-        ? [settings.username, settings.passwordEnv, settings.mailbox, settings.allowDelete, endpoint(settings.imap)]
+        ? [settings.username, settings.passwordEnv, settings.mailbox, endpoint(settings.imap)]
         : [settings.username, settings.passwordEnv, endpoint(settings.smtp)]);
 }
 function operationFingerprint(settings, capability) {
@@ -103,6 +104,7 @@ export class MailCapabilityManager {
     ctx;
     scope;
     options;
+    component;
     bindings = new Map();
     abortBindings = new Map();
     groupDisposers = new Map();
@@ -110,10 +112,11 @@ export class MailCapabilityManager {
     disposed = false;
     generation = 0;
     disposePromise;
-    constructor(ctx, scope, options) {
+    constructor(ctx, scope, options, component = 'standard') {
         this.ctx = ctx;
         this.scope = scope;
         this.options = options;
+        this.component = component;
         this.installCatalog(scope.get());
         this.unwatch = scope.watch(async () => {
             const generation = this.generation;
@@ -139,6 +142,9 @@ export class MailCapabilityManager {
     /** Clear approval state on every tools/result outcome, including denial/cancellation. */
     releaseApproval(exec) {
         this.releaseToken(exec.token);
+    }
+    ownsMutation(name) {
+        return this.component === 'delete' ? name === 'mail_delete' : name === 'mail_send';
     }
     /** @internal Test-only diagnostic; bindings contain sanitized fingerprints only. */
     approvalBindingCountForTests() { return this.bindings.size; }
@@ -212,7 +218,10 @@ export class MailCapabilityManager {
         this.assertActive();
         const settings = this.scope.get();
         const capabilities = mailCapabilities(settings);
-        if (!capabilities[capability]) {
+        const available = capability === 'delete'
+            ? this.component === 'delete' && capabilities.imap
+            : capabilities[capability];
+        if (!available) {
             const code = capability === 'imap' ? 'MAIL_IMAP_DISABLED' : capability === 'smtp' ? 'MAIL_SMTP_DISABLED' : 'MAIL_DELETE_DISABLED';
             throw mailError(`${capability.toUpperCase()} is disabled or unavailable`, code);
         }
@@ -221,8 +230,10 @@ export class MailCapabilityManager {
     requireSameSettings(settings, kind, expectedFingerprint) {
         this.assertActive();
         const current = this.scope.get();
-        const capability = kind === 'delete' ? 'delete' : 'smtp';
-        if (current !== settings || !mailCapabilities(current)[capability] || fingerprint(current, kind) !== expectedFingerprint) {
+        const available = kind === 'delete'
+            ? this.component === 'delete' && mailCapabilities(current).imap
+            : mailCapabilities(current).smtp;
+        if (current !== settings || !available || fingerprint(current, kind) !== expectedFingerprint) {
             throw mailError('mail settings changed after approval preparation; submit a fresh tool call for approval', 'MAIL_SETTINGS_CHANGED');
         }
     }
@@ -290,16 +301,21 @@ export class MailCapabilityManager {
     }
     installCatalog(settings) {
         const capabilities = mailCapabilities(settings);
+        if (this.component === 'delete') {
+            if (capabilities.imap)
+                this.install('delete', [this.deleteTool()]);
+            return;
+        }
         if (capabilities.imap)
             this.install('imap', this.imapTools());
-        if (capabilities.delete)
-            this.install('delete', [this.deleteTool()]);
         if (capabilities.smtp)
             this.install('smtp', [this.sendTool()]);
     }
     async reconcile(settings, generation) {
         const capabilities = mailCapabilities(settings);
-        const desired = { imap: capabilities.imap, delete: capabilities.delete, smtp: capabilities.smtp };
+        const desired = this.component === 'delete'
+            ? { imap: false, delete: capabilities.imap, smtp: false }
+            : { imap: capabilities.imap, delete: false, smtp: capabilities.smtp };
         for (const group of ['imap', 'delete', 'smtp']) {
             if (this.disposed || generation !== this.generation)
                 return;
@@ -425,4 +441,10 @@ export class MailCapabilityManager {
             },
         };
     }
+}
+export function mountMailDeleteComponent(ctx) {
+    const manager = new MailCapabilityManager(ctx, ctx.mailRuntime.scope, ctx.mailRuntime.options, 'delete');
+    ctx.effect(() => async () => { await manager.dispose(); }, 'mail-delete.tools');
+    ctx.on('tools/pre-execute', (exec, next) => createMailApprovalPolicy(manager)(exec, next));
+    ctx.on('tools/result', exec => { manager.releaseApproval(exec); });
 }

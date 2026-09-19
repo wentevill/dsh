@@ -9,7 +9,7 @@ type Snapshot = {
 }
 
 type MailCardFace = {
-  hooks: { mailCard: { getSnapshot(): { status: { receive: boolean; send: boolean; permanentDelete: boolean }; invalid: boolean; saving: boolean } } }
+  hooks: { mailCard: { getSnapshot(): { status: { receive: boolean; send: boolean }; invalid: boolean; saving: boolean } } }
   edit(field: string, value: string): void
   save(): void
 }
@@ -60,26 +60,24 @@ function controllerFor(snapshot: Snapshot, saveSettings: (settings: Record<strin
 }
 
 describe('mail capability card status', () => {
-  it('derives receive, send, and permanent-delete independently from current settings and drafts', async () => {
+  it('derives receive and send independently from current settings and drafts', async () => {
     const controller = await controllerFor({
       writable: true,
       value: {
-        username: 'user@example.com', mailbox: 'INBOX', archiveMailbox: 'Archive', allowDelete: false,
+        username: 'user@example.com', mailbox: 'INBOX', archiveMailbox: 'Archive',
         imap: { host: '', port: 993, secure: true },
         smtp: { host: '', port: 465, secure: true },
       },
     }, async settings => ({ settings }))
     const face = controller.face()
 
-    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: false, send: false, permanentDelete: false })
+    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: false, send: false })
     face.edit('imapHost', 'imap.example.com')
-    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: true, send: false, permanentDelete: false })
-    face.edit('allowDelete', 'true')
-    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: true, send: false, permanentDelete: true })
+    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: true, send: false })
     face.edit('smtpHost', 'smtp.example.com')
-    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: true, send: true, permanentDelete: true })
+    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: true, send: true })
     face.edit('imapHost', '')
-    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: false, send: true, permanentDelete: false })
+    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: false, send: true })
   })
 
   it('saves a complete projection without dropping current fields and with endpoint defaults', async () => {
@@ -87,7 +85,7 @@ describe('mail capability card status', () => {
     const controller = await controllerFor({
       writable: true,
       value: {
-        username: 'account@example.com', passwordEnv: 'MAIL_APP_PASSWORD', mailbox: 'Receipts', archiveMailbox: 'Processed', allowDelete: true,
+        username: 'account@example.com', passwordEnv: 'MAIL_APP_PASSWORD', mailbox: 'Receipts', archiveMailbox: 'Processed',
         imap: { host: '', secure: true },
         smtp: { host: 'smtp.example.com', secure: true },
       },
@@ -99,7 +97,7 @@ describe('mail capability card status', () => {
     await settle(face)
 
     expect(writes).toEqual([{
-      username: 'account@example.com', passwordEnv: 'MAIL_APP_PASSWORD', mailbox: 'Receipts', archiveMailbox: 'Processed', allowDelete: true,
+      username: 'account@example.com', passwordEnv: 'MAIL_APP_PASSWORD', mailbox: 'Receipts', archiveMailbox: 'Processed',
       imap: { host: '', port: 993, secure: true },
       smtp: { host: 'smtp.changed.example.com', port: 465, secure: true },
     }])
@@ -110,7 +108,7 @@ describe('mail capability card status', () => {
     const controller = await controllerFor({
       writable: true,
       value: {
-        username: 'user@example.com', mailbox: 'INBOX', archiveMailbox: 'Archive', allowDelete: false,
+        username: 'user@example.com', mailbox: 'INBOX', archiveMailbox: 'Archive',
         imap: { host: 'imap.example.com', port: 143, secure: true },
         smtp: { host: 'smtp.example.com', port: 587, secure: true },
       },
@@ -134,7 +132,7 @@ describe('mail capability card status', () => {
     const controller = await controllerFor({
       writable: true,
       value: {
-        username: 'user@example.com', mailbox: 'INBOX', archiveMailbox: 'Archive', allowDelete: false,
+        username: 'user@example.com', mailbox: 'INBOX', archiveMailbox: 'Archive',
         imap: { host: 'imap.example.com', port: 993, secure: true },
         smtp: { host: '', port: 465, secure: true },
       },

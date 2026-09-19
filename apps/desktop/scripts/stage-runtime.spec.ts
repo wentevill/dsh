@@ -1,11 +1,46 @@
 import { createHash } from 'node:crypto'
-import { linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { augmentDesktopRuntimeClosure, breakRuntimeHardlinks, buildEnvironment, copyPluginManagerPackage, createStageDirectory, materializeRuntimeLinks, packPluginManagerPackage, removeRuntimeLink, signRuntimeExecutable, stagePluginManagerAssets, verifyPackageIntegrity, verifySha256 } from './stage-runtime.ts'
+import { augmentDesktopRuntimeClosure, breakRuntimeHardlinks, buildEnvironment, createStageDirectory, installStagedRuntime, materializeRuntimeLinks, patchLegacyTypertCompatibility, removeRuntimeLink, signRuntimeExecutable, verifyPackageIntegrity, verifySha256 } from './stage-runtime.ts'
 
 describe('runtime staging', () => {
+  it('adapts legacy Typert schema objects into lazy codec factories', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-legacy-typert-'))
+    const targets = [
+      '@deepseek-ai/dsh-typert-loader/lib/index.js',
+      '@deepseek-ai/dsh-typert-registry/lib/index.js',
+      '@deepseek-ai/dsh-typert-registry/lib/client.js',
+    ]
+    const fixture = [
+      'function schemaValue(schema) {',
+      '  if (typeof schema.create !== "function") throw new Error("schema has no create() factory");',
+      '  return schema.create().parse("schema-ok");',
+      '}',
+      'function codecValue(codec) {',
+      '  if (typeof codec.create !== "function") throw new Error("codec has no create() factory");',
+      '  return codec.create().parse("codec-ok");',
+      '}',
+      'const parser = { parse: value => value };',
+      'export const values = [schemaValue({ schema: parser }), codecValue({ schema: parser })];',
+      '',
+    ].join('\n')
+    for (const target of targets) {
+      const path = join(root, 'node_modules', target)
+      mkdirSync(join(path, '..'), { recursive: true })
+      writeFileSync(path, fixture)
+    }
+
+    patchLegacyTypertCompatibility(root)
+
+    for (const [index, target] of targets.entries()) {
+      const module = await import(`${pathToFileURL(join(root, 'node_modules', target)).href}?v=${String(index)}`) as { values: string[] }
+      expect(module.values).toEqual(['schema-ok', 'codec-ok'])
+    }
+  })
+
   it('ad-hoc signs the bundled executable after copying it', () => {
     const calls: Array<{ command: string, args: string[] }> = []
 
@@ -17,79 +52,43 @@ describe('runtime staging', () => {
     }])
   })
 
-  it('adds Desktop workspace capabilities to the packaged dsh dependency closure', () => {
+  it('reconciles the packaged dsh closure after replacing the upstream Desktop package', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-runtime-closure-'))
     const cli = join(root, 'apps/cli/package.json')
     const desktop = join(root, 'apps/desktop/package.json')
+    const workspace = join(root, 'pnpm-workspace.yaml')
+    const tsdown = join(root, 'tsdown.config.ts')
     mkdirSync(join(root, 'apps/cli'), { recursive: true })
     mkdirSync(join(root, 'apps/desktop'), { recursive: true })
     writeFileSync(cli, JSON.stringify({ name: '@deepseek-ai/dsh', dependencies: { existing: 'workspace:^' } }))
     writeFileSync(desktop, JSON.stringify({ dependencies: {
       '@deepseek-ai/dsh': 'workspace:^',
       '@deepseek-ai/dsh-mail': 'workspace:^',
+      'dsh-plugin-manager': 'workspace:*',
       pnpm: '11.7.0',
     } }))
+    writeFileSync(workspace, [
+      'patchedDependencies:',
+      "  '@electron/osx-sign@1.3.3': patches/@electron__osx-sign@1.3.3.patch",
+      "  '@yao-pkg/pkg@6.21.0': patches/@yao-pkg__pkg@6.21.0.patch",
+      '',
+    ].join('\n'))
+    writeFileSync(tsdown, "workspace: ['vendor/*', 'apps/cli', 'apps/desktop', 'apps/desktop-host'],\n")
 
     augmentDesktopRuntimeClosure(root)
 
     const manifest = JSON.parse(readFileSync(cli, 'utf8')) as { dependencies: Record<string, string> }
     expect(manifest.dependencies).toMatchObject({ existing: 'workspace:^', '@deepseek-ai/dsh-mail': 'workspace:^' })
     expect(manifest.dependencies).not.toHaveProperty('pnpm')
-  })
-
-  it('stages a fixed-name manager archive and startup bootstrap', () => {
-    const root = mkdtempSync(join(tmpdir(), 'dsh-manager-assets-'))
-    const managerRoot = join(root, 'manager')
-    const bootstrap = join(root, 'ensure-plugin-manager.mjs')
-    const staged = join(root, 'runtime')
-    mkdirSync(managerRoot)
-    writeFileSync(bootstrap, 'export function ensurePluginManager() {}\n')
-
-    stagePluginManagerAssets(managerRoot, bootstrap, staged, (_source, destination) => {
-      writeFileSync(join(destination, 'dsh-plugin-manager-0.1.0.tgz'), 'archive')
-    })
-
-    expect(readFileSync(join(staged, 'plugins/dsh-plugin-manager.tgz'), 'utf8')).toBe('archive')
-    expect(readFileSync(join(staged, 'app/ensure-plugin-manager.mjs'), 'utf8'))
-      .toBe('export function ensurePluginManager() {}\n')
-  })
-
-  it('rebases the plugin manager tsconfig after relocating it into the upstream package tree', () => {
-    const root = mkdtempSync(join(tmpdir(), 'dsh-manager-package-'))
-    const source = join(root, 'plugins/manager')
-    const destination = join(root, 'assembly/packages/extensions/plugin-manager')
-    mkdirSync(source, { recursive: true })
-    writeFileSync(join(source, 'tsconfig.json'), JSON.stringify({ extends: '../../tsconfig.base.json' }))
-
-    copyPluginManagerPackage(source, destination)
-
-    const config = JSON.parse(readFileSync(join(destination, 'tsconfig.json'), 'utf8')) as { extends: string }
-    expect(config.extends).toBe('../../../tsconfig.base.json')
-  })
-
-  it('packs the already-built plugin manager without rerunning incompatible lifecycle builds', () => {
-    const root = mkdtempSync(join(tmpdir(), 'dsh-manager-pack-'))
-    const destination = join(root, 'archives')
-    mkdirSync(destination)
-    const calls: Array<{ command: string, args: string[], cwd: string }> = []
-
-    packPluginManagerPackage(root, destination, (command, args, cwd) => {
-      calls.push({ command, args, cwd })
-      if (command === 'corepack') {
-        if (!args.includes('--config.ignore-scripts=true') || !args.includes('deploy')) throw new Error('production deploy was not used')
-        const production = args.at(-1)!
-        mkdirSync(production, { recursive: true })
-        writeFileSync(join(production, 'package.json'), JSON.stringify({
-          name: 'dsh-plugin-manager', version: '0.1.6', scripts: { prepack: 'exit 1' },
-        }))
-      } else {
-        writeFileSync(args[1]!, 'archive')
-      }
-    })
-
-    expect(readFileSync(join(destination, 'dsh-plugin-manager-0.1.6.tgz'), 'utf8')).toBe('archive')
-    expect(calls.map(call => call.command)).toEqual(['corepack', 'tar'])
-    expect(calls.every(call => call.cwd === root)).toBe(true)
+    expect(manifest.dependencies).not.toHaveProperty('dsh-plugin-manager')
+    expect(readFileSync(workspace, 'utf8')).toBe([
+      'patchedDependencies:',
+      "  '@yao-pkg/pkg@6.21.0': patches/@yao-pkg__pkg@6.21.0.patch",
+      '',
+    ].join('\n'))
+    expect(readFileSync(tsdown, 'utf8')).toBe(
+      "workspace: ['vendor/*', 'apps/cli', 'apps/desktop-host'],\n",
+    )
   })
 
   it('rejects a lockfile whose bundled package integrity is not pinned', () => {
@@ -107,6 +106,22 @@ describe('runtime staging', () => {
     expect(lstatSync(stage).isDirectory()).toBe(true)
     expect(stage.startsWith(stagingParent)).toBe(true)
     expect(lstatSync(join(root, 'missing', 'resources')).isDirectory()).toBe(true)
+  })
+
+  it('atomically replaces a previously staged runtime directory', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-install-runtime-'))
+    const staged = join(root, 'staged')
+    const destination = join(root, 'runtime')
+    mkdirSync(join(staged, 'app'), { recursive: true })
+    mkdirSync(join(destination, 'old'), { recursive: true })
+    writeFileSync(join(staged, 'app/new.js'), 'new runtime')
+    writeFileSync(join(destination, 'old/stale.js'), 'stale runtime')
+
+    installStagedRuntime(staged, destination)
+
+    expect(readFileSync(join(destination, 'app/new.js'), 'utf8')).toBe('new runtime')
+    expect(existsSync(join(destination, 'old/stale.js'))).toBe(false)
+    expect(existsSync(staged)).toBe(false)
   })
 
   it('runs assembly tools with the pinned Node and archived upstream commit', () => {

@@ -58,6 +58,16 @@ describe('Confluence REST transport', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
+  it('deletes exactly one encoded page id without following redirects', async () => {
+    const fetch = vi.fn(async () => new Response(null, { status: 204 }))
+    const transport = new FetchConfluenceTransport(fetch)
+    await expect(transport.deletePage(connection, '10/20')).resolves.toBeUndefined()
+    expect(fetch).toHaveBeenCalledWith(
+      'https://wiki.example.test/confluence/rest/api/content/10%2F20',
+      expect.objectContaining({ method: 'DELETE', redirect: 'manual' }),
+    )
+  })
+
   it('stops reading a response once the configured limit is exceeded', async () => {
     let pulls = 0
     const body = new ReadableStream<Uint8Array>({

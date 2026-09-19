@@ -13,7 +13,7 @@ function fixture() {
     validateUpdate: vi.fn(async (_id: number, input: any) => ({ current, update: input })), update: vi.fn(async () => current), delete: vi.fn(async () => undefined),
   }
   const snapshot = { service: { stat: vi.fn(async (path: string) => ({ path, etag: 'v1' })) } as never, sharing: sharing as never, fingerprint: 'v1' } satisfies ServiceSnapshot
-  const manager = new NextcloudToolManager({ tools } as never, vi.fn(async () => snapshot), false)
+  const manager = new NextcloudToolManager({ tools } as never, vi.fn(async () => snapshot), 'standard')
   return { tools, sharing, manager }
 }
 

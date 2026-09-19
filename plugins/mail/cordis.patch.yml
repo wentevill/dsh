@@ -6,7 +6,6 @@
         passwordEnv: MAIL_APP_PASSWORD
         mailbox: INBOX
         archiveMailbox: Archive
-        allowDelete: false
         imap:
           host: ""
           port: 993
@@ -15,3 +14,6 @@
           host: ""
           port: 465
           secure: true
+    - id: mail-delete
+      name: dsh-mail/delete
+      disabled: true

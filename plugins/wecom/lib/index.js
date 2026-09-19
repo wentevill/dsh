@@ -36,7 +36,6 @@ import { createRequire } from 'node:module';
 import { arch, platform } from 'node:os';
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
-import { settingsNamespace } from '@deepseek-ai/dsh-settings';
 import z from '@deepseek-ai/schemastery';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
@@ -64,7 +63,7 @@ export const inject = [
     'tools', 'agents', 'sessions', 'credentials', 'storageDomain',
     'sessionPersistence', 'agentDefaultModel', 'attachments',
 ];
-const WECOM_SETTINGS_NAMESPACE = settingsNamespace('wecom');
+const WECOM_SETTINGS_NAMESPACE = 'wecom';
 let WeComAuthRemote = (() => {
     let _classSuper = TypertRemoteService;
     let _instanceExtraInitializers = [];

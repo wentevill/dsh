@@ -124,9 +124,12 @@ export class NextcloudToolManager {
     resolve;
     bindings = new Map();
     disposers = [];
-    constructor(ctx, resolve, allowDelete) {
+    toolNames;
+    constructor(ctx, resolve, component = 'standard') {
         this.resolve = resolve;
-        for (const definition of this.definitions(allowDelete))
+        const definitions = this.definitions(component);
+        this.toolNames = new Set(definitions.map(definition => definition.name));
+        for (const definition of definitions)
             this.disposers.push(ctx.tools.register(definition));
     }
     dispose() {
@@ -135,6 +138,7 @@ export class NextcloudToolManager {
             dispose();
     }
     release(exec) { this.bindings.delete(exec.token); }
+    owns(name) { return this.toolNames.has(name); }
     async prepare(exec) {
         try {
             return await this.prepareChecked(exec);
@@ -227,7 +231,7 @@ export class NextcloudToolManager {
         }
         return snapshot;
     }
-    definitions(allowDelete) {
+    definitions(component) {
         const executeRead = (operation, untrusted = true) => async (args, exec) => {
             try {
                 return rendered(await operation((await this.resolve()).service, args, exec), untrusted);
@@ -309,20 +313,26 @@ export class NextcloudToolManager {
                 parameters: { source: { type: 'string', required: true }, destination: { type: 'string', required: true }, overwrite: { type: 'boolean' } }, output,
                 execute: executeMutation(async (snapshot, args, exec) => { await snapshot.service.move(stringArg(args, 'source'), stringArg(args, 'destination'), booleanArg(args, 'overwrite'), exec.signal); return { moved: true }; }),
             }];
-        if (allowDelete)
-            definitions.push({
-                name: 'nextcloud_delete', description: 'Delete an allowed Nextcloud file or directory recursively after fresh human approval.',
-                parameters: { path: { type: 'string', required: true } }, output,
-                execute: executeMutation(async (snapshot, args, exec) => { await snapshot.service.delete(stringArg(args, 'path'), exec.signal); return { deleted: true }; }),
-            });
-        return definitions;
+        const deletion = {
+            name: 'nextcloud_delete', description: 'Delete an allowed Nextcloud file or directory recursively after fresh human approval.',
+            parameters: { path: { type: 'string', required: true } }, output,
+            execute: executeMutation(async (snapshot, args, exec) => { await snapshot.service.delete(stringArg(args, 'path'), exec.signal); return { deleted: true }; }),
+        };
+        return component === 'delete' ? [deletion] : definitions;
     }
 }
 export function createNextcloudApprovalPolicy(manager) {
     return async (exec, next) => {
-        if (!WRITE_TOOLS.has(exec.name))
+        if (!manager.owns(exec.name) || !WRITE_TOOLS.has(exec.name))
             return next();
         const reason = await manager.prepare(exec);
         return reason === undefined ? { kind: 'allow' } : { kind: 'ask', reason };
     };
+}
+/** Mount the independently switchable file-deletion tool component. */
+export function mountNextcloudDeleteComponent(ctx) {
+    const manager = new NextcloudToolManager(ctx, ctx.nextcloudRuntime.resolve, 'delete');
+    ctx.effect(() => () => { manager.dispose(); }, 'nextcloud-delete.tools');
+    ctx.on('tools/pre-execute', (exec, next) => createNextcloudApprovalPolicy(manager)(exec, next));
+    ctx.on('tools/result', exec => { manager.release(exec); });
 }

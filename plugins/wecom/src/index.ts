@@ -3,7 +3,7 @@ import { arch, platform } from 'node:os'
 import { mkdir, rm } from 'node:fs/promises'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from '@deepseek-ai/schemastery'
 import { defineTool, type ParameterSchemaSpec, type PreToolDecision } from '@deepseek-ai/dsh-tools'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
@@ -46,7 +46,7 @@ export const inject = [
   'tools', 'agents', 'sessions', 'credentials', 'storageDomain',
   'sessionPersistence', 'agentDefaultModel', 'attachments',
 ]
-const WECOM_SETTINGS_NAMESPACE = settingsNamespace('wecom')
+const WECOM_SETTINGS_NAMESPACE = 'wecom' as SettingsNamespace
 
 export class WeComAuthRemote extends TypertRemoteService {
   private readonly api

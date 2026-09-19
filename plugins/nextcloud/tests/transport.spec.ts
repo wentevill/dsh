@@ -26,7 +26,7 @@ describe('Nextcloud WebDAV transport', () => {
     }
     createNextcloudTransport({
       serverUrl: 'https://cloud.example.com/nc', username: 'alice', accessMode: 'all', allowedRoots: [],
-      allowDelete: false, allowHttp: false, skipTlsVerify: true,
+      allowHttp: false, skipTlsVerify: true,
       davUrl: 'https://cloud.example.com/nc/remote.php/dav/files/alice',
     }, 'app-password', factory)
 

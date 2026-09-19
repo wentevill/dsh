@@ -73,4 +73,18 @@ describe('assertUpstream', () => {
     git(value.source, 'remote', 'set-url', 'origin', 'git@example.invalid:wrong/repo.git')
     expect(() => assertUpstream(value.root)).toThrow('remote mismatch')
   })
+
+  it('captures a clean checkout whose tracked index exceeds the default child-process buffer', () => {
+    const value = fixture()
+    const segments = Array.from({ length: 3 }, (_, index) => `${index}-${'a'.repeat(218)}`)
+    const directory = join(value.source, ...segments)
+    mkdirSync(directory, { recursive: true })
+    for (let index = 0; index < 1_500; index += 1) {
+      writeFileSync(join(directory, `${index.toString().padStart(4, '0')}.txt`), '')
+    }
+    git(value.source, 'add', '.')
+    git(value.source, 'commit', '--quiet', '-m', 'large upstream index')
+
+    expect(() => captureUpstreamState(value.root)).not.toThrow()
+  })
 })

@@ -7,7 +7,6 @@ const dsh_mail_mailSettings_load_result$schema = z.object({
   'passwordEnv': z.string(),
   'mailbox': z.string(),
   'archiveMailbox': z.string(),
-  'allowDelete': z.boolean(),
   'imap': z.object({
   'host': z.string(),
   'port': z.number(),
@@ -26,7 +25,6 @@ const dsh_mail_mailSettings_save_parameter_0$schema = z.object({
   'passwordEnv': z.string(),
   'mailbox': z.string(),
   'archiveMailbox': z.string(),
-  'allowDelete': z.boolean(),
   'imap': z.object({
   'host': z.string(),
   'port': z.number(),
@@ -45,7 +43,6 @@ const dsh_mail_mailSettings_save_result$schema = z.object({
   'passwordEnv': z.string(),
   'mailbox': z.string(),
   'archiveMailbox': z.string(),
-  'allowDelete': z.boolean(),
   'imap': z.object({
   'host': z.string(),
   'port': z.number(),
@@ -78,7 +75,7 @@ export const TYPERT = {
         typeSymbol: 'dsh-mail/remote-types#MailSettingsSaveResult',
         schema: dsh_mail_mailSettings_load_result$schema,
       },
-      sourceLocation: {"file":"packages/mail/src/index.ts","line":69,"column":3},
+      sourceLocation: {"file":"packages/mail/src/index.ts","line":67,"column":3},
     },
     {
       id: 'dsh-mail#mailSettings/save',
@@ -103,7 +100,7 @@ export const TYPERT = {
         typeSymbol: 'dsh-mail/remote-types#MailSettingsSaveResult',
         schema: dsh_mail_mailSettings_save_result$schema,
       },
-      sourceLocation: {"file":"packages/mail/src/index.ts","line":77,"column":9},
+      sourceLocation: {"file":"packages/mail/src/index.ts","line":75,"column":9},
     },
   ],
   model: {

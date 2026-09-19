@@ -4,9 +4,9 @@ import type { SettingsScope } from '@deepseek-ai/dsh-settings';
 import type { ToolExecution } from '@deepseek-ai/dsh-tools';
 import { loadAttachments } from './attachment-loader.ts';
 import { type MailSettings } from './mail-settings.ts';
-import type { MailApprovalPreparer, MailDeleteApprovalMetadata, MailSendApprovalMetadata } from './approval.ts';
+import { type MailApprovalPreparer, type MailDeleteApprovalMetadata, type MailSendApprovalMetadata } from './approval.ts';
 import type { MailTransport, ResolvedConfig } from './index.ts';
-interface ManagerOptions {
+export interface MailManagerOptions {
     credentials: CredentialProvider;
     resolveConfig(settings: MailSettings): ResolvedConfig;
     imap: Pick<MailTransport, 'list' | 'read' | 'archive' | 'delete'>;
@@ -18,11 +18,21 @@ interface ManagerOptions {
     maxTextChars: number;
     maxHtmlChars: number;
 }
+export interface MailRuntime {
+    readonly scope: SettingsScope<MailSettings>;
+    readonly options: MailManagerOptions;
+}
+declare module '@deepseek-ai/cordis' {
+    interface Context {
+        mailRuntime: MailRuntime;
+    }
+}
 /** Owns the live Mail tool catalog and binds destructive approvals to authoritative settings snapshots. */
 export declare class MailCapabilityManager implements MailApprovalPreparer {
     private readonly ctx;
     private readonly scope;
     private readonly options;
+    private readonly component;
     private readonly bindings;
     private readonly abortBindings;
     private readonly groupDisposers;
@@ -30,10 +40,11 @@ export declare class MailCapabilityManager implements MailApprovalPreparer {
     private disposed;
     private generation;
     private disposePromise;
-    constructor(ctx: Pick<Context, 'tools' | 'effect'>, scope: SettingsScope<MailSettings>, options: ManagerOptions);
+    constructor(ctx: Pick<Context, 'tools' | 'effect'>, scope: SettingsScope<MailSettings>, options: MailManagerOptions, component?: 'standard' | 'delete');
     dispose(): Promise<void>;
     /** Clear approval state on every tools/result outcome, including denial/cancellation. */
     releaseApproval(exec: Readonly<ToolExecution>): void;
+    ownsMutation(name: string): boolean;
     /** @internal Test-only diagnostic; bindings contain sanitized fingerprints only. */
     approvalBindingCountForTests(): number;
     /** @internal Test-only diagnostic for leak-free abort listener ownership. */
@@ -55,4 +66,4 @@ export declare class MailCapabilityManager implements MailApprovalPreparer {
     private deleteTool;
     private sendTool;
 }
-export {};
+export declare function mountMailDeleteComponent(ctx: Context): void;

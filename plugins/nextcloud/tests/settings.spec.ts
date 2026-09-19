@@ -6,17 +6,18 @@ const base = {
   username: 'alice',
   accessMode: 'all' as const,
   allowedRoots: [],
-  allowDelete: false,
   allowHttp: false,
   skipTlsVerify: false,
 }
 
 describe('Nextcloud settings', () => {
   it('normalizes the server URL and derives the authenticated DAV endpoint', () => {
-    expect(normalizeNextcloudSettings(base)).toMatchObject({
+    const normalized = normalizeNextcloudSettings({ ...base, allowDelete: true } as never)
+    expect(normalized).toMatchObject({
       serverUrl: 'https://cloud.example.com/nextcloud',
       davUrl: 'https://cloud.example.com/nextcloud/remote.php/dav/files/alice',
     })
+    expect(normalized).not.toHaveProperty('allowDelete')
   })
 
   it('rejects credentials, query strings, fragments, and non-http server URLs', () => {

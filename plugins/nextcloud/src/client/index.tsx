@@ -1,5 +1,5 @@
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
+import type { PluginConfigViewProps } from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
@@ -14,7 +14,7 @@ const NS = 'settings.plugins.nextcloud'
 const NEXTCLOUD_PASSWORD_REF = 'NEXTCLOUD_APP_PASSWORD'
 const EMPTY: NextcloudSettings = {
   serverUrl: '', username: '', accessMode: 'all', allowedRoots: [],
-  allowDelete: false, allowHttp: false, skipTlsVerify: false,
+  allowHttp: false, skipTlsVerify: false,
 }
 
 type RemoteResult<T> = { ok: true; value: T } | { ok: false; error: { message: string } }
@@ -47,7 +47,6 @@ function Card({ remoteApi, credentials, t }: { remoteApi: any; credentials: Cred
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<'saved' | 'connected' | 'failed' | ''>('')
-  const [open, setOpen] = useState(false)
   ensureCardCSS()
   useEffect(() => {
     void loadNextcloudCardSettings(initialRemote.current)
@@ -68,27 +67,30 @@ function Card({ remoteApi, credentials, t }: { remoteApi: any; credentials: Cred
       setPassword('')
     }
   }, 'saved')
-  const cardClass = open ? `${css.card} ${css.cardOpen}` : css.card
-  return <li className={cardClass}>
-    <button type="button" className={css.header} aria-expanded={open} aria-label={`${t(open ? 'collapse' : 'expand')}: ${t('title')}`} onClick={() => setOpen(value => !value)}>
-      <span className={css.headText}><span className={css.name}>{t('title')}</span><span className={css.description}>{t('description')}</span></span>
-      {dirty ? <span className={css.pending}>{t('unsaved')}</span> : null}<span aria-hidden="true" className={open ? `${css.chevron} ${css.chevronOpen}` : css.chevron}>⌄</span>
-    </button>
-    {open ? <div className={css.body}>
+  return <div className={css.body}>
       <Field id="nextcloud-server" label={t('serverUrl')}><input id="nextcloud-server" className={css.input} value={settings.serverUrl} placeholder="https://cloud.example.com" onChange={e => update('serverUrl', e.target.value)} /></Field>
       <Field id="nextcloud-username" label={t('username')}><input id="nextcloud-username" className={css.input} value={settings.username} autoComplete="username" onChange={e => update('username', e.target.value)} /></Field>
       <Field id="nextcloud-password" label={t('password')}><input id="nextcloud-password" className={css.input} type="password" value={password} autoComplete="off" placeholder="••••••••" onChange={e => setPassword(e.target.value)} /></Field>
       <Field id="nextcloud-access" label={t('accessMode')}><select id="nextcloud-access" className={css.input} value={settings.accessMode} onChange={e => update('accessMode', e.target.value as 'all' | 'allowlist')}><option value="all">{t('all')}</option><option value="allowlist">{t('allowlist')}</option></select></Field>
       {settings.accessMode === 'allowlist' ? <Field id="nextcloud-roots" label={t('roots')}><textarea id="nextcloud-roots" className={css.input} rows={4} value={settings.allowedRoots.join('\n')} onChange={e => update('allowedRoots', e.target.value.split('\n').map(v => v.trim()).filter(Boolean))} /></Field> : null}
-      {(['allowDelete', 'allowHttp', 'skipTlsVerify'] as const).map(key => <label key={key} className={css.check}><input className={css.checkbox} type="checkbox" checked={settings[key]} onChange={e => update(key, e.target.checked)} />{t(key)}</label>)}
+      {(['allowHttp', 'skipTlsVerify'] as const).map(key => <label key={key} className={css.check}><input className={css.checkbox} type="checkbox" checked={settings[key]} onChange={e => update(key, e.target.checked)} />{t(key)}</label>)}
       {status ? <p className={`${css.status} ${status === 'failed' ? css.failed : ''}`} role="status">{t(status)}</p> : null}
       <div className={css.footer}>
         <button type="button" className={css.secondary} disabled={busy} onClick={() => void run(async () => { unwrap(await remoteApi.testConnection()) }, 'connected')}>{t('test')}</button>
         <button type="button" className={css.secondary} disabled={busy || !dirty} onClick={() => { setSettings(baseline); setPassword(''); setStatus('') }}>{t('discard')}</button>
         <button type="button" className={css.primary} disabled={busy || !dirty} onClick={() => void save()}>{t('save')}</button>
       </div>
-    </div> : null}
-  </li>
+  </div>
+}
+
+export function renderNextcloudConfig(
+  props: PluginConfigViewProps & { t: (key: LocaleKey) => string },
+  remoteApi: any,
+  credentials: CredentialRemote,
+): React.ReactNode {
+  return props.view === 'summary'
+    ? props.t('description')
+    : <Card remoteApi={remoteApi} credentials={credentials} t={props.t} />
 }
 
 export const name = 'nextcloud-client'
@@ -99,8 +101,8 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const feature = ctx.plugin(Object.assign(async (child: ClientContext) => {
     child.effect(() => child.locale.register(NS, { zh, en }), 'nextcloud-client: dictionaries')
     const remoteApi = child.remote.nextcloudSettings
-    child.slots.inject('settings.plugin.item', function* () {
-      yield child.slots.register(NEXTCLOUD_CARD_SLOT_OPTIONS, (props: { t: (key: LocaleKey) => string }) => <Card remoteApi={remoteApi} credentials={child.remote.credentials} t={props.t} />)
+    child.slots.inject('plugins.bundle.config', function* () {
+      yield child.slots.register(NEXTCLOUD_CARD_SLOT_OPTIONS, (props: PluginConfigViewProps & { t: (key: LocaleKey) => string }) => renderNextcloudConfig(props, remoteApi, child.remote.credentials))
     })
   }, { inject: ['slots', 'locale', 'remote', 'remote.credentials', 'remote.nextcloudSettings'] }))
   await feature

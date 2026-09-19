@@ -29,14 +29,14 @@ PLUGIN_PACK_SCRIPT := wecom:pack
 else ifeq ($(PLUGIN),confluence)
 PLUGIN_PACKAGE := dsh-confluence
 PLUGIN_PACK_SCRIPT := confluence:pack
-else ifeq ($(PLUGIN),manager)
-PLUGIN_PACKAGE := dsh-plugin-manager
-PLUGIN_PACK_SCRIPT := manager:pack
 else ifeq ($(PLUGIN),nextcloud)
 PLUGIN_PACKAGE := dsh-nextcloud
 PLUGIN_PACK_SCRIPT := nextcloud:pack
+else ifeq ($(PLUGIN),cron)
+PLUGIN_PACKAGE := dsh-cron
+PLUGIN_PACK_SCRIPT := cron:pack
 else
-$(error unsupported PLUGIN=$(PLUGIN); supported plugins: mail wecom confluence manager nextcloud)
+$(error unsupported PLUGIN=$(PLUGIN); supported plugins: mail wecom confluence nextcloud cron)
 endif
 ifneq ($(PLUGIN),mail)
 PLUGIN_VERSION := $(shell node -p "require('./plugins/$(PLUGIN)/package.json').version")
@@ -50,10 +50,10 @@ help:
 	@printf '%s\n' \
 		'make release-dmg    Install, stage, build, and audit the release app and DMG' \
 		'make run            Start Tauri development mode' \
-		'make pack-plugin    Build a production plugin tgz (PLUGIN=mail|wecom|confluence|manager|nextcloud)' \
+		'make pack-plugin    Build a production plugin tgz (PLUGIN=mail|wecom|confluence|nextcloud|cron)' \
 		'make install-plugin Pack and install a plugin into the Desktop web profile' \
 		'' \
-		'Variables: NODE_ARCHIVE, RELEASE_CACHE, APP_PATH, PLUGIN=mail|wecom|confluence|manager|nextcloud, PROFILE=web, DESKTOP_DSH_HOME'
+		'Variables: NODE_ARCHIVE, RELEASE_CACHE, APP_PATH, PLUGIN=mail|wecom|confluence|nextcloud|cron, PROFILE=web, DESKTOP_DSH_HOME'
 
 release-dmg: stage-runtime
 	corepack pnpm desktop:build

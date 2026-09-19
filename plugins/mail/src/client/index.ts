@@ -9,21 +9,21 @@
  */
 
 // Type-only: pulls the ctx.settingsScope Context merge and the slot type for
-// `settings.plugin.item`. Cross-plugin collaboration goes through types only.
+// `plugins.bundle.config`. Cross-plugin collaboration goes through types only.
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
+import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import mailRemote from '../../lib/typert.remote-client.js'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import { MailCard } from './MailCard.tsx'
+import { MailCard, MailConfig } from './MailCard.tsx'
 import { MAIL_SETTINGS_NAMESPACE, createMailCardController } from './mail-card-controller.ts'
 import { en, zh } from './locales.ts'
 import { unwrapMailSettingsSave } from './remote-save.ts'
 import { createMailSettingsMirror } from './settings-mirror.ts'
 import { MAIL_CARD_SLOT_OPTIONS } from './slot-options.ts'
 
-export { MailCard, createMailCardController, MAIL_CARD_SLOT_OPTIONS, MAIL_SETTINGS_NAMESPACE }
+export { MailCard, MailConfig, createMailCardController, MAIL_CARD_SLOT_OPTIONS, MAIL_SETTINGS_NAMESPACE }
 export type { MailCardFace, MailCardState } from './mail-card-controller.ts'
 
 /** Copy namespace owned by this client plugin. */
@@ -35,7 +35,6 @@ export const inject = ['remote']
 /** UI fiber started only after the parent has mounted the Mail Remote namespace. */
 export const mailClientFeature = Object.assign(async (ctx: ClientContext): Promise<void> => {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'mail-client: dictionaries')
-
   const loaded = unwrapMailSettingsSave(await ctx.remote.mailSettings.load())
   const mirror = createMailSettingsMirror(loaded.settings)
   const controller = createMailCardController(
@@ -57,11 +56,11 @@ export const mailClientFeature = Object.assign(async (ctx: ClientContext): Promi
     'mail-client: credential invalidations',
   )
 
-  ctx.slots.inject('settings.plugin.item', function* () {
+  ctx.slots.inject('plugins.bundle.config', function* () {
     yield ctx.slots.register({
       ...MAIL_CARD_SLOT_OPTIONS,
       inject: controller.face,
-    }, MailCard)
+    }, MailConfig)
   })
 }, { inject: ['slots', 'locale', 'connection', 'remote', 'remote.mailSettings', 'remote.credentials', 'settingsScope'] })
 

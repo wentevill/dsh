@@ -16,7 +16,10 @@ export interface UpstreamState {
 }
 
 function git(upstream: string, ...args: string[]): string {
-  return execFileSync('git', ['-C', upstream, ...args], { encoding: 'utf8' }).trim()
+  return execFileSync('git', ['-C', upstream, ...args], {
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+  }).trim()
 }
 
 function resolveUpstream(root: string): string {

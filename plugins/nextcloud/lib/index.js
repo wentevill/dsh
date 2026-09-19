@@ -100,17 +100,9 @@ export function apply(ctx, config) {
         scope = settingsCtx.settings.register(NEXTCLOUD_SETTINGS_NAMESPACE, NextcloudSettingsSchema, { applies: 'live', base: config });
         const attachedScope = scope;
         const resolver = createServiceResolver(attachedScope, ctx.credentials);
-        const installManager = () => {
-            manager?.dispose();
-            manager = new NextcloudToolManager(settingsCtx, resolver, attachedScope.get().allowDelete);
-        };
-        installManager();
-        const unwatch = attachedScope.watch((next, previous) => {
-            if (next.allowDelete !== previous.allowDelete)
-                installManager();
-        });
+        settingsCtx.provide('nextcloudRuntime', { resolve: resolver });
+        manager = new NextcloudToolManager(settingsCtx, resolver, 'standard');
         settingsCtx.effect(() => () => {
-            unwatch();
             manager?.dispose();
             manager = undefined;
             if (scope === attachedScope)
@@ -127,4 +119,4 @@ export function apply(ctx, config) {
 export { NextcloudFileService } from "./service.js";
 export { NextcloudSharingService } from "./sharing-service.js";
 export { createNextcloudTransport, NextcloudTransport } from "./transport.js";
-export { createNextcloudApprovalPolicy, NextcloudToolManager } from "./tools.js";
+export { createNextcloudApprovalPolicy, mountNextcloudDeleteComponent, NextcloudToolManager } from "./tools.js";

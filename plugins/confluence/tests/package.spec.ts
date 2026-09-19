@@ -9,9 +9,9 @@ const roots: string[] = []
 afterEach(() => { for (const value of roots.splice(0)) rmSync(value, { recursive: true, force: true }) })
 
 describe('published Confluence plugin', () => {
-  it('publishes the upstream credential compatibility fix as version 0.1.1', () => {
+  it('publishes native plugin configuration as version 0.1.6', () => {
     const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { version: string }
-    expect(manifest.version).toBe('0.1.1')
+    expect(manifest.version).toBe('0.1.6')
   })
 
   it('packs the Host, browser client, Typert faces, docs, and patch', () => {
@@ -22,7 +22,7 @@ describe('published Confluence plugin', () => {
     const archive = join(destination, `dsh-confluence-${manifest.version}.tgz`)
     const files = execFileSync('tar', ['-tzf', archive], { encoding: 'utf8' }).trim().split('\n')
     expect(files).toEqual(expect.arrayContaining([
-      'package/lib/index.js', 'package/lib/index.d.ts', 'package/lib/client.js',
+      'package/lib/index.js', 'package/lib/index.d.ts', 'package/lib/delete.js', 'package/lib/delete.d.ts', 'package/lib/client.js',
       'package/lib/typert.host.js', 'package/lib/typert.remote-client.js',
       'package/cordis.patch.yml', 'package/README.md', 'package/LICENSE',
       'package/node_modules/@deepseek-ai/schemastery/package.json',

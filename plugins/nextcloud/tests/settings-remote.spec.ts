@@ -4,7 +4,7 @@ import type { NextcloudSettings } from '../src/settings.ts'
 
 const configured: NextcloudSettings = {
   serverUrl: 'https://cloud.example.com', username: 'alice', accessMode: 'allowlist', allowedRoots: ['/AI'],
-  allowDelete: false, allowHttp: false, skipTlsVerify: false,
+  allowHttp: false, skipTlsVerify: false,
 }
 
 describe('Nextcloud Host settings boundary', () => {

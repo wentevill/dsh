@@ -5,9 +5,6 @@
   "type": "module",
   "packageManager": "pnpm@11.7.0",
   "scripts": {
-    "manager:build": "corepack pnpm --dir plugins/manager run build",
-    "manager:test": "corepack pnpm --dir plugins/manager test",
-    "manager:pack": "corepack pnpm --dir plugins/manager pack --pack-destination .",
     "mail:pack": "corepack pnpm --dir plugins/mail pack --pack-destination .",
     "wecom:pack": "corepack pnpm --dir plugins/wecom pack --pack-destination .",
     "confluence:pack": "corepack pnpm --dir plugins/confluence pack --pack-destination .",
@@ -16,8 +13,8 @@
     "cron:pack": "corepack pnpm --dir plugins/cron pack --pack-destination .",
     "mail:test": "vitest run plugins/mail/tests",
     "verify:upstream": "node --experimental-strip-types packaging/assert-upstream.ts",
-    "test": "vitest run packaging",
-    "test:layout": "vitest run packaging/upstream-layout.spec.ts",
+    "test": "vitest run --dir packaging",
+    "test:layout": "vitest run --dir packaging upstream-layout.spec.ts",
     "desktop:test": "pnpm run verify:upstream && pnpm --dir apps/desktop test",
     "desktop:stage": "pnpm run verify:upstream && pnpm --dir apps/desktop stage:runtime",
     "desktop:build": "pnpm run verify:upstream && pnpm --dir apps/desktop build"

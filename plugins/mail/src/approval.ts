@@ -18,6 +18,7 @@ export interface MailDeleteApprovalMetadata {
 }
 
 export interface MailApprovalPreparer {
+  ownsMutation?(name: string): boolean
   prepareSend(exec: Readonly<ToolExecution>): Promise<MailSendApprovalMetadata>
   prepareDelete(exec: Readonly<ToolExecution>): Promise<MailDeleteApprovalMetadata>
 }
@@ -52,6 +53,7 @@ function deleteReason(metadata: MailDeleteApprovalMetadata): string {
 /** Fresh one-shot approval policy for Mail's two mutating operations. */
 export function createMailApprovalPolicy(preparer: MailApprovalPreparer) {
   return async (exec: Readonly<ToolExecution>, next: () => Promise<PreToolDecision>): Promise<PreToolDecision> => {
+    if (preparer.ownsMutation?.(exec.name) === false) return next()
     if (exec.name === 'mail_send') return { kind: 'ask', reason: sendReason(await preparer.prepareSend(exec)) }
     if (exec.name === 'mail_delete') return { kind: 'ask', reason: deleteReason(await preparer.prepareDelete(exec)) }
     return next()

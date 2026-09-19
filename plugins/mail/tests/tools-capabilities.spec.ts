@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
-import { ToolRegistry } from '@deepseek-ai/dsh-tools'
+import { ToolRuntime } from '@deepseek-ai/dsh-tools'
 import { MailSettingsValidationError, type MailSettings } from '../src/mail-settings.ts'
 import type { MailTransport, ResolvedConfig } from '../src/index.ts'
 import { createMailApprovalPolicy } from '../src/approval.ts'
@@ -16,7 +16,7 @@ vi.mock('@deepseek-ai/dsh-mail', () => ({
 }))
 
 const disabled: MailSettings = {
-  username: 'user@example.com', passwordEnv: 'MAIL_PASSWORD', mailbox: 'INBOX', archiveMailbox: 'Archive', allowDelete: false,
+  username: 'user@example.com', passwordEnv: 'MAIL_PASSWORD', mailbox: 'INBOX', archiveMailbox: 'Archive',
   imap: { host: '', port: 993, secure: true }, smtp: { host: '', port: 465, secure: true },
 }
 const imapOnly: MailSettings = { ...disabled, imap: { ...disabled.imap, host: 'imap.test' } }
@@ -75,7 +75,6 @@ function resolveConfig(settings: MailSettings): ResolvedConfig {
     passwordRef: { provider: 'env', key: settings.passwordEnv } as never,
     mailbox: settings.mailbox,
     archiveMailbox: settings.archiveMailbox,
-    allowDelete: settings.allowDelete,
     imap: { ...settings.imap },
     smtp: { ...settings.smtp },
   }
@@ -104,7 +103,7 @@ function execution(name: string, arguments_: unknown, cwd?: string) {
   }
 }
 
-function managerFor(settings: MailSettings, options: { mailTransport?: MailTransport; loadAttachments?: (...args: never[]) => Promise<never[]> } = {}) {
+function managerFor(settings: MailSettings, options: { mailTransport?: MailTransport; loadAttachments?: (...args: never[]) => Promise<never[]>; component?: 'standard' | 'delete' } = {}) {
   const scope = new FakeSettingsScope(settings)
   const tools = new FakeTools()
   const credentials = { resolve: vi.fn(async (reference: { key: string }) => ({ value: `password:${reference.key}` })) }
@@ -120,7 +119,7 @@ function managerFor(settings: MailSettings, options: { mailTransport?: MailTrans
     maxRecipients: 100,
     maxTextChars: 500_000,
     maxHtmlChars: 1_000_000,
-  })
+  }, options.component ?? 'standard')
   return { manager, scope, tools, credentials, mailTransport }
 }
 
@@ -135,8 +134,16 @@ describe('mail capability tools', () => {
   it('registers the exact capability catalog matrix', () => {
     expect(toolNames(disabled)).toEqual([])
     expect(toolNames(imapOnly)).toEqual(['mail_archive', 'mail_list', 'mail_read'])
-    expect(toolNames({ ...imapOnly, allowDelete: true })).toEqual(['mail_archive', 'mail_delete', 'mail_list', 'mail_read'])
     expect(toolNames(smtpOnly)).toEqual(['mail_send'])
+  })
+
+  it('isolates permanent deletion in its own one-tool component', () => {
+    const standard = managerFor(imapOnly)
+    const deletion = managerFor(imapOnly, { component: 'delete' })
+    expect([...standard.tools.definitions.keys()].sort()).toEqual(['mail_archive', 'mail_list', 'mail_read'])
+    expect([...deletion.tools.definitions.keys()]).toEqual(['mail_delete'])
+    void standard.manager.dispose()
+    void deletion.manager.dispose()
   })
 
   it('publishes the configured list bound and cursor pagination to the model', async () => {
@@ -168,16 +175,16 @@ describe('mail capability tools', () => {
     await manager.dispose()
   })
 
-  it('rechecks deletion after approval and never mutates with stale allowDelete', async () => {
+  it('rechecks the IMAP endpoint after deletion approval', async () => {
     const mailTransport = transport()
-    const { manager, scope, tools } = managerFor({ ...imapOnly, allowDelete: true }, { mailTransport })
+    const { manager, scope, tools } = managerFor(imapOnly, { mailTransport, component: 'delete' })
     const args = { id: '42' }
     const exec = execution('mail_delete', args)
     const deleteTool = tools.definitions.get('mail_delete')!
     const policy = createMailApprovalPolicy(manager)
 
     expect(await policy(exec as never, vi.fn())).toMatchObject({ kind: 'ask' })
-    await scope.set({ ...imapOnly, allowDelete: false })
+    await scope.set({ ...imapOnly, imap: { ...imapOnly.imap, host: '' } })
     await expect(deleteTool.execute(args, exec)).rejects.toThrow(/disabled|unavailable|settings changed|fresh/u)
     expect(mailTransport.delete).not.toHaveBeenCalled()
     await manager.dispose()
@@ -266,13 +273,13 @@ describe('mail capability tools', () => {
 
   it('rejects deletion when authoritative account changes before its watcher runs', async () => {
     const mailTransport = transport()
-    const { manager, scope, tools } = managerFor({ ...imapOnly, allowDelete: true }, { mailTransport })
+    const { manager, scope, tools } = managerFor(imapOnly, { mailTransport, component: 'delete' })
     const args = { id: '42' }
     const exec = execution('mail_delete', args)
     const deleteTool = tools.definitions.get('mail_delete')!
     expect(await createMailApprovalPolicy(manager)(exec as never, vi.fn())).toMatchObject({ kind: 'ask' })
 
-    scope.setAuthoritative({ ...imapOnly, username: 'other@example.com', mailbox: 'Other', allowDelete: true })
+    scope.setAuthoritative({ ...imapOnly, username: 'other@example.com', mailbox: 'Other' })
     await expect(deleteTool.execute(args, exec)).rejects.toThrow(/settings changed|fresh/u)
     expect(mailTransport.delete).not.toHaveBeenCalled()
     expect(manager.approvalBindingCountForTests()).toBe(0)
@@ -280,8 +287,8 @@ describe('mail capability tools', () => {
   })
 
   it('invalidates disable and re-enable even when the final values match', async () => {
-    const original = { ...imapOnly, allowDelete: true }
-    const { manager, scope, tools, mailTransport } = managerFor(original)
+    const original = { ...imapOnly }
+    const { manager, scope, tools, mailTransport } = managerFor(original, { component: 'delete' })
     const args = { id: '42' }
     const exec = execution('mail_delete', args)
     const deleteTool = tools.definitions.get('mail_delete')!
@@ -294,8 +301,8 @@ describe('mail capability tools', () => {
   })
 
   it('invalidates approval when a settings provider mutates its snapshot in place', async () => {
-    const original = { ...imapOnly, allowDelete: true }
-    const { manager, tools, mailTransport } = managerFor(original)
+    const original = { ...imapOnly }
+    const { manager, tools, mailTransport } = managerFor(original, { component: 'delete' })
     const args = { id: '42' }
     const exec = execution('mail_delete', args)
     const deleteTool = tools.definitions.get('mail_delete')!
@@ -454,10 +461,10 @@ describe('mail capability tools', () => {
     await unavailable.manager.dispose()
   })
 
-  it('surfaces Mail validation codes through an actual ToolRegistry result', async () => {
+  it('surfaces Mail validation codes through an actual ToolRuntime result', async () => {
     const ctx = new Context()
     ctx.provide('systemPrompt', { tools: () => () => undefined, section: () => () => undefined } as never)
-    const registry = new ToolRegistry(ctx as never)
+    const registry = new ToolRuntime(ctx as never)
     const scope = new FakeSettingsScope(imapOnly)
     const manager = new MailCapabilityManager({
       tools: registry,

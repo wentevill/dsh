@@ -30,10 +30,10 @@ make pack-plugin PLUGIN=nextcloud  # 生成 Nextcloud 文件与共享插件 tgz
 make install-plugin APP_PATH="/Applications/DeepSeek Harness.app" PROFILE=web
 ```
 
-Desktop 会内置 `dsh-plugin-manager`，并在启动 Web 服务前保证 web profile 使用内置版本。设置页中 **插件管理** 选项卡紧跟 **插件列表**：每次可拖入一个 `.tgz`，列表按包名和已安装版本展示额外插件，展开卡片后可以卸载。安装或卸载后需要手动重启应用。
+Desktop 直接使用 upstream 内置的官方插件管理器。Harness 插件通过官方 `dsh plugin add` 命令安装，插件自己的配置页从官方插件页面打开。
 
 Confluence Data Center 插件可通过 `make pack-plugin PLUGIN=confluence` 打包。它使用 HTTPS 和 Personal Access Token，并可配置允许的 Space Key 或显式允许全部空间。
 
-支持的变量为 `APP_PATH`、`PLUGIN=mail|wecom|confluence|manager|nextcloud`、`PROFILE` 和 `DESKTOP_DSH_HOME`。运行 `make help` 查看命令摘要。
+支持的变量为 `APP_PATH`、`PLUGIN=mail|wecom|confluence|nextcloud|cron`、`PROFILE` 和 `DESKTOP_DSH_HOME`。运行 `make help` 查看命令摘要。
 
 选择新的 GitHub revision 前请阅读 [更新 upstream](docs/operations/upstream-update.md)。

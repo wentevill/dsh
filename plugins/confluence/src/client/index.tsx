@@ -1,10 +1,9 @@
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
+import type { PluginConfigViewProps } from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import React, { useEffect, useRef, useState } from 'react'
-import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import remote from '../../lib/typert.remote-client.js'
 import type { ConfluenceSettings } from '../settings.ts'
 import { CONFLUENCE_CARD_SLOT_OPTIONS } from './slot-options.ts'
@@ -33,7 +32,6 @@ function ConfluenceCard({ remoteApi, credentials, t }: { remoteApi: any; credent
   const [spaces, setSpaces] = useState('')
   const [status, setStatus] = useState<ConfluenceLocaleKey | string>('unconfigured')
   const [busy, setBusy] = useState(false)
-  const [open, setOpen] = useState(false)
   ensureCardCSS()
   useEffect(() => {
     void initialRemote.current.load().then((response: any) => {
@@ -82,13 +80,7 @@ function ConfluenceCard({ remoteApi, credentials, t }: { remoteApi: any; credent
     setSettings(savedSettings); setSpaces(savedSettings.allowedSpaceKeys.join('\n')); setPat(''); setStatus('discarded')
   }
   const dirty = pat !== '' || JSON.stringify(pendingSettings()) !== JSON.stringify(savedSettings)
-  return <li className={`${css.card}${open ? ` ${css.open}` : ''}`}>
-    <button type="button" className={css.header} aria-expanded={open} aria-label={`${t(open ? 'collapse' : 'expand')}: ${t('title')}`} onClick={() => setOpen(value => !value)}>
-      <span className={css.headText}><span className={css.name}>{t('title')}</span><span className={css.description}>{t('description')}</span></span>
-      {dirty && <span className={css.pending}>{t('unsaved')}</span>}
-      <IconChevronDownOutline14 className={`${css.chevron}${open ? ` ${css.chevronOpen}` : ''}`} />
-    </button>
-    {open && <div className={css.body}>
+  return <div className={css.body}>
       <label className={css.field}><span className={css.label}>{t('baseUrl')}</span><input className={css.input} value={settings.baseUrl} placeholder="https://wiki.example.com/confluence" onChange={event => update({ baseUrl: event.target.value })} /></label>
       <label className={css.field}><span className={css.label}>{t('token')}</span><input className={css.input} type="password" autoComplete="off" value={pat} onChange={event => setPat(event.target.value)} /></label>
       <label className={css.check}><input type="checkbox" checked={settings.allowAllSpaces} onChange={event => update({ allowAllSpaces: event.target.checked })} />{t('allowAll')}</label>
@@ -99,8 +91,17 @@ function ConfluenceCard({ remoteApi, credentials, t }: { remoteApi: any; credent
         <button type="button" className={css.test} disabled={busy} onClick={() => void test()}>{t('test')}</button>
         <button type="button" className={css.save} disabled={!dirty || busy} onClick={() => void save()}>{t('save')}</button>
       </div>
-    </div>}
-  </li>
+  </div>
+}
+
+export function renderConfluenceConfig(
+  props: PluginConfigViewProps & { t: (key: ConfluenceLocaleKey) => string },
+  remoteApi: any,
+  credentials: CredentialRemote,
+): React.ReactNode {
+  return props.view === 'summary'
+    ? props.t('description')
+    : <ConfluenceCard remoteApi={remoteApi} credentials={credentials} t={props.t} />
 }
 
 export const name = 'confluence-client'
@@ -110,9 +111,9 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const disposeRemote = await ctx.remote.$mount(remote)
   const feature = ctx.plugin(Object.assign(async (child: ClientContext) => {
     child.effect(() => child.locale.register('settings.plugins.confluence', { zh, en }), 'confluence-client: dictionaries')
-    child.slots.inject('settings.plugin.item', function* () {
+    child.slots.inject('plugins.bundle.config', function* () {
       yield child.slots.register(CONFLUENCE_CARD_SLOT_OPTIONS,
-        (props: { t: (key: ConfluenceLocaleKey) => string }) => <ConfluenceCard remoteApi={child.remote.confluenceSettings} credentials={child.remote.credentials} t={props.t} />)
+        (props: PluginConfigViewProps & { t: (key: ConfluenceLocaleKey) => string }) => renderConfluenceConfig(props, child.remote.confluenceSettings, child.remote.credentials))
     })
   }, { inject: ['slots', 'locale', 'remote', 'remote.credentials', 'remote.confluenceSettings'] }))
   await feature

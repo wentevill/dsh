@@ -8,7 +8,7 @@ describe.skipIf(!live)('live Nextcloud smoke test', () => {
   it('authenticates and lists the configured file root', async () => {
     const transport = createNextcloudTransport(normalizeNextcloudSettings({
       serverUrl: process.env.NEXTCLOUD_TEST_URL!, username: process.env.NEXTCLOUD_TEST_USERNAME!,
-      accessMode: 'all', allowedRoots: [], allowDelete: false,
+      accessMode: 'all', allowedRoots: [],
       allowHttp: process.env.NEXTCLOUD_TEST_ALLOW_HTTP === '1', skipTlsVerify: process.env.NEXTCLOUD_TEST_SKIP_TLS_VERIFY === '1',
     }), process.env.NEXTCLOUD_TEST_APP_PASSWORD!)
     expect((await transport.stat('/')).type).toBe('directory')

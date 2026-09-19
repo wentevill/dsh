@@ -1,9 +1,13 @@
 # DSH Mail
 
-Production Mail bundle for DeepSeek Harness. The `dsh-mail-0.2.0.tgz`
+Production Mail bundle for DeepSeek Harness. The `dsh-mail-0.2.8.tgz`
 archive contains its complete IMAP, MIME, SMTP, HTML conversion, validation,
 and schema dependency trees. DSH capabilities remain peers supplied by the
 Desktop runtime.
+
+The bundle has two Components: `mail` provides receive, read, archive, and send
+operations; `mail-delete` provides permanent message deletion and is disabled
+by default. Every send and delete operation requires fresh human approval.
 
 From the Desktop packaging checkout, build the archive and install it into the
 Web profile with one command:

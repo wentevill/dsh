@@ -1,6 +1,6 @@
 {
   "name": "dsh-confluence",
-  "version": "0.1.1",
+  "version": "0.1.6",
   "description": "Confluence Data Center integration for DeepSeek Harness",
   "type": "module",
   "packageManager": "pnpm@11.7.0",
@@ -8,6 +8,7 @@
   "types": "lib/index.d.ts",
   "exports": {
     ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" },
+    "./delete": { "types": "./lib/delete.d.ts", "default": "./lib/delete.js" },
     "./client": { "default": "./lib/client.js" },
     "./remote-types": { "types": "./lib/remote-types.d.ts", "default": "./lib/remote-types.js" },
     "./settings": { "types": "./lib/settings.d.ts", "default": "./lib/settings.js" },
@@ -46,7 +47,7 @@
     "@deepseek-ai/dsh-client-locale": "0.1.0-rc.7",
     "@deepseek-ai/dsh-client-runtime": "0.1.0-rc.7",
     "@deepseek-ai/dsh-client-ui-settings": "0.1.0-rc.7",
-    "@deepseek-ai/dsh-client-ui-settings-plugins": "0.1.0-rc.7",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": "0.1.6-alpha.2",
     "@deepseek-ai/dsh-credentials": "0.0.1-rc.1",
     "@deepseek-ai/dsh-settings": "0.0.1-rc.1",
     "@deepseek-ai/dsh-system-prompt": "0.0.1-rc.1",

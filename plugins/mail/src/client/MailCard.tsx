@@ -8,16 +8,22 @@
  *   send:     SMTP server, port, secure-connection checkbox
  */
 
-import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { PluginConfigViewProps } from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
+import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
 import { PluginCard } from './PluginCard.tsx'
 import { css } from './card-css.ts'
 import { CheckField, SecretField, ValueField } from './fields.tsx'
 import type { MailCardFace, MailCardState } from './mail-card-controller.ts'
 
 export type MailCardProps =
-  PropsRuntime<'settings.plugin.item'>
-  & { t: (key: string) => string }
+  { t: (key: string) => string }
   & InjectFace<MailCardFace>
+
+export type MailConfigProps = PluginConfigViewProps & MailCardProps
+
+export function MailConfig(props: MailConfigProps) {
+  return props.view === 'summary' ? props.t('mailDescription') : <MailCard {...props} />
+}
 
 export function MailCard(props: MailCardProps) {
   const { t } = props
@@ -27,8 +33,6 @@ export function MailCard(props: MailCardProps) {
   return (
     <PluginCard
       t={readT}
-      titleKey="mailTitle"
-      descriptionKey="mailDescription"
       state={state}
       onSave={props.save}
       onDiscard={props.discard}
@@ -36,7 +40,6 @@ export function MailCard(props: MailCardProps) {
       <div className={css.status} role="status">
         <span>{readT('mailReceiveStatus')}: {readT(state.status.receive ? 'mailStatusEnabled' : 'mailStatusDisabled')}</span>
         <span>{readT('mailSendStatus')}: {readT(state.status.send ? 'mailStatusEnabled' : 'mailStatusDisabled')}</span>
-        <span>{readT('mailDeleteStatus')}: {readT(state.status.permanentDelete ? 'mailStatusEnabled' : 'mailStatusDisabled')}</span>
       </div>
       <ValueField
         id="mail-username" label={readT('mailUsername')} hint={readT('mailUsernameHint')}
@@ -58,11 +61,6 @@ export function MailCard(props: MailCardProps) {
         overriddenLabel={readT('overridden')} resetLabel={readT('reset')} invalidLabel={readT('invalidText')}
         placeholder="Archive" disabled={disabled}
         onEdit={v => props.edit('archiveMailbox', v)} onReset={() => props.resetField('archiveMailbox')}
-      />
-      <CheckField
-        id="mail-allow-delete" label={readT('mailAllowDelete')} hint={readT('mailAllowDeleteHint')}
-        checked={state.allowDelete.text === 'true'} disabled={disabled}
-        onToggle={c => props.edit('allowDelete', c ? 'true' : 'false')}
       />
       <ValueField
         id="mail-imap-host" label={readT('mailImapHost')} hint={readT('mailImapHostHint')}

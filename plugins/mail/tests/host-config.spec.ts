@@ -66,24 +66,24 @@ describe('mail Host configuration', () => {
     }).resolveEffectiveConfig
     const bootstrap = {
       username: 'bootstrap@example.com', passwordRef: { provider: 'env', key: 'MAIL_APP_PASSWORD' },
-      mailbox: 'INBOX', archiveMailbox: 'Archive', allowDelete: false,
+      mailbox: 'INBOX', archiveMailbox: 'Archive',
       imap: { host: '', port: 993, secure: true }, smtp: { host: '', port: 465, secure: true },
     }
     const imapOnly = {
-      username: 'imap@example.com', passwordEnv: 'IMAP_PASSWORD', mailbox: 'INBOX', archiveMailbox: 'Archive', allowDelete: true,
+      username: 'imap@example.com', passwordEnv: 'IMAP_PASSWORD', mailbox: 'INBOX', archiveMailbox: 'Archive',
       imap: { host: 'imap.test', port: 993, secure: true }, smtp: { host: '', port: 465, secure: true },
     }
     const smtpOnly = {
       ...imapOnly,
-      username: 'smtp@example.com', passwordEnv: 'SMTP_PASSWORD', allowDelete: false,
+      username: 'smtp@example.com', passwordEnv: 'SMTP_PASSWORD',
       imap: { host: '', port: 993, secure: true }, smtp: { host: 'smtp.test', port: 465, secure: true },
     }
 
     expect(resolveEffectiveConfig(bootstrap, imapOnly)).toMatchObject({
-      username: 'imap@example.com', imap: imapOnly.imap, smtp: imapOnly.smtp, allowDelete: true,
+      username: 'imap@example.com', imap: imapOnly.imap, smtp: imapOnly.smtp,
     })
     expect(resolveEffectiveConfig(bootstrap, smtpOnly)).toMatchObject({
-      username: 'smtp@example.com', imap: smtpOnly.imap, smtp: smtpOnly.smtp, allowDelete: false,
+      username: 'smtp@example.com', imap: smtpOnly.imap, smtp: smtpOnly.smtp,
     })
   })
 
@@ -94,11 +94,11 @@ describe('mail Host configuration', () => {
     }).resolveEffectiveConfig
     const bootstrap = {
       username: 'bootstrap@example.com', passwordRef: { provider: 'env', key: 'MAIL_APP_PASSWORD' },
-      mailbox: 'INBOX', archiveMailbox: 'Archive', allowDelete: false,
+      mailbox: 'INBOX', archiveMailbox: 'Archive',
       imap: { host: '', port: 993, secure: true }, smtp: { host: '', port: 465, secure: true },
     }
     const settings = {
-      username: 'user@example.com', passwordEnv: 'MAIL_APP_PASSWORD', mailbox: 'INBOX', archiveMailbox: 'Archive', allowDelete: false,
+      username: 'user@example.com', passwordEnv: 'MAIL_APP_PASSWORD', mailbox: 'INBOX', archiveMailbox: 'Archive',
       imap: { host: 'imap.test', port: 993, secure: true }, smtp: { host: 'smtp.test', port: 465, secure: true },
     }
 

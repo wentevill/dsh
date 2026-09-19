@@ -21,5 +21,5 @@ export { NextcloudFileService } from './service.ts';
 export { NextcloudSharingService } from './sharing-service.ts';
 export type * from './sharing-types.ts';
 export { createNextcloudTransport, NextcloudTransport } from './transport.ts';
-export { createNextcloudApprovalPolicy, NextcloudToolManager } from './tools.ts';
+export { createNextcloudApprovalPolicy, mountNextcloudDeleteComponent, NextcloudToolManager } from './tools.ts';
 export type * from './remote-types.ts';

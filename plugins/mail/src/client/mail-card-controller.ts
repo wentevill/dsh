@@ -34,7 +34,7 @@ type CredentialsFace = Pick<ClientRemote['credentials'], 'describe' | 'set'>
 
 /** Flat control names the card chrome edits; nested fields map onto the section. */
 type FlatField =
-  | 'username' | 'mailbox' | 'archiveMailbox' | 'allowDelete'
+  | 'username' | 'mailbox' | 'archiveMailbox'
   | 'imapHost' | 'imapPort' | 'imapSecure'
   | 'smtpHost' | 'smtpPort' | 'smtpSecure'
   | 'password'
@@ -55,7 +55,6 @@ interface DraftEntry {
 export interface MailCardStatus {
   receive: boolean
   send: boolean
-  permanentDelete: boolean
 }
 
 /** The card's renderable state. */
@@ -65,7 +64,6 @@ export interface MailCardState extends CardShell {
   username: CardFieldState
   mailbox: CardFieldState
   archiveMailbox: CardFieldState
-  allowDelete: CardFieldState
   imapHost: CardFieldState
   imapPort: CardFieldState
   imapSecure: CardFieldState
@@ -108,7 +106,7 @@ function isValidPort(text: string): boolean {
 
 const TEXT_FIELDS: ReadonlySet<FlatField> = new Set(['username', 'mailbox', 'archiveMailbox', 'imapHost', 'smtpHost'])
 const PORT_FIELDS: ReadonlySet<FlatField> = new Set(['imapPort', 'smtpPort'])
-const BOOLEAN_FIELDS: ReadonlySet<FlatField> = new Set(['imapSecure', 'smtpSecure', 'allowDelete'])
+const BOOLEAN_FIELDS: ReadonlySet<FlatField> = new Set(['imapSecure', 'smtpSecure'])
 
 const isFlat = (field: string): boolean =>
   field === 'password' || TEXT_FIELDS.has(field as FlatField) || PORT_FIELDS.has(field as FlatField) || BOOLEAN_FIELDS.has(field as FlatField)
@@ -162,9 +160,7 @@ export function createMailCardController(
       const sets = BOOLEAN_FIELDS.has(field) ? (w === 'true' || w === 'false') : (w !== '' && !invalid)
       return { text: staged.text, overridden: sets, invalid }
     }
-    const stored = field === 'allowDelete'
-      ? storedScalar(snap, field)
-      : BOOLEAN_FIELDS.has(field)
+    const stored = BOOLEAN_FIELDS.has(field)
       ? storedGroup(snap, field === 'imapSecure' ? 'imap' : 'smtp')
       : (field === 'imapHost' || field === 'imapPort') ? storedGroup(snap, 'imap')
       : (field === 'smtpHost' || field === 'smtpPort') ? storedGroup(snap, 'smtp')
@@ -191,14 +187,12 @@ export function createMailCardController(
       passwordEnv: PASSWORD_REF,
       mailbox: 'INBOX',
       archiveMailbox: 'Archive',
-      allowDelete: valueOf(snap, 'allowDelete') === 'true',
       imap: { host: valueOf(snap, 'imapHost'), port: 993, secure: valueOf(snap, 'imapSecure') === 'true' },
       smtp: { host: valueOf(snap, 'smtpHost'), port: 465, secure: valueOf(snap, 'smtpSecure') === 'true' },
     })
     const status: MailCardStatus = {
       receive: capabilities.imap,
       send: capabilities.smtp,
-      permanentDelete: capabilities.delete,
     }
     return {
       available,
@@ -212,7 +206,6 @@ export function createMailCardController(
       username: fieldState(snap, 'username'),
       mailbox: fieldState(snap, 'mailbox'),
       archiveMailbox: fieldState(snap, 'archiveMailbox'),
-      allowDelete: fieldState(snap, 'allowDelete'),
       imapHost: fieldState(snap, 'imapHost'),
       imapPort: fieldState(snap, 'imapPort'),
       imapSecure: fieldState(snap, 'imapSecure'),
@@ -286,9 +279,7 @@ export function createMailCardController(
       const booleanOf = (field: FlatField): boolean => {
         const d = submittedDrafts.get(field)
         if (d !== undefined) return d.text === 'true'
-        const v = field === 'allowDelete'
-          ? scalar(snap, 'allowDelete')
-          : field === 'imapSecure' ? nested(snap, 'imap', 'secure') : nested(snap, 'smtp', 'secure')
+        const v = field === 'imapSecure' ? nested(snap, 'imap', 'secure') : nested(snap, 'smtp', 'secure')
         return v === true
       }
       const hostOf = (field: FlatField): string => {
@@ -303,7 +294,6 @@ export function createMailCardController(
         passwordEnv: typeof scalar(snap, 'passwordEnv') === 'string' ? scalar(snap, 'passwordEnv') as string : PASSWORD_REF,
         mailbox: str('mailbox', typeof scalar(snap, 'mailbox') === 'string' ? scalar(snap, 'mailbox') as string : 'INBOX') || 'INBOX',
         archiveMailbox: str('archiveMailbox', typeof scalar(snap, 'archiveMailbox') === 'string' ? scalar(snap, 'archiveMailbox') as string : 'Archive') || 'Archive',
-        allowDelete: booleanOf('allowDelete'),
         imap: { host: hostOf('imapHost'), port: portNum('imapPort'), secure: booleanOf('imapSecure') },
         smtp: { host: hostOf('smtpHost'), port: portNum('smtpPort'), secure: booleanOf('smtpSecure') },
       })

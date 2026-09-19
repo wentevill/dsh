@@ -1,14 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { isValidElement } from 'react'
+import { renderConfluenceConfig } from '../src/client/index.tsx'
 import { CONFLUENCE_CARD_SLOT_OPTIONS } from '../src/client/slot-options.ts'
 import { unwrapRemote } from '../src/client/remote-result.ts'
 import { en, zh } from '../src/client/locales.ts'
 
 describe('Confluence settings client contract', () => {
-  it('registers its card under the Host settings namespace', () => {
+  it('registers configuration on its installed bundle page', () => {
     expect(CONFLUENCE_CARD_SLOT_OPTIONS).toEqual({
-      name: 'settings.plugin.item', key: 'confluence', locale: 'settings.plugins.confluence',
+      name: 'plugins.bundle.config', key: 'dsh-confluence', locale: 'settings.plugins.confluence',
     })
+  })
+
+  it('renders a summary separately from the configuration page', () => {
+    const props = { view: 'summary' as const, t: (key: string) => key }
+    expect(renderConfluenceConfig(props as never, {}, {} as never)).toBe('description')
+    expect(isValidElement(renderConfluenceConfig({ ...props, view: 'page' } as never, {}, {} as never))).toBe(true)
   })
 
   it('ships complete English and Chinese settings dictionaries', () => {

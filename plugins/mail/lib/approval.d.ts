@@ -15,6 +15,7 @@ export interface MailDeleteApprovalMetadata {
     readonly from: readonly MailAddress[];
 }
 export interface MailApprovalPreparer {
+    ownsMutation?(name: string): boolean;
     prepareSend(exec: Readonly<ToolExecution>): Promise<MailSendApprovalMetadata>;
     prepareDelete(exec: Readonly<ToolExecution>): Promise<MailDeleteApprovalMetadata>;
 }

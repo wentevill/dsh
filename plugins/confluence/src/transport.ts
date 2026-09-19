@@ -166,6 +166,23 @@ export class FetchConfluenceTransport {
     if (response.body !== null) void response.body.cancel().catch(() => undefined)
   }
 
+  async deletePage(connection: ConfluenceConnection, pageId: string, signal?: AbortSignal): Promise<void> {
+    const timeout = AbortSignal.timeout(this.timeoutMs)
+    const combined = signal === undefined ? timeout : AbortSignal.any([signal, timeout])
+    let response: Response
+    try {
+      response = await this.fetch(`${connection.baseUrl}/rest/api/content/${encodeURIComponent(pageId)}`, {
+        method: 'DELETE', redirect: 'manual', signal: combined,
+        headers: { Accept: 'application/json', Authorization: `Bearer ${connection.token}` },
+      })
+    } catch {
+      throw new ConfluenceError('confluence: write result is indeterminate; read before retrying', 'CONFLUENCE_WRITE_INDETERMINATE')
+    }
+    if (response.status >= 300 && response.status < 400) throw confluenceError('redirects are not allowed', 'CONFLUENCE_REDIRECT_REJECTED')
+    if (!response.ok) throw statusError(response.status)
+    if (response.body !== null) void response.body.cancel().catch(() => undefined)
+  }
+
   serverInformation(connection: ConfluenceConnection, signal?: AbortSignal) {
     return this.request(connection, 'GET', '/rest/api/server-information', serverInformationSchema, undefined, signal)
   }

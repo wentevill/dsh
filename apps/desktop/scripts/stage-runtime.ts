@@ -79,7 +79,6 @@ export function stageRuntime(
     // A second install updates only this disposable assembly's lock and links.
     copyPackagingPackage(join(packagingRoot, 'apps/desktop'), join(assembly, 'apps/desktop'))
     copyPackagingPackage(join(packagingRoot, 'packages/mail'), join(assembly, 'packages/mail'))
-    copyPluginManagerPackage(join(packagingRoot, 'plugins/manager'), join(assembly, 'packages/extensions/plugin-manager'))
     augmentDesktopRuntimeClosure(assembly)
     execFileSync('corepack', ['pnpm', 'install', '--lockfile-only', '--no-frozen-lockfile'], { cwd: assembly, env: environment, stdio: 'inherit' })
     verifyPackageIntegrity(join(assembly, 'pnpm-lock.yaml'), 'pnpm', config.pnpmVersion, config.pnpmIntegrity)
@@ -107,86 +106,74 @@ export function stageRuntime(
     rmSync(join(deploy, 'node_modules/.pnpm/lock.yaml'), { force: true })
     mkdirSync(join(staged, 'app'))
     renameSync(join(deploy, 'node_modules'), join(staged, 'app', 'node_modules'))
-    stagePluginManagerAssets(
-      join(assembly, 'packages/extensions/plugin-manager'),
-      join(packagingRoot, 'apps/desktop/scripts/ensure-plugin-manager.mjs'),
-      staged,
-      (source, destination) => {
-        packPluginManagerPackage(source, destination, (command, args, cwd) => {
-          execFileSync(command, args, { cwd, env: environment, stdio: 'inherit' })
-        })
+    patchLegacyTypertCompatibility(join(staged, 'app'))
+    installStagedRuntime(staged, destination)
+  } finally {
+    rmSync(temporary, { recursive: true, force: true })
+  }
+}
+
+const TYPERT_COMPATIBILITY_TARGETS = [
+  '@deepseek-ai/dsh-typert-loader/lib/index.js',
+  '@deepseek-ai/dsh-typert-registry/lib/index.js',
+  '@deepseek-ai/dsh-typert-registry/lib/client.js',
+] as const
+
+/** Accept pre-v0.1.6 generated Typert manifests that expose eager `schema` values. */
+export function patchLegacyTypertCompatibility(appRoot: string): void {
+  for (const target of TYPERT_COMPATIBILITY_TARGETS) {
+    const path = join(appRoot, 'node_modules', target)
+    let source = readFileSync(path, 'utf8')
+    let schemas = 0
+    let codecs = 0
+    source = source.replace(
+      /if \(typeof schema\.create !== "function"\) throw new Error\(([^;\n]+)\);/gu,
+      (_match, error: string) => {
+        schemas += 1
+        return `if (typeof schema.create !== "function") {\n\t\t\tconst legacySchema = schema.schema;\n\t\t\tif (legacySchema === void 0) throw new Error(${error});\n\t\t\tschema.create = () => legacySchema;\n\t\t}`
       },
     )
-    rmSync(destination, { recursive: true, force: true })
-    renameSync(staged, destination)
-  } finally {
-    rmSync(temporary, { recursive: true, force: true })
+    source = source.replace(
+      /if \(typeof codec\.create !== "function"\) throw new Error\(([^;\n]+)\);/gu,
+      (_match, error: string) => {
+        codecs += 1
+        return `if (typeof codec.create !== "function") {\n\t\tconst legacySchema = codec.schema;\n\t\tif (legacySchema === void 0) throw new Error(${error});\n\t\tcodec.create = () => legacySchema;\n\t}`
+      },
+    )
+    if (schemas === 0 || codecs === 0) {
+      throw new Error(`Typert compatibility anchors are missing from ${target}`)
+    }
+    writeFileSync(path, source)
   }
 }
 
-export type PluginManagerPackRunner = (source: string, destination: string) => void
-
-export function packPluginManagerPackage(
-  source: string,
-  destination: string,
-  run: RuntimeCommandInDirectoryRunner = (command, args, cwd) => execFileSync(command, args, { cwd, stdio: 'inherit' }),
-): void {
-  mkdirSync(destination, { recursive: true })
-  const temporary = mkdtempSync(join(dirname(destination), '.plugin-manager-pack-'))
-  const production = join(temporary, 'package')
-  try {
-    run('corepack', [
-      'pnpm', '--config.ignore-scripts=true', '--config.inject-workspace-packages=true', '--config.node-linker=hoisted',
-      '--config.auto-install-peers=false', '--filter', 'dsh-plugin-manager',
-      'deploy', '--prod', production,
-    ], source)
-    const manifestPath = join(production, 'package.json')
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
-      name?: string
-      version?: string
-      scripts?: Record<string, string>
-    }
-    if (manifest.name !== 'dsh-plugin-manager' || !manifest.version) {
-      throw new Error('Plugin manager production deployment has an invalid manifest')
-    }
-    for (const lifecycle of ['prepack', 'prepare', 'prepublishOnly', 'postpack']) delete manifest.scripts?.[lifecycle]
-    writeFileSync(manifestPath, `${JSON.stringify(manifest, undefined, 2)}\n`)
-    const archive = join(destination, `dsh-plugin-manager-${manifest.version}.tgz`)
-    run('tar', ['-czf', archive, '-C', temporary, 'package'], source)
-  } finally {
-    rmSync(temporary, { recursive: true, force: true })
-  }
-}
-
-export function stagePluginManagerAssets(
-  managerRoot: string,
-  bootstrapPath: string,
-  staged: string,
-  pack: PluginManagerPackRunner,
-): void {
-  const plugins = join(staged, 'plugins')
-  const app = join(staged, 'app')
-  mkdirSync(plugins, { recursive: true })
-  mkdirSync(app, { recursive: true })
-  pack(managerRoot, plugins)
-  const archives = readdirSync(plugins).filter(name => /^dsh-plugin-manager-.+\.tgz$/u.test(name))
-  if (archives.length !== 1) {
-    throw new Error(`Plugin manager pack produced ${archives.length} archives`)
-  }
-  renameSync(join(plugins, archives[0]!), join(plugins, 'dsh-plugin-manager.tgz'))
-  copyFileSync(bootstrapPath, join(app, 'ensure-plugin-manager.mjs'))
+export function installStagedRuntime(staged: string, destination: string): void {
+  rmSync(destination, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
+  renameSync(staged, destination)
 }
 
 /** Make Desktop-only capabilities part of the installed dsh closure used by profile peer fallback. */
 export function augmentDesktopRuntimeClosure(assembly: string): void {
   const cliPath = join(assembly, 'apps/cli/package.json')
   const desktopPath = join(assembly, 'apps/desktop/package.json')
+  const workspacePath = join(assembly, 'pnpm-workspace.yaml')
+  const tsdownPath = join(assembly, 'tsdown.config.ts')
   const cli = JSON.parse(readFileSync(cliPath, 'utf8')) as { dependencies?: Record<string, string> }
   const desktop = JSON.parse(readFileSync(desktopPath, 'utf8')) as { dependencies?: Record<string, string> }
   const additions = Object.fromEntries(Object.entries(desktop.dependencies ?? {})
-    .filter(([name, version]) => name !== '@deepseek-ai/dsh' && name !== 'pnpm' && version.startsWith('workspace:')))
+    .filter(([name, version]) => !['@deepseek-ai/dsh', 'dsh-plugin-manager', 'pnpm'].includes(name) && version.startsWith('workspace:')))
   cli.dependencies = { ...cli.dependencies, ...additions }
   writeFileSync(cliPath, JSON.stringify(cli, undefined, 2) + '\n')
+  const workspace = readFileSync(workspacePath, 'utf8')
+  writeFileSync(workspacePath, workspace.replace(
+    /^  '@electron\/osx-sign@1\.3\.3': patches\/@electron__osx-sign@1\.3\.3\.patch\n/m,
+    '',
+  ))
+  const tsdown = readFileSync(tsdownPath, 'utf8')
+  writeFileSync(tsdownPath, tsdown.replace(
+    ", 'apps/desktop', 'apps/desktop-host'",
+    ", 'apps/desktop-host'",
+  ))
 }
 
 export function createStageDirectory(destination: string, stagingParent: string): string {
@@ -209,18 +196,11 @@ export function buildEnvironment(
 }
 
 function copyPackagingPackage(source: string, destination: string): void {
+  rmSync(destination, { recursive: true, force: true })
   cpSync(source, destination, {
     recursive: true,
     filter: path => !path.split('/').some(segment => ['node_modules', 'target', 'resources'].includes(segment)),
   })
-}
-
-export function copyPluginManagerPackage(source: string, destination: string): void {
-  copyPackagingPackage(source, destination)
-  const configPath = join(destination, 'tsconfig.json')
-  const config = JSON.parse(readFileSync(configPath, 'utf8')) as { extends?: string }
-  if (config.extends === '../../tsconfig.base.json') config.extends = '../../../tsconfig.base.json'
-  writeFileSync(configPath, JSON.stringify(config, undefined, 2) + '\n')
 }
 
 export function materializeRuntimeLinks(nodeModules: string): void {

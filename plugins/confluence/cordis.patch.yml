@@ -5,3 +5,6 @@
         baseUrl: ""
         allowAllSpaces: false
         allowedSpaceKeys: []
+    - id: confluence-delete
+      name: dsh-confluence/delete
+      disabled: true

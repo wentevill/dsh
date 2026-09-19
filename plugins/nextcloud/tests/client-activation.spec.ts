@@ -6,9 +6,10 @@ describe('Nextcloud client activation', () => {
   it('defers reading settings until the card mounts', async () => {
     const ctx = new Context()
     let component: ((props: { t: (key: string) => string }) => unknown) | undefined
+    let registration: { name?: string; key?: string } = {}
     const settings = {
       serverUrl: '', username: '', accessMode: 'all' as const, allowedRoots: [],
-      allowDelete: false, allowHttp: false, skipTlsVerify: false,
+      allowHttp: false, skipTlsVerify: false,
     }
     const nextcloudSettings = { load: vi.fn(async () => ({ ok: true, value: { settings } })) }
     const credentials = { set: async () => ({ ok: true, value: undefined }) }
@@ -16,9 +17,10 @@ describe('Nextcloud client activation', () => {
     ctx.provide('remote', remote)
     ctx.provide('remote.nextcloudSettings', nextcloudSettings)
     ctx.provide('remote.credentials', credentials)
-    ctx.provide('locale', { register: () => () => undefined })
+    ctx.provide('locale', { register: () => () => undefined, bind: () => (key: string) => key })
     ctx.provide('slots', {
-      register(_options: unknown, contribution: typeof component) {
+      register(options: typeof registration, contribution: typeof component) {
+        registration = options
         component = contribution
         return () => undefined
       },
@@ -30,6 +32,7 @@ describe('Nextcloud client activation', () => {
 
     const fiber = ctx.plugin({ inject, apply })
     await fiber.await()
+    expect(registration).toMatchObject({ name: 'plugins.bundle.config', key: 'dsh-nextcloud' })
     expect(nextcloudSettings.load).not.toHaveBeenCalled()
     expect(component).toBeTypeOf('function')
     expect(() => component?.({ t: key => key })).not.toThrow()

@@ -9,11 +9,13 @@ make pack-plugin PLUGIN=nextcloud
 make install-plugin PLUGIN=nextcloud
 ```
 
-也可以把生成的 `dsh-nextcloud-0.1.1.tgz` 拖入 Desktop 的插件管理器。插件独立安装，不随 Desktop 默认预装。
+也可以把生成的 `dsh-nextcloud-0.1.7.tgz` 拖入 Desktop 的插件管理器。插件独立安装，不随 Desktop 默认预装。
 
 安装后打开 **Settings → Plugins → Nextcloud 文件**，填写服务器根地址（包含部署子路径但不要包含 `/remote.php/dav`）、用户名和 Nextcloud 应用密码。应用密码只保存在 Harness credentials 的 `NEXTCLOUD_APP_PASSWORD` 中。
 
-访问范围可以选择整个账号文件区，或配置多个绝对目录白名单。白名单同时约束读取路径以及移动操作的源和目标。删除默认关闭；启用后仍需要每次人工审批，并且不能删除文件根目录或白名单根本身。
+访问范围可以选择整个账号文件区，或配置多个绝对目录白名单。白名单同时约束读取路径以及移动操作的源和目标。
+
+插件包含两个 Component：`nextcloud` 提供常规文件与共享能力，`nextcloud-delete` 只提供文件和目录删除能力。删除 Component 默认关闭，可在插件详情页单独启用；启用后仍需要每次人工审批，并且不能删除文件根目录或白名单根本身。
 
 默认只允许证书有效的 HTTPS。设置卡可以分别显式允许 HTTP 或跳过 TLS 证书校验，这两个选项会降低连接安全性。
 

@@ -4,8 +4,6 @@ window.__ModuleLoader__.load({
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		let react = require("react");
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
 		//#region node_modules/zod/v4/core/core.js
@@ -4008,7 +4006,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			"passwordEnv": string(),
 			"mailbox": string(),
 			"archiveMailbox": string(),
-			"allowDelete": boolean(),
 			"imap": object({
 				"host": string(),
 				"port": number(),
@@ -4025,7 +4022,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			"passwordEnv": string(),
 			"mailbox": string(),
 			"archiveMailbox": string(),
-			"allowDelete": boolean(),
 			"imap": object({
 				"host": string(),
 				"port": number(),
@@ -4042,7 +4038,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			"passwordEnv": string(),
 			"mailbox": string(),
 			"archiveMailbox": string(),
-			"allowDelete": boolean(),
 			"imap": object({
 				"host": string(),
 				"port": number(),
@@ -4070,7 +4065,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				},
 				sourceLocation: {
 					"file": "packages/mail/src/index.ts",
-					"line": 69,
+					"line": 67,
 					"column": 3
 				}
 			}, {
@@ -4096,7 +4091,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				},
 				sourceLocation: {
 					"file": "packages/mail/src/index.ts",
-					"line": 77,
+					"line": 75,
 					"column": 9
 				}
 			}]
@@ -4208,87 +4203,46 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		}
 		//#endregion
 		//#region src/client/PluginCard.tsx
-		/**
-		* One plugin's card: a header naming the plugin and what its settings govern,
-		* disclosing that plugin's controls in place, with the save that writes them.
-		*
-		* Vendored from the reference `ui-settings-plugins/src/client/PluginCard.tsx`
-		* (same markup + behavior) but sourcing its class names from this bundle's own
-		* prefixed stylesheet, so an external client needs none of the web shell's
-		* content-hashed CSS-module names.
-		*/
 		/** Render one plugin card. */
 		function PluginCard(props) {
-			const [open, setOpen] = (0, react.useState)(false);
 			ensureCardCSS();
 			const { state } = props;
 			if (!state.available) return null;
-			const title = props.t(props.titleKey);
 			const blocked = !state.dirty || state.invalid || state.saving;
-			const cardCls = open ? `${css.card} ${css.cardOpen}` : css.card;
-			const chevronCls = open ? `${css.chevron} ${css.chevronOpen}` : css.chevron;
-			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
-				className: cardCls,
-				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
-					type: "button",
-					className: css.header,
-					"aria-expanded": open,
-					"aria-label": `${props.t(open ? "collapse" : "expand")}: ${title}`,
-					onClick: () => {
-						setOpen(!open);
-					},
-					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
-							className: css.headText,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: css.name,
-								children: title
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: css.description,
-								children: props.t(props.descriptionKey)
-							})]
-						}),
-						state.dirty ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: css.pending,
-							children: props.t("unsaved")
-						}) : null,
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutline14, { className: chevronCls })
-					]
-				}), open ? /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-					className: css.body,
-					children: [
-						!state.writable ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-							className: css.readOnly,
-							role: "status",
-							children: props.t("readOnly")
-						}) : null,
-						props.children,
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-							className: css.footer,
-							children: [
-								state.failed ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-									className: css.failed,
-									role: "status",
-									children: props.t("saveFailed")
-								}) : null,
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: css.discard,
-									disabled: !state.dirty || state.saving,
-									onClick: props.onDiscard,
-									children: props.t("discard")
-								}),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: css.save,
-									disabled: blocked,
-									onClick: props.onSave,
-									children: props.t(state.saving ? "saving" : "save")
-								})
-							]
-						})
-					]
-				}) : null]
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+				className: css.body,
+				children: [
+					!state.writable ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: css.readOnly,
+						role: "status",
+						children: props.t("readOnly")
+					}) : null,
+					props.children,
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: css.footer,
+						children: [
+							state.failed ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: css.failed,
+								role: "status",
+								children: props.t("saveFailed")
+							}) : null,
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: css.discard,
+								disabled: !state.dirty || state.saving,
+								onClick: props.onDiscard,
+								children: props.t("discard")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: css.save,
+								disabled: blocked,
+								onClick: props.onSave,
+								children: props.t(state.saving ? "saving" : "save")
+							})
+						]
+					})
+				]
 			});
 		}
 		//#endregion
@@ -4411,6 +4365,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		}
 		//#endregion
 		//#region src/client/MailCard.tsx
+		function MailConfig(props) {
+			return props.view === "summary" ? props.t("mailDescription") : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(MailCard, { ...props });
+		}
 		function MailCard(props) {
 			const { t } = props;
 			const state = props.useMailCard((s) => s);
@@ -4418,8 +4375,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			const disabled = !state.writable;
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(PluginCard, {
 				t: readT,
-				titleKey: "mailTitle",
-				descriptionKey: "mailDescription",
 				state,
 				onSave: props.save,
 				onDiscard: props.discard,
@@ -4427,23 +4382,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: css.status,
 						role: "status",
-						children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
-								readT("mailReceiveStatus"),
-								": ",
-								readT(state.status.receive ? "mailStatusEnabled" : "mailStatusDisabled")
-							] }),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
-								readT("mailSendStatus"),
-								": ",
-								readT(state.status.send ? "mailStatusEnabled" : "mailStatusDisabled")
-							] }),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
-								readT("mailDeleteStatus"),
-								": ",
-								readT(state.status.permanentDelete ? "mailStatusEnabled" : "mailStatusDisabled")
-							] })
-						]
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
+							readT("mailReceiveStatus"),
+							": ",
+							readT(state.status.receive ? "mailStatusEnabled" : "mailStatusDisabled")
+						] }), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", { children: [
+							readT("mailSendStatus"),
+							": ",
+							readT(state.status.send ? "mailStatusEnabled" : "mailStatusDisabled")
+						] })]
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
 						id: "mail-username",
@@ -4489,14 +4436,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 						disabled,
 						onEdit: (v) => props.edit("archiveMailbox", v),
 						onReset: () => props.resetField("archiveMailbox")
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(CheckField, {
-						id: "mail-allow-delete",
-						label: readT("mailAllowDelete"),
-						hint: readT("mailAllowDeleteHint"),
-						checked: state.allowDelete.text === "true",
-						disabled,
-						onToggle: (c) => props.edit("allowDelete", c ? "true" : "false")
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ValueField, {
 						id: "mail-imap-host",
@@ -5387,13 +5326,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		* by the `passwordEnv` reference this section names. The Host side resolves it
 		* with `ctx.credentials.resolve` on every operation.
 		*/
-		/** Derive operation availability from endpoint configuration and deletion consent. */
+		/** Derive operation availability from endpoint configuration. */
 		function mailCapabilities(settings) {
-			const imap = settings.imap.host.trim() !== "";
 			return {
-				imap,
-				smtp: settings.smtp.host.trim() !== "",
-				delete: imap && settings.allowDelete
+				imap: settings.imap.host.trim() !== "",
+				smtp: settings.smtp.host.trim() !== ""
 			};
 		}
 		/** Endpoint schema for a given default port (`imap` 993, `smtp` 465). */
@@ -5409,7 +5346,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			passwordEnv: Schema.string().role("credential-ref").default("MAIL_APP_PASSWORD"),
 			mailbox: Schema.string().default("INBOX"),
 			archiveMailbox: Schema.string().default("Archive"),
-			allowDelete: Schema.boolean().default(false),
 			imap: endpoint(993),
 			smtp: endpoint(465)
 		});
@@ -5457,11 +5393,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			"smtpHost"
 		]);
 		const PORT_FIELDS = /* @__PURE__ */ new Set(["imapPort", "smtpPort"]);
-		const BOOLEAN_FIELDS = /* @__PURE__ */ new Set([
-			"imapSecure",
-			"smtpSecure",
-			"allowDelete"
-		]);
+		const BOOLEAN_FIELDS = /* @__PURE__ */ new Set(["imapSecure", "smtpSecure"]);
 		const isFlat = (field) => field === "password" || TEXT_FIELDS.has(field) || PORT_FIELDS.has(field) || BOOLEAN_FIELDS.has(field);
 		/**
 		* Build the mail card controller.
@@ -5504,7 +5436,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 						invalid
 					};
 				}
-				const stored = field === "allowDelete" ? storedScalar(snap, field) : BOOLEAN_FIELDS.has(field) ? storedGroup(snap, field === "imapSecure" ? "imap" : "smtp") : field === "imapHost" || field === "imapPort" ? storedGroup(snap, "imap") : field === "smtpHost" || field === "smtpPort" ? storedGroup(snap, "smtp") : storedScalar(snap, field);
+				const stored = BOOLEAN_FIELDS.has(field) ? storedGroup(snap, field === "imapSecure" ? "imap" : "smtp") : field === "imapHost" || field === "imapPort" ? storedGroup(snap, "imap") : field === "smtpHost" || field === "smtpPort" ? storedGroup(snap, "smtp") : storedScalar(snap, field);
 				return {
 					text: valueOf(snap, field),
 					overridden: stored,
@@ -5525,7 +5457,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					passwordEnv: PASSWORD_REF,
 					mailbox: "INBOX",
 					archiveMailbox: "Archive",
-					allowDelete: valueOf(snap, "allowDelete") === "true",
 					imap: {
 						host: valueOf(snap, "imapHost"),
 						port: 993,
@@ -5539,8 +5470,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				});
 				const status = {
 					receive: capabilities.imap,
-					send: capabilities.smtp,
-					permanentDelete: capabilities.delete
+					send: capabilities.smtp
 				};
 				return {
 					available,
@@ -5554,7 +5484,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					username: fieldState(snap, "username"),
 					mailbox: fieldState(snap, "mailbox"),
 					archiveMailbox: fieldState(snap, "archiveMailbox"),
-					allowDelete: fieldState(snap, "allowDelete"),
 					imapHost: fieldState(snap, "imapHost"),
 					imapPort: fieldState(snap, "imapPort"),
 					imapSecure: fieldState(snap, "imapSecure"),
@@ -5630,7 +5559,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					const booleanOf = (field) => {
 						const d = submittedDrafts.get(field);
 						if (d !== void 0) return d.text === "true";
-						return (field === "allowDelete" ? scalar(snap, "allowDelete") : field === "imapSecure" ? nested(snap, "imap", "secure") : nested(snap, "smtp", "secure")) === true;
+						return (field === "imapSecure" ? nested(snap, "imap", "secure") : nested(snap, "smtp", "secure")) === true;
 					};
 					const hostOf = (field) => {
 						const d = submittedDrafts.get(field);
@@ -5643,7 +5572,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 						passwordEnv: typeof scalar(snap, "passwordEnv") === "string" ? scalar(snap, "passwordEnv") : PASSWORD_REF,
 						mailbox: str("mailbox", typeof scalar(snap, "mailbox") === "string" ? scalar(snap, "mailbox") : "INBOX") || "INBOX",
 						archiveMailbox: str("archiveMailbox", typeof scalar(snap, "archiveMailbox") === "string" ? scalar(snap, "archiveMailbox") : "Archive") || "Archive",
-						allowDelete: booleanOf("allowDelete"),
 						imap: {
 							host: hostOf("imapHost"),
 							port: portNum("imapPort"),
@@ -5770,7 +5698,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			mailDescription: "Configure the account used to receive and send email; the password lives in key management.",
 			mailReceiveStatus: "Receive",
 			mailSendStatus: "Send",
-			mailDeleteStatus: "Permanent delete",
 			mailStatusEnabled: "Enabled",
 			mailStatusDisabled: "Disabled",
 			mailUsername: "Email account",
@@ -5779,8 +5706,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			mailMailboxHint: "IMAP folder to read, normally INBOX.",
 			mailArchiveMailbox: "Archive mailbox",
 			mailArchiveMailboxHint: "IMAP folder where archived messages are moved.",
-			mailAllowDelete: "Allow permanent deletion",
-			mailAllowDeleteHint: "Allow a permanent, irreversible delete of messages from this account.",
 			mailImapHost: "IMAP server",
 			mailImapHostHint: "The IMAP receive server.",
 			mailImapPort: "IMAP port",
@@ -5815,7 +5740,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			mailDescription: "配置用于收发邮件的账号；密码保存在密钥管理中。",
 			mailReceiveStatus: "接收",
 			mailSendStatus: "发送",
-			mailDeleteStatus: "永久删除",
 			mailStatusEnabled: "已启用",
 			mailStatusDisabled: "已禁用",
 			mailUsername: "邮箱账号",
@@ -5824,8 +5748,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			mailMailboxHint: "要读取的 IMAP 文件夹，通常为 INBOX。",
 			mailArchiveMailbox: "归档邮箱",
 			mailArchiveMailboxHint: "归档邮件要移动到的 IMAP 文件夹。",
-			mailAllowDelete: "允许永久删除",
-			mailAllowDeleteHint: "允许永久、不可恢复地删除此账号中的邮件。",
 			mailImapHost: "IMAP 服务器",
 			mailImapHostHint: "接收邮件的 IMAP 服务器。",
 			mailImapPort: "IMAP 端口",
@@ -5886,10 +5808,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		}
 		//#endregion
 		//#region src/client/slot-options.ts
-		/** Keyed registration for the settings namespace owned by Mail. */
+		/** Native configuration on the installed Mail bundle page. */
 		const MAIL_CARD_SLOT_OPTIONS = {
-			name: "settings.plugin.item",
-			key: "mail",
+			name: "plugins.bundle.config",
+			key: "dsh-mail",
 			locale: "settings.plugins.mail"
 		};
 		//#endregion
@@ -5914,11 +5836,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			ctx.effect(() => ctx.remote.$on("credentials/updated", () => {
 				controller.refreshCredential();
 			}), "mail-client: credential invalidations");
-			ctx.slots.inject("settings.plugin.item", function* () {
+			ctx.slots.inject("plugins.bundle.config", function* () {
 				yield ctx.slots.register({
 					...MAIL_CARD_SLOT_OPTIONS,
 					inject: controller.face
-				}, MailCard);
+				}, MailConfig);
 			});
 		}, { inject: [
 			"slots",
@@ -5942,6 +5864,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		exports.MAIL_CARD_SLOT_OPTIONS = MAIL_CARD_SLOT_OPTIONS;
 		exports.MAIL_SETTINGS_NAMESPACE = MAIL_NS;
 		exports.MailCard = MailCard;
+		exports.MailConfig = MailConfig;
 		exports.apply = apply;
 		exports.createMailCardController = createMailCardController;
 		exports.inject = inject;

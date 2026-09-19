@@ -4,6 +4,9 @@
 It provides structured page search and read tools plus approval-gated page creation
 and optimistic-version updates.
 
+The bundle has two Components: `confluence` provides normal page operations,
+while `confluence-delete` provides page deletion and is disabled by default.
+
 ## Configuration
 
 Install the production archive, restart Desktop, then open Plugin configuration:
@@ -23,7 +26,8 @@ certificates are not supported.
 - `confluence_read_page`
 - `confluence_create_page` (human approval required)
 - `confluence_update_page` (human approval and the current page version required)
+- `confluence_delete_page` (separate Component; human approval and the current page version required)
 
 Search uses structured filters rather than arbitrary CQL. Page writes accept a
-safe Markdown subset. Deletion, attachments, comments, page moves, macros,
+safe Markdown subset. Attachments, comments, page moves, macros,
 Confluence Cloud, and raw storage XHTML are outside the first release.

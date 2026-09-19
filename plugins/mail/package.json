@@ -1,6 +1,6 @@
 {
   "name": "dsh-mail",
-  "version": "0.2.3",
+  "version": "0.2.8",
   "description": "TLS-only IMAP and SMTP mail bundle for DeepSeek Harness",
   "type": "module",
   "packageManager": "pnpm@11.7.0",
@@ -10,6 +10,10 @@
     ".": {
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
+    },
+    "./delete": {
+      "types": "./lib/delete.d.ts",
+      "default": "./lib/delete.js"
     },
     "./client": {
       "default": "./lib/client.js"
@@ -51,6 +55,8 @@
   "files": [
     "lib/index.js",
     "lib/index.d.ts",
+    "lib/delete.js",
+    "lib/delete.d.ts",
     "lib/errors.js",
     "lib/errors.d.ts",
     "lib/approval.js",
@@ -135,6 +141,7 @@
     "@deepseek-ai/dsh-invariants": "0.1.2-alpha.5",
     "@deepseek-ai/dsh-llm": "0.1.2-alpha.5",
     "@deepseek-ai/dsh-mail": "workspace:*",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": "0.1.6-alpha.2",
     "@deepseek-ai/dsh-scope": "0.1.2-alpha.5",
     "@deepseek-ai/dsh-session": "0.1.2-alpha.5",
     "@deepseek-ai/dsh-settings": "0.1.2-alpha.5",

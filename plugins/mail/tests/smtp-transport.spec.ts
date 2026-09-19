@@ -7,7 +7,6 @@ const config = {
   passwordRef: { provider: 'env', key: 'MAIL_APP_PASSWORD' },
   mailbox: 'INBOX',
   archiveMailbox: 'Archive',
-  allowDelete: false,
   imap: { host: 'imap.example.com', port: 993, secure: true },
   smtp: { host: 'smtp.example.com', port: 465, secure: true },
 }

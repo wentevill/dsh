@@ -62,12 +62,14 @@ describe('published mail plugin', () => {
   it('declares plugin libraries as dependencies and DSH capabilities as peers', () => {
     const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
       name: string
+      version: string
       dependencies?: Record<string, string>
       peerDependencies?: Record<string, string>
       files?: string[]
       dsh?: { bundle?: { patch?: string } }
     }
     expect(manifest.name).toBe('dsh-mail')
+    expect(manifest.version).toBe('0.2.8')
     expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual(runtimeDependencies)
     expect(Object.keys(manifest.peerDependencies ?? {}).sort()).toEqual([
       '@deepseek-ai/cordis',
@@ -82,6 +84,7 @@ describe('published mail plugin', () => {
     expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
     expect(manifest.files).toEqual(expect.arrayContaining([
       'lib/index.js',
+      'lib/delete.js',
       'lib/client.js',
       'lib/typert.host.js',
       'lib/typert.remote-client.js',
@@ -113,6 +116,8 @@ describe('published mail plugin', () => {
       'package/package.json',
       'package/lib/index.js',
       'package/lib/index.d.ts',
+      'package/lib/delete.js',
+      'package/lib/delete.d.ts',
       'package/lib/errors.js',
       'package/lib/errors.d.ts',
       'package/lib/approval.js',

@@ -61,11 +61,9 @@ Override paths and selection when needed:
 make install-plugin PLUGIN=wecom APP_PATH="/Applications/DeepSeek Harness.app" PROFILE=web
 ```
 
-Desktop bundles `dsh-plugin-manager` and keeps its exact version installed in
-the `web` profile before starting the Web server. Its **Plugin manager** tab,
-immediately after **Plugin list**, accepts one `.tgz` at a time and manages
-dependency-backed plugins by package name and installed version. Changes require
-a manual application restart.
+Desktop uses the official plugin manager shipped by upstream. Harness plugins
+are installed through the official `dsh plugin add` command, and plugin-owned
+configuration opens from the official Plugins page.
 
-Supported variables are `APP_PATH`, `PLUGIN=mail|wecom|confluence|manager|nextcloud`, `PROFILE`, and
+Supported variables are `APP_PATH`, `PLUGIN=mail|wecom|confluence|nextcloud|cron`, `PROFILE`, and
 `DESKTOP_DSH_HOME`. Run `make help` for the command summary.

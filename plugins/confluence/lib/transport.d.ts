@@ -113,6 +113,7 @@ export declare class FetchConfluenceTransport {
     constructor(fetch?: Fetch, options?: TransportOptions);
     private request;
     private writeAck;
+    deletePage(connection: ConfluenceConnection, pageId: string, signal?: AbortSignal): Promise<void>;
     serverInformation(connection: ConfluenceConnection, signal?: AbortSignal): Promise<{
         version: string;
         buildNumber: number;

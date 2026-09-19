@@ -5,9 +5,10 @@ import { buildPageCql } from './cql.ts'
 import { markdownToStorage, storageToText } from './content.ts'
 import { ConfluenceError, confluenceError } from './errors.ts'
 import { normalizeConfluenceSettings, spaceAllowed, type ConfluenceSettings } from './settings.ts'
-import type { ConfluenceApprovalPreparer } from './approval.ts'
+import { createConfluenceApprovalPolicy, type ConfluenceApprovalPreparer } from './approval.ts'
 import type { ConfluenceConnection, FetchConfluenceTransport } from './transport.ts'
 import { confluencePatRef } from './remote-settings.ts'
+import type { Context } from '@deepseek-ai/cordis'
 
 interface SettingsScopeLike {
   get(): ConfluenceSettings
@@ -22,15 +23,21 @@ interface ToolRegistryLike {
   register(definition: ToolDefinition): () => void | Promise<void>
 }
 
-interface ManagerOptions {
+export interface ConfluenceManagerOptions {
   tools: ToolRegistryLike
   scope: SettingsScopeLike
   credentials: CredentialsLike
-  transport: Pick<FetchConfluenceTransport, 'searchPages' | 'readPage' | 'createPage' | 'updatePage'>
+  transport: Pick<FetchConfluenceTransport, 'searchPages' | 'readPage' | 'createPage' | 'updatePage' | 'deletePage'>
+}
+
+export interface ConfluenceRuntime { readonly options: ConfluenceManagerOptions }
+
+declare module '@deepseek-ai/cordis' {
+  interface Context { confluenceRuntime: ConfluenceRuntime }
 }
 
 interface ApprovalBinding {
-  kind: 'create' | 'update'
+  kind: 'create' | 'update' | 'delete'
   argsHash: string
   settingsHash: string
 }
@@ -101,7 +108,7 @@ export class ConfluenceCapabilityManager implements ConfluenceApprovalPreparer {
   private readonly unwatch: () => void
   private disposed = false
 
-  constructor(private readonly options: ManagerOptions) {
+  constructor(private readonly options: ConfluenceManagerOptions, private readonly component: 'standard' | 'delete' = 'standard') {
     this.reconcileSync()
     this.unwatch = options.scope.watch(async () => {
       this.bindings.clear()
@@ -121,6 +128,12 @@ export class ConfluenceCapabilityManager implements ConfluenceApprovalPreparer {
   }
 
   releaseApproval(exec: Readonly<ToolExecution>): void { this.bindings.delete(exec.token) }
+
+  ownsMutation(name: string): boolean {
+    return this.component === 'delete'
+      ? name === 'confluence_delete_page'
+      : name === 'confluence_create_page' || name === 'confluence_update_page'
+  }
 
   async prepareMutation(exec: Readonly<ToolExecution>): Promise<{ reason: string }> {
     this.assertActive()
@@ -150,6 +163,15 @@ export class ConfluenceCapabilityManager implements ConfluenceApprovalPreparer {
       const title = optionalString(args.title, 'title', 255) ?? current.title
       const versionMessage = optionalString(args.versionMessage, 'versionMessage', 500)
       reason = `Update Confluence page ${quoteUntrusted(current.title)} (${quoteUntrusted(pageId)}) in space ${quoteUntrusted(current.space.key)} from version ${expectedVersion} to title ${quoteUntrusted(title)}${versionMessage === undefined ? '' : ` with version message ${quoteUntrusted(versionMessage)}`} using ${markdown.length} Markdown characters? Preview: ${quoteUntrusted(markdown, 160)}.`
+    } else if (exec.name === 'confluence_delete_page') {
+      kind = 'delete'
+      const pageId = string(args.pageId, 'pageId', 128)
+      const expectedVersion = integer(args.expectedVersion, 0, 1, Number.MAX_SAFE_INTEGER - 1, 'expectedVersion')
+      const current = await this.options.transport.readPage(await this.connection(settings), pageId, this.operationSignal(exec.signal))
+      this.assertSettings(settings)
+      this.requireSpace(settings, current.space.key)
+      if (current.version.number !== expectedVersion) throw confluenceError('page version changed; read it again before deleting', 'CONFLUENCE_CONFLICT')
+      reason = `Delete Confluence page ${quoteUntrusted(current.title)} (${quoteUntrusted(pageId)}) in space ${quoteUntrusted(current.space.key)} at version ${expectedVersion}?`
     } else {
       throw confluenceError('mutation approval is unavailable', 'CONFLUENCE_INPUT_INVALID')
     }
@@ -212,7 +234,9 @@ export class ConfluenceCapabilityManager implements ConfluenceApprovalPreparer {
   }
 
   private definitions(): ToolDefinition[] {
-    return [this.searchTool(), this.readTool(), this.createTool(), this.updateTool()]
+    return this.component === 'delete'
+      ? [this.deleteTool()]
+      : [this.searchTool(), this.readTool(), this.createTool(), this.updateTool()]
   }
 
   private searchTool(): ToolDefinition {
@@ -333,4 +357,31 @@ export class ConfluenceCapabilityManager implements ConfluenceApprovalPreparer {
       },
     }
   }
+
+  private deleteTool(): ToolDefinition {
+    return {
+      name: 'confluence_delete_page', description: 'Delete one allowed Confluence page after fresh human approval.',
+      parameters: { pageId: { type: 'string', required: true }, expectedVersion: { type: 'integer', required: true } }, output: textOutput,
+      execute: async (args, exec) => {
+        const settings = this.takeApproval(exec, 'delete')
+        const input = object(args)
+        const pageId = string(input.pageId, 'pageId', 128)
+        const expectedVersion = integer(input.expectedVersion, 0, 1, Number.MAX_SAFE_INTEGER - 1, 'expectedVersion')
+        const connection = await this.connection(settings)
+        const current = await this.options.transport.readPage(connection, pageId, this.operationSignal(exec.signal))
+        this.assertSettings(settings)
+        this.requireSpace(settings, current.space.key)
+        if (current.version.number !== expectedVersion) throw confluenceError('page version changed; read it again before deleting', 'CONFLUENCE_CONFLICT')
+        await this.options.transport.deletePage(connection, pageId, this.operationSignal(exec.signal))
+        return JSON.stringify({ id: pageId, deleted: true })
+      },
+    }
+  }
+}
+
+export function mountConfluenceDeleteComponent(ctx: Context): void {
+  const manager = new ConfluenceCapabilityManager(ctx.confluenceRuntime.options, 'delete')
+  ctx.effect(() => async () => { await manager.dispose() }, 'confluence-delete.tools')
+  ctx.on('tools/pre-execute', (exec, next) => createConfluenceApprovalPolicy(manager)(exec, next))
+  ctx.on('tools/result', exec => { manager.releaseApproval(exec) })
 }

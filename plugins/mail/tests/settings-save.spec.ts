@@ -42,11 +42,26 @@ async function loadController() {
   }
   ;(globalThis as unknown as { window: unknown }).window = { __ModuleLoader__: loader }
   Function(readFileSync(resolve(import.meta.dirname, '../lib/client.js'), 'utf8'))()
-  return exports as { createMailCardController: (scope: unknown, api: unknown, saveSettings: (settings: Record<string, unknown>) => Promise<{ settings: Record<string, unknown> }>, available: boolean) => {
-    face(): { hooks: { mailCard: { getSnapshot(): { dirty: boolean; saving: boolean; failed: boolean; status: { receive: boolean; send: boolean; permanentDelete: boolean }; smtpHost: { text: string }; password: { text: string }; passwordConfigured: boolean; passwordWritable: boolean }; subscribe(listener: () => void): () => void } }; edit(field: string, value: string): void; resetField(field: string): void; save(): void }
+  const loaded = exports as { createMailCardController: (scope: unknown, credentials: unknown, saveSettings: (settings: Record<string, unknown>) => Promise<{ settings: Record<string, unknown> }>, available: boolean) => {
+    face(): { hooks: { mailCard: { getSnapshot(): { dirty: boolean; saving: boolean; failed: boolean; status: { receive: boolean; send: boolean }; smtpHost: { text: string }; password: { text: string }; passwordConfigured: boolean; passwordWritable: boolean }; subscribe(listener: () => void): () => void } }; edit(field: string, value: string): void; resetField(field: string): void; save(): void }
     refreshCredential(): void
     dispose(): void
   } }
+  return {
+    createMailCardController(scope: unknown, api: any, saveSettings: any, available: boolean) {
+      const legacy = api.credentials
+      const credentials = {
+        async describe(...args: unknown[]) {
+          const result = (await legacy.describe(...args)).result
+          return result.ok && result.value?.credentials
+            ? { ...result, value: result.value.credentials }
+            : result
+        },
+        async set(...args: unknown[]) { return (await legacy.set(...args)).result },
+      }
+      return loaded.createMailCardController(scope, credentials, saveSettings, available)
+    },
+  }
 }
 
 afterEach(() => { delete (globalThis as unknown as { window?: unknown }).window })
@@ -63,7 +78,7 @@ function baseSnapshot(): Snapshot {
   return {
     writable: true,
     value: {
-      username: 'user@example.com', mailbox: 'INBOX', archiveMailbox: 'Archive', allowDelete: false,
+      username: 'user@example.com', mailbox: 'INBOX', archiveMailbox: 'Archive',
       imap: { host: 'imap.example.com', port: 993, secure: true },
       smtp: { host: 'smtp.example.com', port: 465, secure: true },
     },
@@ -71,12 +86,12 @@ function baseSnapshot(): Snapshot {
 }
 
 describe('mail settings save', () => {
-  it('projects receive, send, and permanent-delete status independently', async () => {
+  it('projects receive and send status independently', async () => {
     const { createMailCardController } = await loadController()
     const snapshot: Snapshot = {
       writable: true,
       value: {
-        username: 'user@example.com', mailbox: 'INBOX', archiveMailbox: 'Archive', allowDelete: true,
+        username: 'user@example.com', mailbox: 'INBOX', archiveMailbox: 'Archive',
         imap: { host: 'imap.test', port: 993, secure: true },
         smtp: { host: '', port: 465, secure: true },
       },
@@ -89,10 +104,10 @@ describe('mail settings save', () => {
     )
     const face = controller.face()
 
-    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: true, send: false, permanentDelete: true })
+    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: true, send: false })
     face.edit('imapHost', '')
     face.edit('smtpHost', 'smtp.test')
-    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: false, send: true, permanentDelete: false })
+    expect(face.hooks.mailCard.getSnapshot().status).toEqual({ receive: false, send: true })
   })
 
   it('saves the complete mail section through the mail-owned Host boundary', async () => {
@@ -118,7 +133,6 @@ describe('mail settings save', () => {
       passwordEnv: 'MAIL_APP_PASSWORD',
       mailbox: 'INBOX',
       archiveMailbox: 'Archive',
-      allowDelete: false,
       imap: { host: 'imap.example.com', port: 993, secure: true },
       smtp: { host: 'smtp.changed.example.com', port: 465, secure: true },
     }])

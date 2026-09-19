@@ -5213,10 +5213,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		};
 		//#endregion
 		//#region src/client/slot-options.ts
-		/** Keyed registration for the settings namespace owned by WeCom. */
+		/** Native configuration on the installed WeCom bundle page. */
 		const WECOM_CARD_SLOT_OPTIONS = {
-			name: "settings.plugin.item",
-			key: "wecom",
+			name: "plugins.bundle.config",
+			key: "dsh-wecom",
 			locale: "settings.plugins.wecom"
 		};
 		//#endregion
@@ -5385,19 +5385,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				"ready",
 				"sync_failed"
 			].includes(snapshot.state);
-			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: css.card,
 				children: [
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: css.heading,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h3", {
-							className: css.title,
-							children: t("title")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-							className: css.description,
-							children: t("description")
-						})]
-					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("p", {
 						className: css.status,
 						role: "status",
@@ -5469,6 +5459,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				]
 			});
 		}
+		function renderWeComConfig(props, api) {
+			return props.view === "summary" ? props.t("description") : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(WeComCard, {
+				api,
+				t: props.t
+			});
+		}
 		const name = "wecom-client";
 		const inject = ["remote"];
 		async function apply(ctx) {
@@ -5478,11 +5474,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 					zh,
 					en
 				}), "wecom-client: dictionaries");
-				child.slots.inject("settings.plugin.item", function* () {
-					yield child.slots.register(WECOM_CARD_SLOT_OPTIONS, (props) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(WeComCard, {
-						api: child.remote.wecomAuth,
-						t: props.t
-					}));
+				child.slots.inject("plugins.bundle.config", function* () {
+					yield child.slots.register(WECOM_CARD_SLOT_OPTIONS, (props) => renderWeComConfig(props, child.remote.wecomAuth));
 				});
 			}, { inject: [
 				"slots",
@@ -5500,6 +5493,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		exports.apply = apply;
 		exports.inject = inject;
 		exports.name = name;
+		exports.renderWeComConfig = renderWeComConfig;
 		return module.exports;
 	}
 });

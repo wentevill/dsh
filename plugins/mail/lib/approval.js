@@ -23,6 +23,8 @@ function deleteReason(metadata) {
 /** Fresh one-shot approval policy for Mail's two mutating operations. */
 export function createMailApprovalPolicy(preparer) {
     return async (exec, next) => {
+        if (preparer.ownsMutation?.(exec.name) === false)
+            return next();
         if (exec.name === 'mail_send')
             return { kind: 'ask', reason: sendReason(await preparer.prepareSend(exec)) };
         if (exec.name === 'mail_delete')

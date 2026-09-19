@@ -26,7 +26,6 @@ export interface Config {
     readonly passwordEnv?: string;
     readonly mailbox?: string;
     readonly archiveMailbox?: string;
-    readonly allowDelete?: boolean;
     readonly imap: EndpointConfig;
     readonly smtp: EndpointConfig;
     readonly listMaxResults?: number;
@@ -43,7 +42,6 @@ export interface ResolvedConfig {
     readonly passwordRef: CredentialRef;
     readonly mailbox: string;
     readonly archiveMailbox: string;
-    readonly allowDelete: boolean;
     readonly imap: EndpointConfig;
     readonly smtp: EndpointConfig;
 }

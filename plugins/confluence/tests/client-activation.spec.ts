@@ -8,6 +8,7 @@ describe('Confluence client activation', () => {
     const { apply, inject } = await import('../src/client/index.tsx')
     const ctx = new Context()
     let component: ((props: { t: (key: string) => string }) => unknown) | undefined
+    let registration: { name?: string; key?: string } = {}
     const confluenceSettings = {
       load: async () => ({ ok: true, value: { settings: { baseUrl: '', allowAllSpaces: false, allowedSpaceKeys: [] } } }),
     }
@@ -16,9 +17,10 @@ describe('Confluence client activation', () => {
     ctx.provide('remote', remote)
     ctx.provide('remote.confluenceSettings', confluenceSettings)
     ctx.provide('remote.credentials', credentials)
-    ctx.provide('locale', { register: () => () => undefined })
+    ctx.provide('locale', { register: () => () => undefined, bind: () => (key: string) => key })
     ctx.provide('slots', {
-      register(_options: unknown, contribution: typeof component) {
+      register(options: typeof registration, contribution: typeof component) {
+        registration = options
         component = contribution
         return () => undefined
       },
@@ -30,6 +32,7 @@ describe('Confluence client activation', () => {
 
     const fiber = ctx.plugin({ inject, apply })
     await fiber.await()
+    expect(registration).toMatchObject({ name: 'plugins.bundle.config', key: 'dsh-confluence' })
     expect(component).toBeTypeOf('function')
     expect(() => component?.({ t: key => key })).not.toThrow()
     await fiber.dispose()

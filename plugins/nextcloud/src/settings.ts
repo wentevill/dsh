@@ -1,8 +1,8 @@
 import { createPathPolicy, type AccessMode } from './path-policy.ts'
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from '@deepseek-ai/schemastery'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 
-export const NEXTCLOUD_SETTINGS_NAMESPACE = settingsNamespace('nextcloud')
+export const NEXTCLOUD_SETTINGS_NAMESPACE = 'nextcloud' as SettingsNamespace
 export const NEXTCLOUD_PASSWORD_REF = 'NEXTCLOUD_APP_PASSWORD'
 
 export interface NextcloudSettings {
@@ -10,7 +10,6 @@ export interface NextcloudSettings {
   readonly username: string
   readonly accessMode: AccessMode
   readonly allowedRoots: string[]
-  readonly allowDelete: boolean
   readonly allowHttp: boolean
   readonly skipTlsVerify: boolean
 }
@@ -24,7 +23,6 @@ export const NextcloudSettingsSchema: z<NextcloudSettings> = z.object({
   username: z.string().default(''),
   accessMode: z.union([z.const('all'), z.const('allowlist')]).default('all'),
   allowedRoots: z.array(z.string()).default([]),
-  allowDelete: z.boolean().default(false),
   allowHttp: z.boolean().default(false),
   skipTlsVerify: z.boolean().default(false),
 })
@@ -51,10 +49,12 @@ export function normalizeNextcloudSettings(settings: NextcloudSettings): Resolve
   const policy = createPathPolicy(settings)
   const serverUrl = `${url.origin}${pathname}`
   return {
-    ...settings,
     serverUrl,
     username,
+    accessMode: settings.accessMode,
     allowedRoots: [...policy.roots],
+    allowHttp: settings.allowHttp,
+    skipTlsVerify: settings.skipTlsVerify,
     davUrl: `${serverUrl}/remote.php/dav/files/${encodeURIComponent(username)}`,
   }
 }

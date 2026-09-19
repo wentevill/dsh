@@ -1,6 +1,6 @@
-/** Keyed registration for the settings namespace owned by Mail. */
+/** Native configuration on the installed Mail bundle page. */
 export const MAIL_CARD_SLOT_OPTIONS = {
-  name: 'settings.plugin.item' as const,
-  key: 'mail',
+  name: 'plugins.bundle.config' as const,
+  key: 'dsh-mail',
   locale: 'settings.plugins.mail' as const,
 }

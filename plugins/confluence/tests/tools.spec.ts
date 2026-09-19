@@ -30,6 +30,7 @@ function fixture() {
     updatePage: vi.fn(async (_connection, request) => ({
       id: request.pageId, type: 'page', title: request.title, space: { key: 'ENG' }, version: { number: request.nextVersion },
     })),
+    deletePage: vi.fn(async () => undefined),
   }
   const manager = new ConfluenceCapabilityManager({
     tools: { register(definition) { definitions.set(definition.name, definition); return () => { definitions.delete(definition.name) } } },
@@ -73,6 +74,40 @@ describe('Confluence capability manager', () => {
     const result = await definitions.get('confluence_search_pages')!.execute({ query: 'roadmap', spaceKeys: ['ENG'] }, execution('confluence_search_pages', {}))
     expect(transport.searchPages).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ cql: expect.stringContaining('space IN ("ENG")') }), expect.anything())
     expect(result).toContain('Highlighted roadmap text')
+  })
+
+  it('isolates page deletion in its own one-tool component', async () => {
+    const definitions = new Map<string, ToolDefinition>()
+    const transport: any = {
+      readPage: vi.fn(async (_connection, id: string) => ({
+        id, type: 'page', title: 'Roadmap', space: { key: 'ENG' }, version: { number: 3 },
+      })),
+      deletePage: vi.fn(async () => undefined),
+    }
+    const manager = new ConfluenceCapabilityManager({
+      tools: { register(definition) { definitions.set(definition.name, definition); return () => { definitions.delete(definition.name) } } },
+      scope: { get: () => settings, watch: () => () => {} },
+      credentials: { resolve: vi.fn(async () => ({ value: 'pat' })) },
+      transport,
+    }, 'delete')
+    expect([...definitions.keys()]).toEqual(['confluence_delete_page'])
+
+    const args = { pageId: '100', expectedVersion: 3 }
+    const exec = execution('confluence_delete_page', args)
+    await expect(definitions.get(exec.name)!.execute(args, exec)).rejects.toMatchObject({ code: 'CONFLUENCE_INPUT_INVALID' })
+    const decision = await createConfluenceApprovalPolicy(manager)(exec, async () => ({ kind: 'allow' }))
+    expect(decision).toMatchObject({ kind: 'ask', reason: expect.stringContaining('Roadmap') })
+    await definitions.get(exec.name)!.execute(args, exec)
+    expect(transport.deletePage).toHaveBeenCalledWith(expect.anything(), '100', expect.anything())
+  })
+
+  it('lets the sibling component own deletion approval', async () => {
+    const { manager } = fixture()
+    const next = vi.fn(async () => ({ kind: 'allow' as const }))
+    await expect(createConfluenceApprovalPolicy(manager)(
+      execution('confluence_delete_page', { pageId: '100', expectedVersion: 3 }), next,
+    )).resolves.toEqual({ kind: 'allow' })
+    expect(next).toHaveBeenCalledOnce()
   })
 
   it('marks read content as untrusted and rejects pages returned outside the allowlist', async () => {

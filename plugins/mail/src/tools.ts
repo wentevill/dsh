@@ -7,10 +7,10 @@ import { DEFAULT_ATTACHMENT_LIMITS, loadAttachments } from './attachment-loader.
 import { assertMailUid, isTrustedMailError, mailError, mailProviderFailure } from './errors.ts'
 import type { MailAddress, MailAttachmentRequest, MailSendRequest } from './mail-types.ts'
 import { MailSettingsValidationError, mailCapabilities, type MailSettings } from './mail-settings.ts'
-import type { MailApprovalPreparer, MailDeleteApprovalMetadata, MailSendApprovalMetadata } from './approval.ts'
+import { createMailApprovalPolicy, type MailApprovalPreparer, type MailDeleteApprovalMetadata, type MailSendApprovalMetadata } from './approval.ts'
 import type { MailTransport, ResolvedConfig } from './index.ts'
 
-interface ManagerOptions {
+export interface MailManagerOptions {
   credentials: CredentialProvider
   resolveConfig(settings: MailSettings): ResolvedConfig
   imap: Pick<MailTransport, 'list' | 'read' | 'archive' | 'delete'>
@@ -21,6 +21,15 @@ interface ManagerOptions {
   maxRecipients: number
   maxTextChars: number
   maxHtmlChars: number
+}
+
+export interface MailRuntime {
+  readonly scope: SettingsScope<MailSettings>
+  readonly options: MailManagerOptions
+}
+
+declare module '@deepseek-ai/cordis' {
+  interface Context { mailRuntime: MailRuntime }
 }
 
 type ToolGroup = 'imap' | 'delete' | 'smtp'
@@ -110,7 +119,7 @@ function endpoint(value: MailSettings['imap']): readonly [string, number, boolea
 
 function fingerprint(settings: MailSettings, kind: 'delete' | 'send'): string {
   return JSON.stringify(kind === 'delete'
-    ? [settings.username, settings.passwordEnv, settings.mailbox, settings.allowDelete, endpoint(settings.imap)]
+    ? [settings.username, settings.passwordEnv, settings.mailbox, endpoint(settings.imap)]
     : [settings.username, settings.passwordEnv, endpoint(settings.smtp)])
 }
 
@@ -152,7 +161,8 @@ export class MailCapabilityManager implements MailApprovalPreparer {
   constructor(
     private readonly ctx: Pick<Context, 'tools' | 'effect'>,
     private readonly scope: SettingsScope<MailSettings>,
-    private readonly options: ManagerOptions,
+    private readonly options: MailManagerOptions,
+    private readonly component: 'standard' | 'delete' = 'standard',
   ) {
     this.installCatalog(scope.get())
     this.unwatch = scope.watch(async () => {
@@ -177,6 +187,10 @@ export class MailCapabilityManager implements MailApprovalPreparer {
   /** Clear approval state on every tools/result outcome, including denial/cancellation. */
   releaseApproval(exec: Readonly<ToolExecution>): void {
     this.releaseToken(exec.token)
+  }
+
+  ownsMutation(name: string): boolean {
+    return this.component === 'delete' ? name === 'mail_delete' : name === 'mail_send'
   }
 
   /** @internal Test-only diagnostic; bindings contain sanitized fingerprints only. */
@@ -259,7 +273,10 @@ export class MailCapabilityManager implements MailApprovalPreparer {
     this.assertActive()
     const settings = this.scope.get()
     const capabilities = mailCapabilities(settings)
-    if (!capabilities[capability]) {
+    const available = capability === 'delete'
+      ? this.component === 'delete' && capabilities.imap
+      : capabilities[capability]
+    if (!available) {
       const code = capability === 'imap' ? 'MAIL_IMAP_DISABLED' : capability === 'smtp' ? 'MAIL_SMTP_DISABLED' : 'MAIL_DELETE_DISABLED'
       throw mailError(`${capability.toUpperCase()} is disabled or unavailable`, code)
     }
@@ -269,8 +286,10 @@ export class MailCapabilityManager implements MailApprovalPreparer {
   private requireSameSettings(settings: MailSettings, kind: 'delete' | 'send', expectedFingerprint: string): void {
     this.assertActive()
     const current = this.scope.get()
-    const capability = kind === 'delete' ? 'delete' : 'smtp'
-    if (current !== settings || !mailCapabilities(current)[capability] || fingerprint(current, kind) !== expectedFingerprint) {
+    const available = kind === 'delete'
+      ? this.component === 'delete' && mailCapabilities(current).imap
+      : mailCapabilities(current).smtp
+    if (current !== settings || !available || fingerprint(current, kind) !== expectedFingerprint) {
       throw mailError('mail settings changed after approval preparation; submit a fresh tool call for approval', 'MAIL_SETTINGS_CHANGED')
     }
   }
@@ -333,14 +352,19 @@ export class MailCapabilityManager implements MailApprovalPreparer {
 
   private installCatalog(settings: MailSettings): void {
     const capabilities = mailCapabilities(settings)
+    if (this.component === 'delete') {
+      if (capabilities.imap) this.install('delete', [this.deleteTool()])
+      return
+    }
     if (capabilities.imap) this.install('imap', this.imapTools())
-    if (capabilities.delete) this.install('delete', [this.deleteTool()])
     if (capabilities.smtp) this.install('smtp', [this.sendTool()])
   }
 
   private async reconcile(settings: MailSettings, generation: number): Promise<void> {
     const capabilities = mailCapabilities(settings)
-    const desired = { imap: capabilities.imap, delete: capabilities.delete, smtp: capabilities.smtp }
+    const desired = this.component === 'delete'
+      ? { imap: false, delete: capabilities.imap, smtp: false }
+      : { imap: capabilities.imap, delete: false, smtp: capabilities.smtp }
     for (const group of ['imap', 'delete', 'smtp'] as const) {
       if (this.disposed || generation !== this.generation) return
       if (this.groupDisposers.has(group) && !desired[group]) await this.remove(group)
@@ -461,4 +485,11 @@ export class MailCapabilityManager implements MailApprovalPreparer {
       },
     }
   }
+}
+
+export function mountMailDeleteComponent(ctx: Context): void {
+  const manager = new MailCapabilityManager(ctx, ctx.mailRuntime.scope, ctx.mailRuntime.options, 'delete')
+  ctx.effect(() => async () => { await manager.dispose() }, 'mail-delete.tools')
+  ctx.on('tools/pre-execute', (exec, next) => createMailApprovalPolicy(manager)(exec, next))
+  ctx.on('tools/result', exec => { manager.releaseApproval(exec) })
 }

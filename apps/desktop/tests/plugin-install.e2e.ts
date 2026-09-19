@@ -78,7 +78,7 @@ async function inspectWeb(origin: string): Promise<Pick<WebInspection, 'html' | 
     if (!response.ok) throw new Error(`Web root returned HTTP ${response.status}`)
     return response.text()
   })
-  const graphSource = /globalThis\["__DSH_BOOT__"\] = (.+)<\/script>/u.exec(html)?.[1]
+  const graphSource = /globalThis\["__DSH_BOOT__"\] = ([\s\S]*?)<\/script>/u.exec(html)?.[1]
   if (graphSource === undefined) throw new Error('Web root did not carry __DSH_BOOT__')
   const graph = JSON.parse(graphSource) as { batches?: Array<{ url?: unknown, entries?: unknown }> }
   const clientUrl = graph.batches?.find(batch => Array.isArray(batch.entries) && batch.entries.includes('dsh-mail'))?.url
@@ -216,16 +216,22 @@ async function activateServedClient(code: string, loadedSettings: unknown): Prom
     } }).Context
     const ctx = new Context()
     const slots = new Set<string>()
+    const credentials = {
+      describe: async () => ({ ok: true, value: {} }),
+      set: async () => ({ ok: true, value: undefined }),
+    }
     const remote = {
       mailSettings: {
         load: async () => ({ ok: true, value: loadedSettings }),
         save: async ({ settings }: { settings: unknown }) => ({ ok: true, value: { settings } }),
       },
+      credentials,
       $mount: async () => async () => undefined,
       $on: () => () => undefined,
     }
     ctx.provide('remote', remote)
     ctx.provide('remote.mailSettings', remote.mailSettings)
+    ctx.provide('remote.credentials', credentials)
     ctx.provide('connection', {
       api: { credentials: { describe: async () => ({ result: { ok: true, value: { credentials: {} } } }) } },
     })
@@ -247,7 +253,7 @@ async function activateServedClient(code: string, loadedSettings: unknown): Prom
     } catch (error) {
       failures.push(error instanceof Error ? error.message : String(error))
     }
-    const activated = slots.has('mail')
+    const activated = slots.has('dsh-mail#mail')
     await fiber.dispose()
     await ctx.fiber.dispose()
     return { activated, failures }
