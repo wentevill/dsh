@@ -28,13 +28,12 @@ sidebar's **Plugins** page or the bundled `dsh plugin` CLI to install, enable,
 disable, and remove bundles. Desktop does not stage a second manager or rewrite
 legacy profile dependencies created by older builds.
 
-Production plugins must be complete registry, URL, or `.tgz` packages. Source-directory links are unsupported. The release acceptance command is `npm run test:plugin-install`: it uses the staged Node, upstream dsh, and private pnpm to install the repository-owned mail archive once into a fresh profile and compose it immediately without a repair step.
+Production plugins must be complete registry, URL, or `.tgz` packages. Source-directory links are unsupported. The Desktop release runtime does not depend on a repository-owned plugin fixture.
 
 ## Build
 
 ```sh
 npm test
-npm run test:plugin-install
 npm run build
 ```
 

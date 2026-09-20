@@ -25,13 +25,12 @@ staging 会校验固定 SHA-256，只保留 Node 可执行文件和 production p
 
 插件管理完全由 upstream Harness runtime 负责。通过 Web 侧栏的**插件**页面或包内 `dsh plugin` CLI 安装、启停和删除 bundle。Desktop 不再打包第二套管理器，也不会改写旧版本已经写入用户 profile 的依赖。
 
-生产插件必须是完整的 registry、URL 或 `.tgz` 包，不支持源码目录链接。发布验收命令 `npm run test:plugin-install` 使用 staged Node、upstream dsh 和私有 pnpm，在全新 profile 中一次安装仓库内 mail 包并立即组合，不执行任何修复步骤。
+生产插件必须是完整的 registry、URL 或 `.tgz` 包，不支持源码目录链接。Desktop 发布 runtime 不依赖仓库内的插件测试包。
 
 ## 构建
 
 ```sh
 npm test
-npm run test:plugin-install
 npm run build
 ```
 

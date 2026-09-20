@@ -4,9 +4,170 @@ import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { augmentDesktopRuntimeClosure, breakRuntimeHardlinks, buildEnvironment, createStageDirectory, installStagedRuntime, materializeRuntimeLinks, patchLegacyTypertCompatibility, removeRuntimeLink, signRuntimeExecutable, verifyPackageIntegrity, verifySha256 } from './stage-runtime.ts'
+import * as runtimeStaging from './stage-runtime.ts'
+import { augmentDesktopRuntimeClosure, breakRuntimeHardlinks, buildEnvironment, createStageDirectory, installStagedRuntime, materializeRuntimeLinks, patchClientModuleBatchCompatibility, patchLegacyTypertCompatibility, removeRuntimeLink, signRuntimeExecutable, verifyPackageIntegrity, verifySha256 } from './stage-runtime.ts'
 
 describe('runtime staging', () => {
+  it('migrates accumulated port cookies and leaves ten MiB of request-header space', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-browser-session-'))
+    const connectionRoot = join(root, 'node_modules/@deepseek-ai/dsh-client-connection')
+    const connectionTarget = join(connectionRoot, 'lib/index.js')
+    const webserverRoot = join(root, 'node_modules/@deepseek-ai/dsh-host-webserver')
+    const webserverTarget = join(webserverRoot, 'lib/index.js')
+    mkdirSync(join(connectionRoot, 'lib'), { recursive: true })
+    mkdirSync(join(webserverRoot, 'lib'), { recursive: true })
+    writeFileSync(join(connectionRoot, 'package.json'), JSON.stringify({ type: 'module' }))
+    writeFileSync(join(webserverRoot, 'package.json'), JSON.stringify({ type: 'module' }))
+    writeFileSync(connectionTarget, [
+      'import { createHash } from "node:crypto";',
+      'const COOKIE_PREFIX = "dsh-auth-";',
+      'const TOKEN_QUERY = "token";',
+      'function encodeBase64Url(value) { return Buffer.from(value).toString("base64url"); }',
+      'function header(headers, name) { return headers[name]; }',
+      'function requestAuthority(headers) { return headers.host; }',
+      'function tokenMatches(actual, expected) { return actual === expected; }',
+      'function cookieName(authority) {',
+      '  return COOKIE_PREFIX + encodeBase64Url(createHash("sha256").update(authority).digest());',
+      '}',
+      'function cookieValue(headerValue, name) {',
+      '  for (const segment of headerValue.split(";")) {',
+      '    const at = segment.indexOf("=");',
+      '    if (at !== -1 && segment.slice(0, at).trim() === name) return segment.slice(at + 1).trim();',
+      '  }',
+      '}',
+      'function sessionCookie(name, value) { return `${name}=${value}; Path=/; HttpOnly; SameSite=Strict`; }',
+      'class BrowserAuth {',
+      '  launchToken = "launch-token";',
+      '  maxAgeMilliseconds = 3600000;',
+      '  authorizeIndex(req, res) {',
+      '    const url = new URL(req.url ?? "/", "http://dsh.invalid");',
+      '    const tokens = url.searchParams.getAll(TOKEN_QUERY);',
+      '    const authority = requestAuthority(req.headers);',
+      '    if (req.method === "GET" && url.pathname === "/" && tokens.length === 1 && authority !== undefined && tokenMatches(tokens.join(""), this.launchToken)) {',
+      '      const expiresAt = Date.now() + this.maxAgeMilliseconds;',
+      '      const value = "signed-cookie";',
+      '      res.writeHead(303, {',
+      '        "cache-control": "no-store",',
+      '        "location": "/",',
+      '        "referrer-policy": "no-referrer",',
+      '        "set-cookie": sessionCookie(cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1e3))',
+      '      });',
+      '      res.end();',
+      '      return false;',
+      '    }',
+      '  }',
+      '  isAuthenticated(request) {',
+      '    const authority = requestAuthority(request.headers);',
+      '    const rawCookie = header(request.headers, "cookie");',
+      '    return authority !== undefined && rawCookie !== undefined && cookieValue(rawCookie, cookieName(authority)) === "signed-cookie";',
+      '  }',
+      '}',
+      'export { BrowserAuth, cookieName };',
+      '',
+    ].join('\n'))
+    writeFileSync(webserverTarget, [
+      'import { createServer } from "node:http";',
+      'export function startServer() {',
+      '  const server = createServer((req, res) => { res.end("ok"); });',
+      '  return server;',
+      '}',
+      '',
+    ].join('\n'))
+
+    const patchBrowserSessionCompatibility = (runtimeStaging as typeof runtimeStaging & {
+      patchBrowserSessionCompatibility(appRoot: string): void
+    }).patchBrowserSessionCompatibility
+    patchBrowserSessionCompatibility(root)
+
+    const connection = await import(`${pathToFileURL(connectionTarget).href}?v=browser-session`) as {
+      BrowserAuth: new () => { authorizeIndex(req: object, res: object): boolean }
+      cookieName(authority: string): string
+    }
+    expect(connection.cookieName('127.0.0.1:41001')).toBe(connection.cookieName('127.0.0.1:51002'))
+    let responseHeaders: Record<string, string | string[]> = {}
+    const response = {
+      writeHead: (_status: number, headers: Record<string, string | string[]>) => { responseHeaders = headers },
+      end: () => {},
+    }
+    new connection.BrowserAuth().authorizeIndex({
+      method: 'GET',
+      url: '/?token=launch-token',
+      headers: {
+        host: '127.0.0.1:51002',
+        cookie: 'dsh-auth-old-port-a=one; unrelated=keep; dsh-auth-old-port-b=two',
+      },
+    }, response)
+    expect(responseHeaders['set-cookie']).toEqual([
+      `${connection.cookieName('127.0.0.1:51002')}=signed-cookie; Path=/; HttpOnly; SameSite=Strict`,
+      'dsh-auth-old-port-a=; Max-Age=0; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
+      'dsh-auth-old-port-b=; Max-Age=0; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
+    ])
+
+    const webserver = await import(`${pathToFileURL(webserverTarget).href}?v=large-header`) as {
+      startServer(): import('node:http').Server & { maxHeaderSize: number }
+    }
+    const server = webserver.startServer()
+    expect(server.maxHeaderSize).toBe(10 * 1024 * 1024)
+  })
+
+  it('keeps multi-plugin client batches below three MiB for WebKit headroom', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-client-batches-'))
+    const packageRoot = join(root, 'node_modules/@deepseek-ai/dsh-client-modules')
+    const target = join(packageRoot, 'lib/index.js')
+    mkdirSync(join(packageRoot, 'lib'), { recursive: true })
+    writeFileSync(join(packageRoot, 'package.json'), JSON.stringify({ type: 'module' }))
+    writeFileSync(target, [
+      'const MAX_COMBO_URL_BYTES = 3 * 1024;',
+      'const COMBO_REVISION_PLACEHOLDER = "0".repeat(12);',
+      'function comboUrl(ids, rev, sourceMap = false) {',
+      '  return `/plugins/??${ids.map(id => `${id}/client.js${sourceMap ? ".map" : ""}`).join(",")}&rev=${rev}`;',
+      '}',
+      'function projectedComboUrlBytes(records) { return records.length; }',
+      'function partitionComboRecords(records) {',
+      '  const chunks = [];',
+      '  let current = [];',
+      '  for (const record of records) {',
+      '    const candidate = [...current, record];',
+      '    if (projectedComboUrlBytes(candidate) <= MAX_COMBO_URL_BYTES) { current = candidate; continue; }',
+      '    if (current.length === 0) throw new Error("oversize URL");',
+      '    chunks.push(current);',
+      '    current = [record];',
+      '    if (projectedComboUrlBytes(current) > MAX_COMBO_URL_BYTES) throw new Error("oversize URL");',
+      '  }',
+      '  if (current.length > 0) chunks.push(current);',
+      '  return chunks;',
+      '}',
+      'export { partitionComboRecords };',
+      '',
+    ].join('\n'))
+
+    patchClientModuleBatchCompatibility(root)
+
+    const module = await import(`${pathToFileURL(target).href}?v=client-batch-limit`) as {
+      partitionComboRecords(records: Array<{ entry: { id: string }, bundle: Buffer }>): Array<Array<{ bundle: Buffer }>>
+    }
+    const batches = module.partitionComboRecords([
+      { entry: { id: 'large-a' }, bundle: Buffer.alloc(3 * 1024 * 1024) },
+      { entry: { id: 'large-b' }, bundle: Buffer.alloc(2 * 1024 * 1024) },
+    ])
+    expect(batches.map(batch => batch.length)).toEqual([1, 1])
+    const webKitBoundary = module.partitionComboRecords([
+      { entry: { id: 'webkit-a' }, bundle: Buffer.alloc(2 * 1024 * 1024) },
+      { entry: { id: 'webkit-b' }, bundle: Buffer.alloc(1280 * 1024) },
+    ])
+    expect(webKitBoundary.map(batch => batch.length)).toEqual([1, 1])
+    const trailerBoundary = module.partitionComboRecords([
+      { entry: { id: 'boundary-a' }, bundle: Buffer.alloc(2 * 1024 * 1024) },
+      { entry: { id: 'boundary-b' }, bundle: Buffer.alloc(2 * 1024 * 1024 - 7) },
+    ])
+    expect(trailerBoundary.map(batch => batch.length)).toEqual([1, 1])
+    const oversizedSingleton = module.partitionComboRecords([
+      { entry: { id: 'oversized' }, bundle: Buffer.alloc(4 * 1024 * 1024 + 1) },
+      { entry: { id: 'following' }, bundle: Buffer.alloc(1) },
+    ])
+    expect(oversizedSingleton.map(batch => batch.length)).toEqual([1, 1])
+  })
+
   it('adapts legacy Typert schema objects into lazy codec factories', async () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-legacy-typert-'))
     const targets = [

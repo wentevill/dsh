@@ -78,16 +78,10 @@ export function stageRuntime(
     // The private packages are overlaid after the pristine upstream build.
     // A second install updates only this disposable assembly's lock and links.
     copyPackagingPackage(join(packagingRoot, 'apps/desktop'), join(assembly, 'apps/desktop'))
-    copyPackagingPackage(join(packagingRoot, 'packages/mail'), join(assembly, 'packages/mail'))
     augmentDesktopRuntimeClosure(assembly)
     execFileSync('corepack', ['pnpm', 'install', '--lockfile-only', '--no-frozen-lockfile'], { cwd: assembly, env: environment, stdio: 'inherit' })
     verifyPackageIntegrity(join(assembly, 'pnpm-lock.yaml'), 'pnpm', config.pnpmVersion, config.pnpmIntegrity)
     execFileSync('corepack', ['pnpm', 'install', '--frozen-lockfile'], { cwd: assembly, env: environment, stdio: 'inherit' })
-    execFileSync('corepack', ['pnpm', 'exec', 'tsc', '-b', 'packages/mail/mail/tsconfig.json'], {
-      cwd: assembly,
-      env: environment,
-      stdio: 'inherit',
-    })
     execFileSync('corepack', ['pnpm', 'exec', 'tsdown', '--env.DSH_BUILD_FACE', 'host'], {
       cwd: assembly,
       env: environment,
@@ -107,6 +101,8 @@ export function stageRuntime(
     mkdirSync(join(staged, 'app'))
     renameSync(join(deploy, 'node_modules'), join(staged, 'app', 'node_modules'))
     patchLegacyTypertCompatibility(join(staged, 'app'))
+    patchClientModuleBatchCompatibility(join(staged, 'app'))
+    patchBrowserSessionCompatibility(join(staged, 'app'))
     installStagedRuntime(staged, destination)
   } finally {
     rmSync(temporary, { recursive: true, force: true })
@@ -145,6 +141,86 @@ export function patchLegacyTypertCompatibility(appRoot: string): void {
     }
     writeFileSync(path, source)
   }
+}
+
+/** Keep generated browser startup scripts below WebKit's reliable resource boundary. */
+export function patchClientModuleBatchCompatibility(appRoot: string): void {
+  const path = join(appRoot, 'node_modules/@deepseek-ai/dsh-client-modules/lib/index.js')
+  let source = readFileSync(path, 'utf8')
+  const limitAnchor = 'const MAX_COMBO_URL_BYTES = 3 * 1024;'
+  const partitionAnchor = 'function partitionComboRecords(records) {'
+  const fitAnchor = 'if (projectedComboUrlBytes(candidate) <= MAX_COMBO_URL_BYTES) {'
+  if (!source.includes(limitAnchor) || !source.includes(partitionAnchor) || !source.includes(fitAnchor)) {
+    throw new Error('Client module batch compatibility anchors are missing')
+  }
+  source = source.replace(
+    limitAnchor,
+    `${limitAnchor}\nconst MAX_COMBO_SCRIPT_BYTES = 3 * 1024 * 1024;`,
+  )
+  source = source.replace(
+    partitionAnchor,
+    [
+      'function projectedComboScriptBytes(records) {',
+      '\treturn records.reduce((size, record) => size + record.bundle.byteLength + 3, 0)',
+      '\t\t+ projectedComboUrlBytes(records) + Buffer.byteLength("//# sourceMappingURL=\\n");',
+      '}',
+      partitionAnchor,
+    ].join('\n'),
+  )
+  source = source.replace(
+    fitAnchor,
+    'if (projectedComboUrlBytes(candidate) <= MAX_COMBO_URL_BYTES && (current.length === 0 || projectedComboScriptBytes(candidate) <= MAX_COMBO_SCRIPT_BYTES)) {',
+  )
+  writeFileSync(path, source)
+}
+
+/** Migrate per-port browser cookies before their accumulated request header can blank WebKit. */
+export function patchBrowserSessionCompatibility(appRoot: string): void {
+  const connectionPath = join(appRoot, 'node_modules/@deepseek-ai/dsh-client-connection/lib/index.js')
+  let connection = readFileSync(connectionPath, 'utf8')
+  const cookieNamePattern = /function cookieName\(authority\) \{\s*return COOKIE_PREFIX \+ encodeBase64Url\(createHash\("sha256"\)\.update\(authority\)\.digest\(\)\);\s*\}/u
+  const sessionCookieAnchor = 'function sessionCookie('
+  const setCookieAnchor = '"set-cookie": sessionCookie(cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1e3))'
+  if (!cookieNamePattern.test(connection) || !connection.includes(sessionCookieAnchor) || !connection.includes(setCookieAnchor)) {
+    throw new Error('Browser session compatibility anchors are missing')
+  }
+  connection = connection.replace(cookieNamePattern, [
+    'function cookieName(_authority) {',
+    '\treturn `${COOKIE_PREFIX}browser-session`;',
+    '}',
+  ].join('\n'))
+  connection = connection.replace(sessionCookieAnchor, [
+    'function obsoleteSessionCookies(headerValue, currentName) {',
+    '\tconst names = [];',
+    '\tfor (const segment of headerValue.split(";")) {',
+    '\t\tconst at = segment.indexOf("=");',
+    '\t\tif (at === -1) continue;',
+    '\t\tconst name = segment.slice(0, at).trim();',
+    '\t\tif (name.startsWith(COOKIE_PREFIX) && name !== currentName && !names.includes(name)) names.push(name);',
+    '\t}',
+    '\treturn names.map((name) => `${name}=; Max-Age=0; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict`);',
+    '}',
+    sessionCookieAnchor,
+  ].join('\n'))
+  connection = connection.replace(setCookieAnchor, [
+    '"set-cookie": [',
+    '\t\t\t\t\tsessionCookie(cookieName(authority), value, expiresAt, Math.floor(this.maxAgeMilliseconds / 1e3)),',
+    '\t\t\t\t\t...obsoleteSessionCookies(header(req.headers, "cookie") ?? "", cookieName(authority))',
+    '\t\t\t\t]',
+  ].join('\n'))
+  writeFileSync(connectionPath, connection)
+
+  const webserverPath = join(appRoot, 'node_modules/@deepseek-ai/dsh-host-webserver/lib/index.js')
+  let webserver = readFileSync(webserverPath, 'utf8')
+  const createServerAnchor = 'createServer((req, res) => {'
+  if (!webserver.includes(createServerAnchor)) {
+    throw new Error('Web server header compatibility anchor is missing')
+  }
+  webserver = webserver.replace(
+    createServerAnchor,
+    'createServer({ maxHeaderSize: 10 * 1024 * 1024 }, (req, res) => {',
+  )
+  writeFileSync(webserverPath, webserver)
 }
 
 export function installStagedRuntime(staged: string, destination: string): void {
